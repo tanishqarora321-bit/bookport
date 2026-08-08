@@ -68,7 +68,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
               <tr><th>#</th><th>From</th><th>To</th><th>Mode</th><th>Vessel/Voyage</th><th>ETD</th><th>ETA</th></tr>
             </thead>
             <tbody>
-              {legs.map((l) => (
+              {legs.map((l: any) => (
                 <tr key={l.id} className="border-t">
                   <td>{l.seq}</td><td>{l.from_location}</td><td>{l.to_location}</td>
                   <td>{l.transport_mode}</td><td>{l.vessel_voyage}</td>
