@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type TrackingRow = {
   id: string;
@@ -109,6 +110,7 @@ export default function TrackingClient({
               <Th>BL Status</Th>
               <Th>Ocean Freight</Th>
               <Th>Last Checked</Th>
+              <Th>Docs</Th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +124,7 @@ export default function TrackingClient({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={17} className="px-3 py-10 text-center text-ink/40">
                   No shipments tracked yet. Click "+ Assign Booking" to start tracking one.
                 </td>
               </tr>
@@ -329,6 +331,11 @@ function TrackingRowView({
           ? new Date(row.last_tracking_check_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
           : "Not checked yet"}
       </Td>
+      <td className="px-3 py-2">
+        <Link href={`/tracking/${row.id}/documents`} className="text-xs text-accent underline">
+          Invoice →
+        </Link>
+      </td>
     </tr>
   );
 }
