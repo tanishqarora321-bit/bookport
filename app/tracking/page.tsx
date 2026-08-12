@@ -9,12 +9,12 @@ export const fetchCache = "force-no-store";
 export default async function TrackingPage() {
   const supabase = createServiceClient();
 
-  const [{ data: tracking, error: trackingError }, { data: bookings }, { data: parties }, { data: items }] =
+  const [{ data: tracking, error: trackingError }, { data: bookings }, { data: parties }, { data: items }, { data: forwarders }] =
     await Promise.all([
       supabase
         .from("tracking")
         .select(
-          "id, booking_id, party_id, item_id, consignee_as_per_bl, invoice_no, booking_number, container_number, eta, forwarder_name, release_status, shipping_line, invoice_sent, documents_sent, remarks, bl_number, bl_status, ocean_freight, ocean_freight_currency, last_tracking_check_at"
+          "id, booking_id, party_id, item_id, forwarder_id, consignee_as_per_bl, invoice_no, booking_number, container_number, eta, forwarder_name, forwarder:forwarder_id (legal_name), release_status, shipping_line, invoice_sent, documents_sent, remarks, bl_number, bl_status, ocean_freight, ocean_freight_currency, last_tracking_check_at"
         )
         .eq("company_id", DEFAULT_COMPANY_ID)
         .order("created_at", { ascending: false }),
@@ -37,6 +37,15 @@ export default async function TrackingPage() {
         .eq("company_id", DEFAULT_COMPANY_ID)
         .eq("is_active", true)
         .order("name"),
+      // Forwarders are `parties` rows with 'forwarder' in roles -- same
+      // table as buyers/customers, filtered differently.
+      supabase
+        .from("parties")
+        .select("id, legal_name")
+        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("is_active", true)
+        .contains("roles", ["forwarder"])
+        .order("legal_name"),
     ]);
 
   if (trackingError) return <p className="text-red-600 p-6">{trackingError.message}</p>;
@@ -50,6 +59,7 @@ export default async function TrackingPage() {
       unassignedBookings={unassignedBookings}
       parties={parties ?? []}
       items={items ?? []}
+      forwarders={forwarders ?? []}
     />
   );
 }

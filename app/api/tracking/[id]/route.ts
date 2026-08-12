@@ -18,6 +18,7 @@ const EDITABLE_COLUMNS = [
   "ocean_freight",
   "ocean_freight_currency",
   "item_id",
+  "forwarder_id",
 ];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -37,7 +38,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase.from("tracking").update(updates).eq("id", params.id).select().single();
+  const { data, error } = await supabase
+    .from("tracking")
+    .update(updates)
+    .eq("id", params.id)
+    .select("*, forwarder:forwarder_id (legal_name)")
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ tracking: data });

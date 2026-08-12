@@ -14,6 +14,8 @@ type TrackingRow = {
   container_number: string | null;
   eta: string | null;
   forwarder_name: string | null;
+  forwarder_id: string | null;
+  forwarder: { legal_name: string } | null;
   release_status: string | null;
   shipping_line: string | null;
   invoice_sent: boolean;
@@ -27,6 +29,7 @@ type TrackingRow = {
 };
 
 type Booking = { id: string; booking_no: string; carrier_booking_no: string | null; carrier: string | null; forwarder_name: string | null };
+type Forwarder = { id: string; legal_name: string };
 type Party = { id: string; legal_name: string; short_code: string | null };
 type Item = { id: string; name: string };
 
@@ -50,11 +53,13 @@ export default function TrackingClient({
   unassignedBookings,
   parties,
   items,
+  forwarders,
 }: {
   initialTracking: TrackingRow[];
   unassignedBookings: Booking[];
   parties: Party[];
   items: Item[];
+  forwarders: Forwarder[];
 }) {
   const [rows, setRows] = useState(initialTracking);
   const [remainingBookings, setRemainingBookings] = useState(unassignedBookings);
@@ -81,6 +86,7 @@ export default function TrackingClient({
           bookings={remainingBookings}
           parties={parties}
           items={items}
+          forwarders={forwarders}
           onClose={() => setAssigning(false)}
           onCreated={(row, bookingId) => {
             setRows([row, ...rows]);
@@ -146,18 +152,21 @@ function AssignPanel({
   bookings,
   parties,
   items,
+  forwarders,
   onClose,
   onCreated,
 }: {
   bookings: Booking[];
   parties: Party[];
   items: Item[];
+  forwarders: Forwarder[];
   onClose: () => void;
   onCreated: (row: TrackingRow, bookingId: string) => void;
 }) {
   const [bookingId, setBookingId] = useState("");
   const [partyId, setPartyId] = useState("");
   const [itemId, setItemId] = useState("");
+  const [forwarderId, setForwarderId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -172,7 +181,7 @@ function AssignPanel({
       const res = await fetch("/api/tracking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ booking_id: bookingId, party_id: partyId, item_id: itemId || null }),
+        body: JSON.stringify({ booking_id: bookingId, party_id: partyId, item_id: itemId || null, forwarder_id: forwarderId || null }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create tracking entry");
@@ -207,6 +216,14 @@ function AssignPanel({
         {items.map((i) => (
           <option key={i.id} value={i.id}>
             {i.name}
+          </option>
+        ))}
+      </select>
+      <select className="border rounded px-2 py-1.5 text-sm" value={forwarderId} onChange={(e) => setForwarderId(e.target.value)}>
+        <option value="">Select forwarder…</option>
+        {forwarders.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.legal_name}
           </option>
         ))}
       </select>
@@ -297,7 +314,7 @@ function TrackingRowView({
         isDate
         onSave={(v) => patchRow(row.id, { eta: v }).then(() => onChange({ eta: v }))}
       />
-      <Td>{row.forwarder_name || "—"}</Td>
+      <Td>{row.forwarder?.legal_name || row.forwarder_name || "—"}</Td>
       <EditableTd value={row.release_status} onSave={(v) => patchRow(row.id, { release_status: v }).then(() => onChange({ release_status: v }))} />
       <Td>{row.shipping_line || "—"}</Td>
       <SentToggleTd

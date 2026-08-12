@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 // route as each module gets built (P1-P4 in the README).
 const MODULES = [
   { no: "01", label: "Booking & Instructions", href: "/bookings" },
-  { no: "02", label: "Forwarders", href: "/soon/forwarders" },
+  { no: "02", label: "Forwarders", href: "/forwarders" },
   { no: "03", label: "Suppliers", href: "/soon/suppliers" },
   { no: "04", label: "Shipment Tracking", href: "/tracking" },
   { no: "05", label: "Buyers / Customers", href: "/parties" },

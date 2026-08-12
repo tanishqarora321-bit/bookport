@@ -1,24 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-// Deliberately excludes: id, company_id, booking_id, party_id, booking_number
-// (that last one is denormalized FROM the booking on creation, not hand-edited
-// here - if it needs to change, that's a re-assignment, not an inline edit).
+// Deliberately excludes: id, company_id, forwarder_id, tracking_id, total
+// (total is a Postgres GENERATED column -- trying to write it directly
+// would error, and there's no reason to: it recomputes automatically
+// whenever any of the charge columns below change).
 const EDITABLE_COLUMNS = [
-  "consignee_as_per_bl",
-  "invoice_no",
+  "booking_number",
   "container_number",
-  "eta",
-  "release_status",
-  "invoice_sent",
-  "documents_sent",
-  "remarks",
-  "bl_number",
-  "bl_status",
-  "ocean_freight",
-  "ocean_freight_currency",
-  "item_id",
-  "forwarder_id",
+  "month_of_loading",
+  "shipping_line",
+  "consignee_name",
+  "pol",
+  "pod",
+  "invoice_number",
+  "invoice_date",
+  "invoice_due_date",
+  "freight_charges",
+  "bl_fees",
+  "aes_fees",
+  "extra_charges",
+  "correction_charges",
+  "demurrage",
+  "currency",
+  "paid_status",
 ];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -39,12 +44,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabase
-    .from("tracking")
+    .from("forwarder_invoices")
     .update(updates)
     .eq("id", params.id)
-    .select("*, forwarder:forwarder_id (legal_name)")
+    .select("*, tracking:tracking_id (eta, release_status)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ tracking: data });
+  return NextResponse.json({ invoice: data });
 }
