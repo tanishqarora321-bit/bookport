@@ -1,47 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 
-// Deliberately excludes: id, company_id, booking_id, party_id, booking_number
-// (that last one is denormalized FROM the booking on creation, not hand-edited
-// here - if it needs to change, that's a re-assignment, not an inline edit).
-const EDITABLE_COLUMNS = [
-  "consignee_as_per_bl",
-  "invoice_no",
-  "container_number",
-  "eta",
-  "release_status",
-  "invoice_sent",
-  "documents_sent",
-  "remarks",
-  "bl_number",
-  "bl_status",
-  "ocean_freight",
-  "ocean_freight_currency",
-  "item_id",
-  "forwarder_id",
-];
-
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest) {
   const body = await req.json();
   const supabase = createServiceClient();
 
-  const updates: Record<string, any> = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (EDITABLE_COLUMNS.includes(key)) {
-      updates[key] = value === "" ? null : value;
-    }
+  if (!body.booking_id || !body.party_id) {
+    return NextResponse.json({ error: "booking_id and party_id are required" }, { status: 400 });
   }
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
-  }
+  // Pull the fields that come "from the Booking & Instructions module" per
+  // the spec: booking number, forwarder, shipping line.
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("carrier_booking_no, forwarder_name, carrier")
+    .eq("id", body.booking_id)
+    .single();
 
-  updates.updated_at = new Date().toISOString();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+  }
 
   const { data, error } = await supabase
     .from("tracking")
-    .update(updates)
-    .eq("id", params.id)
+    .insert({
+      company_id: DEFAULT_COMPANY_ID,
+      booking_id: body.booking_id,
+      party_id: body.party_id,
+      item_id: body.item_id || null,
+      forwarder_id: body.forwarder_id || null,
+      booking_number: booking.carrier_booking_no,
+      forwarder_name: booking.forwarder_name,
+      shipping_line: booking.carrier,
+      bl_status: "N",
+      invoice_sent: false,
+      documents_sent: false,
+    })
     .select("*, forwarder:forwarder_id (legal_name)")
     .single();
 
