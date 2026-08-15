@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 
-const EDITABLE_COLUMNS = ["legal_name", "short_code", "country", "address", "is_active"];
-
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest) {
   const body = await req.json();
   const supabase = createServiceClient();
 
-  const updates: Record<string, any> = {};
-  for (const [key, value] of Object.entries(body)) {
-    if (EDITABLE_COLUMNS.includes(key)) updates[key] = value === "" ? null : value;
+  if (!body.legal_name || !body.legal_name.trim()) {
+    return NextResponse.json({ error: "Trucker name is required" }, { status: 400 });
   }
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
-  }
-
-  const { data, error } = await supabase.from("parties").update(updates).eq("id", params.id).select().single();
+  const { data, error } = await supabase
+    .from("parties")
+    .insert({
+      company_id: DEFAULT_COMPANY_ID,
+      legal_name: body.legal_name.trim(),
+      short_code: body.short_code?.trim() || null,
+      country: body.country?.trim() || null,
+      address: body.address?.trim() || null,
+      roles: ["trucker"],
+    })
+    .select()
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ trucker: data });
