@@ -7,7 +7,7 @@ export const fetchCache = "force-no-store";
 
 // TEMPORARY: service-role client, no login screen built yet - see README.
 // Truckers are just `parties` rows with 'trucker' in their roles array --
-// same table as Buyers/Customers and Forwarders.
+// same table as Forwarders/Buyers/Customers.
 export default async function TruckersPage() {
   const supabase = createServiceClient();
 
@@ -22,3 +22,4 @@ export default async function TruckersPage() {
 
   return <TruckersClient initialTruckers={truckers ?? []} />;
 }
+

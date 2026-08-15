@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
-import TruckerLedgerClient from "@/components/TruckerLedgerClient";
+import TruckerInvoiceLedgerClient from "@/components/TruckerInvoiceLedgerClient";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
   const { data: invoices, error: invoicesError } = await supabase
     .from("trucker_invoices")
     .select(
-      "id, booking_number, container_number, month_of_loading, location, invoice_number, invoice_date, invoice_due_date, total_amount, currency, paid_status, tracking_id"
+      "id, booking_number, container_number, month_of_loading, location, invoice_number, invoice_date, invoice_due_date, amount, currency, charges_note, paid_status, tracking_id, tracking:tracking_id (eta, release_status)"
     )
     .eq("company_id", DEFAULT_COMPANY_ID)
     .eq("trucker_id", params.id)
@@ -36,5 +36,5 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
 
   if (invoicesError) return <p className="text-red-600 p-6">{invoicesError.message}</p>;
 
-  return <TruckerLedgerClient truckerId={params.id} truckerName={trucker.legal_name} initialInvoices={invoices ?? []} />;
+  return <TruckerInvoiceLedgerClient truckerId={params.id} truckerName={trucker.legal_name} initialInvoices={invoices ?? []} />;
 }
