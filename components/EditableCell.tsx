@@ -10,6 +10,11 @@ function formatDate(value: string, isDateTime: boolean) {
   });
 }
 
+// SECURITY/UX FIX: editing used to open on a plain click anywhere in the
+// cell, which meant a stray click while just reading the table could put
+// a cell into edit mode. Now the display state renders plain text with a
+// pencil icon that only shows on hover -- editing opens ONLY from clicking
+// that pencil, never from clicking the cell itself.
 export default function EditableCell({
   bookingId, column, value, isDate = false, highlight = false
 }: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean }) {
@@ -18,12 +23,6 @@ export default function EditableCell({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Explicit Save/Cancel now, not save-on-blur. Blur is unreliable with the
-  // browser's native date-picker popup - closing the calendar doesn't
-  // consistently fire blur the way a plain text field does, so edits were
-  // silently getting lost. This also now actually checks the response
-  // instead of reloading unconditionally, so a failed save shows an error
-  // instead of quietly discarding your change.
   async function save() {
     setSaving(true);
     setError(null);
@@ -52,33 +51,38 @@ export default function EditableCell({
 
   if (!editing) {
     return (
-      <td
-        onClick={() => setEditing(true)}
-        className={`px-3 py-2 text-sm cursor-text hover:bg-blue-50 whitespace-nowrap ${highlight ? "text-cutoff font-medium" : ""}`}
-        title="Click to edit"
-      >
-        {display}
+      <td className={`px-3 py-2 text-sm whitespace-nowrap group ${highlight ? "text-cutoff font-medium" : "text-ink/80"}`}>
+        <span className="inline-flex items-center gap-1.5">
+          {display}
+          <button
+            onClick={() => setEditing(true)}
+            title="Edit"
+            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
+          >
+            ✎
+          </button>
+        </span>
       </td>
     );
   }
 
   return (
     <td className="px-3 py-2 min-w-[180px]">
-      <input
-        autoFocus
-        type={isDate ? "datetime-local" : "text"}
-        className="w-full border border-accent rounded px-1.5 py-1 text-sm"
-        value={isDate && val ? val.slice(0, 16) : val}
-        onChange={(e) => setVal(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && save()}
-        disabled={saving}
-      />
-      <div className="flex gap-2 mt-1">
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-2 py-0.5 rounded">
-          {saving ? "Saving…" : "Save"}
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          type={isDate ? "datetime-local" : "text"}
+          className="w-full border border-accent rounded px-1.5 py-1 text-sm"
+          value={isDate && val ? val.slice(0, 16) : val}
+          onChange={(e) => setVal(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && save()}
+          disabled={saving}
+        />
+        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
+          {saving ? "…" : "✓"}
         </button>
-        <button onClick={cancel} disabled={saving} className="text-xs border px-2 py-0.5 rounded">
-          Cancel
+        <button onClick={cancel} disabled={saving} title="Close" className="text-xs border px-2 py-1 rounded shrink-0">
+          ✕
         </button>
       </div>
       {error && <div className="text-xs text-cutoff mt-1">{error}</div>}

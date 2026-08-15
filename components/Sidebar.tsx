@@ -27,9 +27,9 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-navy text-white h-full flex flex-col shrink-0 overflow-y-auto">
       <div className="p-5 flex items-center gap-3 border-b border-white/10">
-        <div className="w-9 h-9 rounded bg-accent flex items-center justify-center font-bold">B</div>
+        <div className="w-9 h-9 rounded bg-accent flex items-center justify-center font-bold">S</div>
         <div>
-          <div className="font-semibold leading-tight">Bookport</div>
+          <div className="font-semibold leading-tight">Ship-Sphere</div>
           <div className="text-xs text-white/50 leading-tight">One Booking. All Connected.</div>
         </div>
       </div>

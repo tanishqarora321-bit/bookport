@@ -1,7 +1,7 @@
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 
-export const metadata = { title: "Bookport" };
+export const metadata = { title: "Ship-Sphere" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
