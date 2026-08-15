@@ -14,7 +14,7 @@ const MODULES = [
   { no: "05", label: "Buyers / Customers", href: "/parties" },
   { no: "06", label: "Truckers", href: "/truckers" },
   { no: "07", label: "Freight Comparison", href: "/freight-comparison" },
-  { no: "08", label: "Offer Sheet", href: "/soon/offer-sheet" },
+  { no: "08", label: "Offer Sheet", href: "/offer-sheets" },
   { no: "09", label: "Invoices & Statement", href: "/soon/invoices-statement" },
   { no: "10", label: "Profit & Loss", href: "/soon/profit-loss" },
   { no: "11", label: "Dashboard & Reports", href: "/soon/dashboard-reports" },
