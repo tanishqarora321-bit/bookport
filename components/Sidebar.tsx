@@ -12,7 +12,7 @@ const MODULES = [
   { no: "03", label: "Suppliers", href: "/soon/suppliers" },
   { no: "04", label: "Shipment Tracking", href: "/tracking" },
   { no: "05", label: "Buyers / Customers", href: "/parties" },
-  { no: "06", label: "Truckers", href: "/soon/truckers" },
+  { no: "06", label: "Truckers", href: "/truckers" },
   { no: "07", label: "Freight Comparison", href: "/soon/freight-comparison" },
   { no: "08", label: "Offer Sheet", href: "/soon/offer-sheet" },
   { no: "09", label: "Invoices & Statement", href: "/soon/invoices-statement" },
