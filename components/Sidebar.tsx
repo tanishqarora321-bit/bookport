@@ -91,10 +91,11 @@ export default function Sidebar() {
     });
   }
 
-  // /login is a pre-auth screen and renders its own centered layout - no
-  // app chrome around it. Checked after all hooks above so their call
-  // order never changes across a client-side navigation to/from /login.
-  if (pathname === "/login") return null;
+  // /login and /auth/callback are pre-auth screens that render their own
+  // centered layout - no app chrome around them. Checked after all hooks
+  // above so their call order never changes across a client-side
+  // navigation to/from either route.
+  if (pathname === "/login" || pathname === "/auth/callback") return null;
 
   return (
     <aside
