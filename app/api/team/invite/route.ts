@@ -56,33 +56,21 @@ export async function POST(req: NextRequest) {
     redirectTo,
   });
 
-  let userId: string;
   if (inviteError) {
-    // Most likely cause: a previous invite to this same email already
-    // created the auth user (e.g. the first attempt before redirectTo was
-    // wired up here), and it's still sitting unconfirmed. Try to hand back
-    // a fresh link for that same account rather than failing outright.
-    // NOTE: unlike inviteUserByEmail, it's not fully confirmed here that
-    // generateLink also triggers Supabase's own delivery in every project
-    // configuration - if a teammate still doesn't get an email after this
-    // succeeds, the reliable fallback is deleting the unconfirmed user from
-    // Supabase Dashboard -> Authentication -> Users and inviting again.
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: "invite",
-      email,
-      options: { redirectTo, data: { full_name } },
-    });
-    if (linkError) return NextResponse.json({ error: inviteError.message }, { status: 500 });
-    userId = linkData.user.id;
-  } else {
-    userId = invited.user.id;
+    // If this email already has a pending (unconfirmed) account from an
+    // earlier attempt, the reliable fix is deleting it first: Supabase
+    // Dashboard -> Authentication -> Users -> delete that row -> invite
+    // again. A generateLink-based auto-retry was tried here and dropped -
+    // it's not confirmed to actually trigger Supabase's email delivery in
+    // this project's configuration, and produced a silent no-email failure
+    // that was harder to diagnose than this plain error message is.
+    return NextResponse.json({ error: inviteError.message }, { status: 500 });
   }
 
-  // Upsert, not insert: this must be safe to run twice for the same user
-  // (e.g. the retry case right above) without failing on a duplicate key.
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .upsert({ id: userId, full_name: full_name || null, role, company_id: DEFAULT_COMPANY_ID }, { onConflict: "id" });
+  const { error: profileError } = await supabase.from("profiles").upsert(
+    { id: invited.user.id, full_name: full_name || null, role, company_id: DEFAULT_COMPANY_ID },
+    { onConflict: "id" }
+  );
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
 
   return NextResponse.json({ ok: true, email, role });
