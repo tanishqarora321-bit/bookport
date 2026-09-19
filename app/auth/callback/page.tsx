@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
-// Where an invite (or password-recovery) email link lands. Supabase's
-// browser client auto-detects the #access_token=... hash fragment on
-// this page's URL and turns it into a real session on its own
-// (detectSessionInUrl defaults to true) - this page just waits for that,
-// then asks the now-signed-in-but-passwordless invitee to set one.
+// Where an invite (or password-recovery) email link lands. Does NOT rely
+// on Supabase's automatic detectSessionInUrl hash-parsing - that turned
+// out not to reliably fire here (possibly an @supabase/ssr version
+// quirk, possibly an email-scanner having already touched the link;
+// never fully confirmed). Instead this parses the #access_token/
+// #refresh_token hash itself and calls setSession() explicitly, which
+// also means a real failure shows Supabase's actual error message
+// instead of a generic timeout-based guess.
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -20,38 +23,43 @@ export default function AuthCallbackPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase puts a failed/expired link's details in the hash as
-    // #error=...&error_description=... instead of an access_token.
     const hash = new URLSearchParams(window.location.hash.slice(1));
+
+    // Supabase puts a failed/expired link's details in the hash as
+    // #error=...&error_description=... instead of tokens.
     if (hash.get("error")) {
       setErrorMessage(hash.get("error_description")?.replace(/\+/g, " ") || "This link is invalid or has expired.");
       setStatus("error");
       return;
     }
 
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+
+    if (!access_token || !refresh_token) {
+      // No tokens and no #error= either - not a link this page knows how
+      // to handle (e.g. opened directly, or already-cleared hash after a
+      // prior successful run).
+      setErrorMessage("No invite information found in this link. Ask your admin to send a fresh invite.");
+      setStatus("error");
+      return;
+    }
+
     const supabase = createClient();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) setStatus("ready");
+    supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
+      if (error) {
+        setErrorMessage(error.message);
+        setStatus("error");
+        return;
+      }
+      if (data.session) {
+        // Clear the token hash from the URL/history now that it's been
+        // used - it's a live credential and shouldn't linger in the
+        // address bar or browser history.
+        window.history.replaceState(null, "", window.location.pathname);
+        setStatus("ready");
+      }
     });
-    // In case the SIGNED_IN event already fired before this listener attached.
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setStatus("ready");
-    });
-
-    const timeout = setTimeout(() => {
-      setStatus((s) => {
-        if (s === "loading") {
-          setErrorMessage("This link is invalid or has expired.");
-          return "error";
-        }
-        return s;
-      });
-    }, 6000);
-
-    return () => {
-      sub.subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
   }, []);
 
   async function setNewPassword(e: React.FormEvent) {
