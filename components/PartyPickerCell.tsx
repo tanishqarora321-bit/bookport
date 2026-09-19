@@ -35,6 +35,7 @@ export default function PartyPickerCell({
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [selected, setSelected] = useState(current?.id ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,7 +92,10 @@ export default function PartyPickerCell({
         <span className="inline-flex items-center gap-1.5">
           {current?.name || "—"}
           <button
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setSelected(current?.id ?? "");
+              setEditing(true);
+            }}
             title={`Edit ${roleLabel}`}
             className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
           >
@@ -108,8 +112,8 @@ export default function PartyPickerCell({
         <div className="flex items-center gap-1">
           <select
             className="border border-accent rounded px-1.5 py-1 text-sm flex-1"
-            defaultValue={current?.id ?? ""}
-            onChange={(e) => assign(e.target.value || null)}
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
             disabled={saving}
           >
             <option value="">— none —</option>
@@ -119,6 +123,14 @@ export default function PartyPickerCell({
               </option>
             ))}
           </select>
+          <button
+            onClick={() => assign(selected || null)}
+            disabled={saving}
+            title="Confirm"
+            className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0"
+          >
+            {saving ? "…" : "✓"}
+          </button>
           <button onClick={() => setCreating(true)} className="text-xs border px-2 py-1 rounded shrink-0" title={`Add new ${roleLabel}`}>
             + New
           </button>

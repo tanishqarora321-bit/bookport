@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 
 async function nextBookingNo(supabase: any) {
   const year = new Date().getFullYear().toString().slice(-2);
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .insert({ ...bookingFields, booking_no })
+    .insert({ ...bookingFields, booking_no, company_id: DEFAULT_COMPANY_ID })
     .select()
     .single();
 
