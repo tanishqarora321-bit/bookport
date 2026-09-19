@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search } from "lucide-react";
 import EditableCell from "@/components/EditableCell";
+import StatCard from "@/components/ui/StatCard";
+import StatusPill from "@/components/ui/StatusPill";
 
 type Booking = {
   id: string;
@@ -50,11 +53,13 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
   const [destination, setDestination] = useState("all");
   const [status, setStatus] = useState("all");
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
+  const [search, setSearch] = useState("");
 
   const lines = useMemo(() => Array.from(new Set(bookings.map((b) => b.carrier).filter(Boolean))) as string[], [bookings]);
   const destinations = useMemo(() => Array.from(new Set(bookings.map((b) => b.pod).filter(Boolean))) as string[], [bookings]);
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return bookings.filter((b) => {
       if (line !== "all" && b.carrier !== line) return false;
       if (destination !== "all" && b.pod !== destination) return false;
@@ -64,9 +69,16 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
         const diff = new Date(b.cargo_cutoff).getTime() - Date.now();
         if (diff > 3 * 24 * 3600 * 1000 || diff < 0) return false;
       }
+      if (q) {
+        const haystack = [b.carrier_booking_no, b.pol, b.pod, b.final_destination, b.forwarder_name]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [bookings, line, destination, status, cutoffSoonOnly]);
+  }, [bookings, line, destination, status, cutoffSoonOnly, search]);
 
   const total = bookings.length;
   const cutoffSoonCount = bookings.filter((b) => {
@@ -75,6 +87,8 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
     return diff > 0 && diff < 48 * 3600 * 1000;
   }).length;
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
+  const inTransitCount = bookings.filter((b) => b.status === "in_transit").length;
+  const deliveredCount = bookings.filter((b) => b.status === "delivered").length;
 
   function exportCsv() {
     const csv = toCsv(filtered);
@@ -102,22 +116,24 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-4 shrink-0">
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wide">Total Bookings</div>
-          <div className="text-2xl font-semibold mt-1">{total}</div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wide">Cut-off within 48h</div>
-          <div className="text-2xl font-semibold mt-1 text-cutoff">{cutoffSoonCount}</div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wide">Confirmed</div>
-          <div className="text-2xl font-semibold mt-1">{confirmedCount}</div>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 shrink-0">
+        <StatCard icon={ClipboardList} label="Total Bookings" value={total} />
+        <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
+        <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
+        <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
+        <StatCard icon={PackageCheck} label="Delivered" value={deliveredCount} tone="success" />
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search booking #, POL, POD…"
+            className="border rounded-lg pl-8 pr-3 py-2 text-sm bg-white w-56"
+          />
+        </div>
         <select value={line} onChange={(e) => setLine(e.target.value)} className="border rounded-lg px-3 py-2 text-sm bg-white">
           <option value="all">All Lines</option>
           {lines.map((l) => <option key={l} value={l}>{l}</option>)}
@@ -150,6 +166,7 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
         <table className="w-full text-sm">
           <thead className="text-left text-slate-400 border-b bg-slate-50 sticky top-0">
             <tr>
+              <th className="px-3 py-2.5 font-medium whitespace-nowrap">Status</th>
               {COLUMNS.map((c) => (
                 <th key={c.column} className="px-3 py-2.5 font-medium whitespace-nowrap">{c.label}</th>
               ))}
@@ -162,6 +179,9 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
                 b.cargo_cutoff && new Date(b.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
                 <tr key={b.id} className="border-b last:border-0">
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <StatusPill value={b.status} />
+                  </td>
                   {COLUMNS.map((c) => (
                     <EditableCell
                       key={c.column}
@@ -182,7 +202,7 @@ export default function BookingsClient({ bookings }: { bookings: Booking[] }) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="p-8 text-center text-slate-400">
+                <td colSpan={COLUMNS.length + 2} className="p-8 text-center text-slate-400">
                   {total === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
                 </td>
               </tr>

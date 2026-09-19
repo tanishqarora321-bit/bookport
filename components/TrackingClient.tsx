@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { MapPin, Mail, FileWarning, FileCheck2 } from "lucide-react";
+import StatCard from "@/components/ui/StatCard";
+import StatusPill from "@/components/ui/StatusPill";
+import EmptyState from "@/components/ui/EmptyState";
 
 type TrackingRow = {
   id: string;
@@ -69,6 +73,10 @@ export default function TrackingClient({
     setRows(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
+  const invoicePendingCount = useMemo(() => rows.filter((r) => !r.invoice_sent).length, [rows]);
+  const docsPendingCount = useMemo(() => rows.filter((r) => !r.documents_sent).length, [rows]);
+  const blPendingCount = useMemo(() => rows.filter((r) => r.bl_status !== "Y").length, [rows]);
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
@@ -79,6 +87,13 @@ export default function TrackingClient({
         >
           + Assign Booking
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 shrink-0">
+        <StatCard icon={MapPin} label="Tracked Shipments" value={rows.length} />
+        <StatCard icon={Mail} label="Invoice Pending" value={invoicePendingCount} tone={invoicePendingCount ? "warning" : "success"} />
+        <StatCard icon={FileWarning} label="Docs Pending" value={docsPendingCount} tone={docsPendingCount ? "warning" : "success"} />
+        <StatCard icon={FileCheck2} label="BL Pending" value={blPendingCount} tone={blPendingCount ? "warning" : "success"} />
       </div>
 
       {assigning && (
@@ -96,7 +111,7 @@ export default function TrackingClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto border rounded">
+      <div className="flex-1 overflow-auto bg-white rounded-xl shadow-sm">
         <table className="text-sm border-collapse min-w-[2000px]">
           <thead className="sticky top-0 bg-slate-50 z-10">
             <tr className="text-left text-ink/50 border-b">
@@ -130,8 +145,12 @@ export default function TrackingClient({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-3 py-10 text-center text-ink/40">
-                  No shipments tracked yet. Click "+ Assign Booking" to start tracking one.
+                <td colSpan={17} className="p-0">
+                  <EmptyState
+                    icon={MapPin}
+                    title="No shipments tracked yet"
+                    hint='Click "+ Assign Booking" above to link a booking to a party and start tracking it.'
+                  />
                 </td>
               </tr>
             )}
@@ -315,7 +334,11 @@ function TrackingRowView({
         onSave={(v) => patchRow(row.id, { eta: v }).then(() => onChange({ eta: v }))}
       />
       <Td>{row.forwarder?.legal_name || row.forwarder_name || "—"}</Td>
-      <EditableTd value={row.release_status} onSave={(v) => patchRow(row.id, { release_status: v }).then(() => onChange({ release_status: v }))} />
+      <EditableTd
+        value={row.release_status}
+        onSave={(v) => patchRow(row.id, { release_status: v }).then(() => onChange({ release_status: v }))}
+        renderDisplay={(v) => <StatusPill value={v} />}
+      />
       <Td>{row.shipping_line || "—"}</Td>
       <SentToggleTd
         value={row.invoice_sent}
@@ -434,11 +457,13 @@ function EditableTd({
   onSave,
   isDate = false,
   asInline = false,
+  renderDisplay,
 }: {
   value: string | null;
   onSave: (v: string) => Promise<any> | any;
   isDate?: boolean;
   asInline?: boolean;
+  renderDisplay?: (value: string | null) => React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
@@ -461,8 +486,8 @@ function EditableTd({
   const display = value ? (isDate ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : value) : "—";
 
   const content = !editing ? (
-    <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
-      {display}
+    <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block" title="Click to edit">
+      {renderDisplay ? renderDisplay(value) : display}
     </span>
   ) : (
     <div className="flex gap-1 items-center">

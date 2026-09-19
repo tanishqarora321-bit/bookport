@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Users, Package, CheckCircle2 } from "lucide-react";
+import StatCard from "@/components/ui/StatCard";
+import EmptyState from "@/components/ui/EmptyState";
+import InlineEditText from "@/components/ui/InlineEditText";
 
 type Party = {
   id: string;
@@ -37,6 +41,12 @@ export default function PartiesClient({
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
           Show removed
         </label>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 shrink-0">
+        <StatCard icon={Users} label="Total Accounts" value={parties.length} />
+        <StatCard icon={CheckCircle2} label="Active" value={parties.filter((p) => p.is_active).length} tone="success" />
+        <StatCard icon={Package} label="Items" value={items.length} />
       </div>
 
       <div className="flex gap-1 border-b border-ink/10 mb-4">
@@ -186,70 +196,50 @@ function PartiesTab({
         </div>
       )}
 
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="text-left text-ink/50 border-b">
-            <th className="px-3 py-2">Account Name</th>
-            <th className="px-3 py-2">Short Code</th>
-            <th className="px-3 py-2">Country</th>
-            <th className="px-3 py-2">Address</th>
-            <th className="px-3 py-2 w-24"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((p) => (
-            <tr key={p.id} className={`border-b hover:bg-blue-50/40 ${!p.is_active ? "opacity-40" : ""}`}>
-              <td
-                className="px-3 py-2 cursor-text"
-                onClick={(e) => {
-                  const val = prompt("Account name", p.legal_name);
-                  if (val !== null && val.trim()) updateField(p, "legal_name", val.trim());
-                }}
-              >
-                {p.legal_name}
-              </td>
-              <td
-                className="px-3 py-2 cursor-text text-ink/70"
-                onClick={() => {
-                  const val = prompt("Short code", p.short_code ?? "");
-                  if (val !== null) updateField(p, "short_code", val.trim());
-                }}
-              >
-                {p.short_code || "—"}
-              </td>
-              <td
-                className="px-3 py-2 cursor-text text-ink/70"
-                onClick={() => {
-                  const val = prompt("Country", p.country ?? "");
-                  if (val !== null) updateField(p, "country", val.trim());
-                }}
-              >
-                {p.country || "—"}
-              </td>
-              <td className="px-3 py-2 text-ink/50 max-w-[300px] truncate" title={p.address ?? ""}>
-                {p.address || "—"}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <button
-                  onClick={() => toggleActive(p)}
-                  className={`text-xs px-2 py-1 rounded ${
-                    p.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
-                  }`}
-                >
-                  {p.is_active ? "Remove" : "Restore"}
-                </button>
-              </td>
+      <div className="bg-white rounded-xl shadow-sm">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-left text-ink/50 border-b">
+              <th className="px-3 py-2">Account Name</th>
+              <th className="px-3 py-2">Short Code</th>
+              <th className="px-3 py-2">Country</th>
+              <th className="px-3 py-2">Address</th>
+              <th className="px-3 py-2 w-24"></th>
             </tr>
-          ))}
-          {visible.length === 0 && (
-            <tr>
-              <td colSpan={5} className="px-3 py-8 text-center text-ink/40">
-                No accounts yet. Click "+ New Account" to add one.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visible.map((p) => (
+              <tr key={p.id} className={`border-b last:border-0 hover:bg-blue-50/40 ${!p.is_active ? "opacity-40" : ""}`}>
+                <td className="px-3 py-2">
+                  <InlineEditText value={p.legal_name} onSave={(v) => updateField(p, "legal_name", v)} />
+                </td>
+                <td className="px-3 py-2 text-ink/70">
+                  <InlineEditText value={p.short_code} onSave={(v) => updateField(p, "short_code", v)} />
+                </td>
+                <td className="px-3 py-2 text-ink/70">
+                  <InlineEditText value={p.country} onSave={(v) => updateField(p, "country", v)} />
+                </td>
+                <td className="px-3 py-2 text-ink/50 max-w-[300px] truncate" title={p.address ?? ""}>
+                  {p.address || "—"}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    onClick={() => toggleActive(p)}
+                    className={`text-xs px-2 py-1 rounded ${
+                      p.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                    }`}
+                  >
+                    {p.is_active ? "Remove" : "Restore"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {visible.length === 0 && (
+          <EmptyState icon={Users} title="No accounts yet" hint='Click "+ New Account" above to add your first buyer or customer.' />
+        )}
+      </div>
     </div>
   );
 }
@@ -323,25 +313,27 @@ function ItemsTab({
       </div>
       {error && <div className="text-xs text-cutoff mb-2">{error}</div>}
 
-      <ul className="border rounded divide-y">
-        {visible.map((item) => (
-          <li
-            key={item.id}
-            className={`flex items-center justify-between px-3 py-2 text-sm ${!item.is_active ? "opacity-40" : ""}`}
-          >
-            <span>{item.name}</span>
-            <button
-              onClick={() => toggleActive(item)}
-              className={`text-xs px-2 py-1 rounded ${
-                item.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
-              }`}
+      <div className="bg-white rounded-xl shadow-sm">
+        <ul className="divide-y">
+          {visible.map((item) => (
+            <li
+              key={item.id}
+              className={`flex items-center justify-between px-3 py-2 text-sm ${!item.is_active ? "opacity-40" : ""}`}
             >
-              {item.is_active ? "Remove" : "Restore"}
-            </button>
-          </li>
-        ))}
-        {visible.length === 0 && <li className="px-3 py-8 text-center text-ink/40">No items yet.</li>}
-      </ul>
+              <span>{item.name}</span>
+              <button
+                onClick={() => toggleActive(item)}
+                className={`text-xs px-2 py-1 rounded ${
+                  item.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                }`}
+              >
+                {item.is_active ? "Remove" : "Restore"}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {visible.length === 0 && <EmptyState icon={Package} title="No items yet" hint="Add item categories like Mixed Rag to assign in Shipment Tracking." />}
+      </div>
     </div>
   );
 }
