@@ -24,12 +24,12 @@ import {
 const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
   { label: "Forwarders", href: "/forwarders", icon: Ship },
-  { label: "Suppliers", href: "/soon/suppliers", icon: Factory },
+  { label: "Suppliers", href: "/suppliers", icon: Factory },
   { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
   { label: "Buyers / Customers", href: "/parties", icon: Users },
   { label: "Truckers", href: "/truckers", icon: Truck },
-  { label: "Freight Comparison", href: "/soon/freight-comparison", icon: BarChart3 },
-  { label: "Offer Sheet", href: "/soon/offer-sheet", icon: FileSpreadsheet },
+  { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
+  { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
   { label: "Invoices & Statement", href: "/soon/invoices-statement", icon: Receipt },
   { label: "Profit & Loss", href: "/soon/profit-loss", icon: TrendingUp },
   { label: "Dashboard & Reports", href: "/soon/dashboard-reports", icon: LayoutDashboard },
@@ -42,9 +42,9 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-navy text-white h-full flex flex-col shrink-0 overflow-y-auto">
       <div className="p-5 flex items-center gap-3 border-b border-white/10">
-        <div className="w-9 h-9 rounded bg-accent flex items-center justify-center font-bold">B</div>
+        <div className="w-9 h-9 rounded bg-accent flex items-center justify-center font-bold">S</div>
         <div>
-          <div className="font-semibold leading-tight">Bookport</div>
+          <div className="font-semibold leading-tight">Ship-Sphere</div>
           <div className="text-xs text-white/50 leading-tight">One Booking. All Connected.</div>
         </div>
       </div>
