@@ -21,6 +21,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Logo from "@/components/ui/Logo";
+import { createClient } from "@/lib/supabase/client";
+import { LogOut } from "lucide-react";
 
 // Only Booking & Instructions is real right now. Everything else routes to
 // the shared "Work in Progress" page - flip an item's `href` to its real
@@ -37,7 +39,7 @@ const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Invoices & Statement", href: "/soon/invoices-statement", icon: Receipt },
   { label: "Profit & Loss", href: "/soon/profit-loss", icon: TrendingUp },
   { label: "Dashboard & Reports", href: "/soon/dashboard-reports", icon: LayoutDashboard },
-  { label: "Settings & Control", href: "/soon/settings-control", icon: Settings },
+  { label: "Settings & Control", href: "/team", icon: Settings },
 ];
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
@@ -45,6 +47,7 @@ const STORAGE_KEY = "bookport:sidebar-collapsed";
 export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
@@ -58,6 +61,26 @@ export default function Sidebar() {
     }
   }, []);
 
+  // Stage-1 login groundwork: this only reflects whether a session
+  // cookie exists, it doesn't gate access to anything yet (see
+  // middleware.ts). Nothing breaks for the DEFAULT_COMPANY_ID flow if
+  // no one has signed in - the footer just falls back to the
+  // placeholder below.
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  }
+
   function toggle() {
     setCollapsed((prev) => {
       const next = !prev;
@@ -67,6 +90,11 @@ export default function Sidebar() {
       return next;
     });
   }
+
+  // /login is a pre-auth screen and renders its own centered layout - no
+  // app chrome around it. Checked after all hooks above so their call
+  // order never changes across a client-side navigation to/from /login.
+  if (pathname === "/login") return null;
 
   return (
     <aside
@@ -113,17 +141,26 @@ export default function Sidebar() {
         {!collapsed && <span>Collapse</span>}
       </button>
 
-      {/* No real login yet (see lib/constants.ts DEFAULT_COMPANY_ID) - this
-          is a placeholder for the tenant, not a fake logged-in user. */}
       <div className={`border-t border-white/10 flex items-center gap-2 text-white/60 text-xs ${collapsed ? "p-3 justify-center" : "p-4"}`}>
         <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/80 font-medium shrink-0">
-          A
+          {userEmail ? userEmail[0].toUpperCase() : "A"}
         </div>
         {!collapsed && (
-          <div className="min-w-0">
-            <div className="text-white/80 truncate">Default Company</div>
-            <div className="truncate">Single-tenant mode - no login yet</div>
+          <div className="min-w-0 flex-1">
+            {userEmail ? (
+              <div className="text-white/80 truncate" title={userEmail}>{userEmail}</div>
+            ) : (
+              <>
+                <div className="text-white/80 truncate">Default Company</div>
+                <div className="truncate">Single-tenant mode - not signed in</div>
+              </>
+            )}
           </div>
+        )}
+        {!collapsed && userEmail && (
+          <button onClick={signOut} title="Sign out" className="text-white/40 hover:text-white shrink-0">
+            <LogOut className="w-4 h-4" size={16} />
+          </button>
         )}
       </div>
     </aside>
