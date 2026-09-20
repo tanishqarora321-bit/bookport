@@ -30,9 +30,16 @@ create unique index if not exists forwarder_invoices_tracking_id_key
 
 alter table forwarder_invoices add column if not exists fx_rate numeric not null default 1;
 -- Every charge column is already in the invoice's own `currency`; this
--- is that same `total` normalized to USD for cross-currency reporting
--- without forcing every invoice to be entered in USD.
-alter table forwarder_invoices add column if not exists total_usd numeric generated always as (total * fx_rate) stored;
+-- is that same total normalized to USD for cross-currency reporting
+-- without forcing every invoice to be entered in USD. Postgres won't
+-- let a generated column reference another generated column (`total`
+-- already is one), so this repeats total's own expression rather than
+-- multiplying total * fx_rate directly.
+alter table forwarder_invoices add column if not exists total_usd numeric generated always as (
+  (coalesce(freight_charges, 0) + coalesce(bl_fees, 0) + coalesce(aes_fees, 0)
+   + coalesce(extra_charges, 0) + coalesce(correction_charges, 0) + coalesce(demurrage, 0))
+  * fx_rate
+) stored;
 
 create or replace function sync_container_to_tracking()
 returns trigger as $$
