@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import TeamClient from "@/components/TeamClient";
+import ChangePasswordCard from "@/components/ChangePasswordCard";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -49,12 +50,15 @@ export default async function TeamPage() {
   }));
 
   return (
-    <TeamClient
-      initialTeammates={teammates}
-      seatLimit={company.seat_limit}
-      companyName={company.name}
-      isAdmin={me.role === "admin"}
-      isPlatformOwner={me.is_platform_owner}
-    />
+    <div>
+      <ChangePasswordCard email={me.email} />
+      <TeamClient
+        initialTeammates={teammates}
+        seatLimit={company.seat_limit}
+        companyName={company.name}
+        isAdmin={me.role === "admin"}
+        isPlatformOwner={me.is_platform_owner}
+      />
+    </div>
   );
 }
