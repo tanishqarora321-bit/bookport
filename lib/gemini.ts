@@ -102,15 +102,29 @@ match the meaning, not the literal words):
  * never bad data.
  */
 export async function suggestColumnMapping(headers: string[]): Promise<Record<string, string | null>> {
+  return suggestMapping(headers, IMPORT_FIELDS, "freight booking");
+}
+
+/**
+ * Generic version of the above, reused by the party import flow
+ * (Forwarders/Truckers/Suppliers/Buyers - components/PartyImportClient.tsx)
+ * so every Excel import in the app gets the same AI-assisted, always
+ * user-reviewed mapping step without duplicating the prompt.
+ */
+export async function suggestMapping(
+  headers: string[],
+  fields: { key: string; label: string }[],
+  subjectLabel: string
+): Promise<Record<string, string | null>> {
   const model = genAI.getGenerativeModel({
     model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
     generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 }
   });
 
-  const fieldList = IMPORT_FIELDS.map((f) => `"${f.key}" (${f.label})`).join(", ");
-  const keys = IMPORT_FIELDS.map((f) => f.key);
+  const fieldList = fields.map((f) => `"${f.key}" (${f.label})`).join(", ");
+  const keys = fields.map((f) => f.key);
 
-  const prompt = `A user is importing a freight booking spreadsheet into a database. Its column
+  const prompt = `A user is importing a ${subjectLabel} spreadsheet into a database. Its column
 headers, in order, are:
 ${headers.map((h, i) => `${i}: ${JSON.stringify(h)}`).join("\n")}
 

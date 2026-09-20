@@ -9,11 +9,12 @@ const KNOWN: Record<string, string> = {
   "in transit": "bg-amber-100 text-amber-700",
   delivered: "bg-emerald-100 text-emerald-700",
   released: "bg-emerald-100 text-emerald-700",
+  "on water": "bg-sky-100 text-sky-700",
   cancelled: "bg-red-100 text-red-700",
   awaiting: "bg-amber-100 text-amber-700",
   pending: "bg-amber-100 text-amber-700",
   sent: "bg-emerald-100 text-emerald-700",
-  unpaid: "bg-amber-100 text-amber-700",
+  unpaid: "bg-red-100 text-red-700",
   paid: "bg-emerald-100 text-emerald-700",
 };
 

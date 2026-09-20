@@ -60,6 +60,17 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
     }
   }
 
+  async function deletePermanently(f: Forwarder) {
+    if (!confirm(`Permanently delete "${f.legal_name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/forwarders/${f.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(json.error || "Failed to delete");
+      return;
+    }
+    setForwarders(forwarders.filter((x) => x.id !== f.id));
+  }
+
   async function updateField(f: Forwarder, field: keyof Forwarder, value: string) {
     const res = await fetch(`/api/forwarders/${f.id}`, {
       method: "PATCH",
@@ -82,6 +93,9 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show removed
           </label>
+          <Link href="/forwarders/import" className="text-sm border px-3 py-1.5 rounded font-medium">
+            Import Excel
+          </Link>
           <button
             onClick={() => setAdding(!adding)}
             className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium"
@@ -164,10 +178,10 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
                 </td>
                 <td className="px-3 py-2">
                   <Link href={`/forwarders/${f.id}/invoices`} className="text-xs text-accent underline">
-                    Invoices →
+                    Details →
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-right">
+                <td className="px-3 py-2 text-right whitespace-nowrap">
                   <button
                     onClick={() => toggleActive(f)}
                     className={`text-xs px-2 py-1 rounded ${
@@ -176,6 +190,15 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
                   >
                     {f.is_active ? "Remove" : "Restore"}
                   </button>
+                  {!f.is_active && (
+                    <button
+                      onClick={() => deletePermanently(f)}
+                      className="text-xs px-2 py-1 rounded text-cutoff hover:bg-red-50 font-medium"
+                      title="Delete permanently"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

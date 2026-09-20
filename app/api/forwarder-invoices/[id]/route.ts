@@ -23,6 +23,7 @@ const EDITABLE_COLUMNS = [
   "correction_charges",
   "demurrage",
   "currency",
+  "fx_rate",
   "paid_status",
 ];
 
