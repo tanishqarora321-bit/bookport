@@ -54,3 +54,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ invoice: data });
 }
+
+// Nothing else references forwarder_invoices.id, so this is a plain
+// delete - no cascade/detach concerns like a booking or party delete
+// has. Mainly for a legacy row from before invoices were auto-created
+// (no tracking_id, so it can never get a live ETA/status) or a wrong
+// pending shell someone wants gone rather than filled in.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const supabase = createServiceClient();
+  const { error } = await supabase.from("forwarder_invoices").delete().eq("id", params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

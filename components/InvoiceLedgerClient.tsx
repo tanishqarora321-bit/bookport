@@ -138,6 +138,7 @@ export default function InvoiceLedgerClient({
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
+              <Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -147,11 +148,12 @@ export default function InvoiceLedgerClient({
                 inv={inv}
                 onChange={(patch) => updateLocal(inv.id, patch)}
                 onEnterInvoice={() => setEnteringInvoice(inv)}
+                onDeleted={() => setInvoices((prev) => prev.filter((x) => x.id !== inv.id))}
               />
             ))}
             {invoices.length === 0 && (
               <tr>
-                <td colSpan={21} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={22} className="px-3 py-10 text-center text-ink/40">
                   No invoices yet — one appears here automatically as soon as a container with this forwarder
                   assigned is added in Booking &amp; Instructions.
                 </td>
@@ -167,7 +169,7 @@ export default function InvoiceLedgerClient({
                 ))}
                 <td className="px-3 py-2 text-ink/30">—</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
-                <td colSpan={3}></td>
+                <td colSpan={4}></td>
               </tr>
             </tfoot>
           )}
@@ -188,7 +190,7 @@ export default function InvoiceLedgerClient({
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children }: { children?: React.ReactNode }) {
   return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
@@ -198,8 +200,18 @@ function Td({ children }: { children: React.ReactNode }) {
 // ---------------- One invoice row ----------------
 
 function InvoiceRow({
-  inv, onChange, onEnterInvoice
-}: { inv: Invoice; onChange: (patch: Partial<Invoice>) => void; onEnterInvoice: () => void }) {
+  inv, onChange, onEnterInvoice, onDeleted
+}: { inv: Invoice; onChange: (patch: Partial<Invoice>) => void; onEnterInvoice: () => void; onDeleted: () => void }) {
+  async function handleDelete() {
+    if (!confirm(`Delete this invoice (${inv.booking_number || "no booking"} / ${inv.container_number || "no container"})? This cannot be undone.`)) return;
+    const res = await fetch(`/api/forwarder-invoices/${inv.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(json.error || "Failed to delete");
+      return;
+    }
+    onDeleted();
+  }
   return (
     <tr className="border-b hover:bg-blue-50/30">
       <Td>{inv.booking_number || "—"}</Td>
@@ -263,9 +275,22 @@ function InvoiceRow({
           <option value="PAID">PAID</option>
         </select>
       </td>
+      <td className="px-3 py-2">
+        <button onClick={handleDelete} className="text-xs text-cutoff hover:underline" title="Delete this invoice">
+          Delete
+        </button>
+      </td>
     </tr>
   );
 }
+
+// The select IS the pill - it used to render a separate colored
+// StatusPill next to a plain gray <select>, which looked like two
+// controls showing conflicting info for the same value. One control now.
+const RELEASE_STATUS_COLORS: Record<string, string> = {
+  "on water": "bg-sky-100 text-sky-700",
+  released: "bg-emerald-100 text-emerald-700",
+};
 
 function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
   const [saving, setSaving] = useState(false);
@@ -277,21 +302,19 @@ function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: str
       setSaving(false);
     }
   }
+  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-slate-100 text-slate-600";
   return (
-    <div className="flex items-center gap-1.5">
-      <StatusPill value={value || null} />
-      <select
-        value={value}
-        onChange={(e) => handleChange(e.target.value)}
-        disabled={saving}
-        className="text-xs border rounded px-1 py-0.5 text-ink/50"
-      >
-        <option value="">— set —</option>
-        {RELEASE_STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={value}
+      onChange={(e) => handleChange(e.target.value)}
+      disabled={saving}
+      className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
+    >
+      <option value="">— set —</option>
+      {RELEASE_STATUS_OPTIONS.map((s) => (
+        <option key={s} value={s}>{s}</option>
+      ))}
+    </select>
   );
 }
 
