@@ -143,11 +143,22 @@ export async function POST(req: NextRequest) {
     .select("id, carrier_booking_no");
 
   if (insertError) {
-    for (const c of toInsert) skipped.push({ row: c.sheetRow, reason: insertError.message });
+    // The app-level dedupe check above already filters out anything that
+    // collides with an existing or in-file booking number - this 23505
+    // would only fire from a genuine race (another import/manual entry
+    // landing between that check and this insert), which is rare enough
+    // not to warrant re-running the whole batch row-by-row to isolate it.
+    const reason =
+      insertError.code === "23505"
+        ? "A Booking Number in this batch was just created elsewhere - re-upload the file to retry."
+        : insertError.message;
+    for (const c of toInsert) skipped.push({ row: c.sheetRow, reason });
     return NextResponse.json({ imported: 0, total: rows.length, skipped });
   }
 
-  // carrier_booking_no isn't unique, so map by array position, not by value.
+  // Booking-number uniqueness is enforced per company (migration 0014),
+  // but map by array position here regardless, since it's simpler and
+  // avoids relying on that constraint for correctness of this mapping.
   const bookingIdByRow = new Map(toInsert.map((c, idx) => [c.sheetRow, insertedBookings[idx].id]));
 
   // 1 round trip: bulk-insert every container in the file at once.

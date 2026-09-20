@@ -8,7 +8,7 @@ import PartyPickerCell from "@/components/PartyPickerCell";
 import ConsigneeCell from "@/components/ConsigneeCell";
 import ContainerCell from "@/components/ContainerCell";
 import StatCard from "@/components/ui/StatCard";
-import StatusPill from "@/components/ui/StatusPill";
+import StatusCell from "@/components/StatusCell";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -100,13 +100,20 @@ export default function BookingsClient({
   const [search, setSearch] = useState("");
 
   const lines = useMemo(() => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[], [rows]);
-  const destinations = useMemo(() => Array.from(new Set(rows.map((r) => r.pod).filter(Boolean))) as string[], [rows]);
+  // "All Destinations" means Port of Delivery (final_destination), not Port
+  // of Discharge (pod) - most rows share the same pod (e.g. Mundra) but
+  // fan out to many different final destinations, so filtering by pod
+  // made almost every option collapse down to one visible choice.
+  const destinations = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.final_destination).filter(Boolean))) as string[],
+    [rows]
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
       if (line !== "all" && r.carrier !== line) return false;
-      if (destination !== "all" && r.pod !== destination) return false;
+      if (destination !== "all" && r.final_destination !== destination) return false;
       if (status !== "all" && r.status !== status) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
@@ -242,7 +249,7 @@ export default function BookingsClient({
           <thead className="text-left text-ink/50 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
             <tr>
               {[
-                "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
+                "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)", "",
                 "Container Number", "Vessel", "Status", "Open",
@@ -254,10 +261,11 @@ export default function BookingsClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r) => {
+            {filtered.map((r, idx) => {
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
                 <tr key={rowKey(r)} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
+                  <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{idx + 1}</td>
                   <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} />
                   <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
@@ -318,9 +326,11 @@ export default function BookingsClient({
                     onAddContainer={() => addContainer(r)}
                   />
                   <EditableCell bookingId={r.booking_id} column="vessel" value={r.vessel} />
-                  <td className="px-3 py-2 text-sm whitespace-nowrap">
-                    <StatusPill value={r.status} />
-                  </td>
+                  <StatusCell
+                    bookingId={r.booking_id}
+                    value={r.status}
+                    onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
+                  />
                   <td className="px-3 py-2">
                     <Link href={`/bookings/${r.booking_id}`} className="text-accent hover:underline text-sm whitespace-nowrap">
                       View →

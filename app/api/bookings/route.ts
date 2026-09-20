@@ -38,7 +38,15 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "23505" && error.message.includes("carrier_booking_no")) {
+      return NextResponse.json(
+        { error: `Booking Number "${bookingFields.carrier_booking_no}" already exists.` },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   if (linkedDocumentId) {
     await supabase

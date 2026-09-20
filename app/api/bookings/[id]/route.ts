@@ -17,6 +17,7 @@ const EDITABLE_COLUMNS = [
   "bl_issued_at",
   "carrier",
   "vessel",
+  "status",
 ];
 
 // This previously had no PATCH export at all (Next's auto-405 for an
@@ -43,6 +44,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "23505" && error.message.includes("carrier_booking_no")) {
+      return NextResponse.json(
+        { error: `Booking Number "${updates.carrier_booking_no}" already exists.` },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ booking: data });
 }

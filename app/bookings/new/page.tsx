@@ -98,6 +98,9 @@ export default function NewBookingPage() {
   if (mode === "choose") {
     return (
       <div className="max-w-2xl mx-auto mt-12 space-y-4">
+        <Link href="/bookings" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
+          ← Back to Bookings
+        </Link>
         <h1 className="text-xl font-semibold text-center">New Booking</h1>
         <div className="grid grid-cols-3 gap-4">
           <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
