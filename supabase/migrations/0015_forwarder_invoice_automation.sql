@@ -90,3 +90,15 @@ begin
   return new;
 end;
 $$ language plpgsql;
+
+-- Backfill: the trigger above only fires on a NEW insert/update of
+-- container_no, so any tracking row that already had a forwarder
+-- assigned before this migration ran would otherwise never get an
+-- invoice shell. One-time catch-up, safe to re-run (no-op once every
+-- eligible tracking row has one).
+insert into forwarder_invoices (company_id, forwarder_id, tracking_id, booking_number, container_number, shipping_line, pol, pod)
+select t.company_id, t.forwarder_id, t.id, t.booking_number, t.container_number, t.shipping_line, b.pol, b.pod
+from tracking t
+join bookings b on b.id = t.booking_id
+where t.forwarder_id is not null
+on conflict (tracking_id) do nothing;
