@@ -24,8 +24,21 @@ async function reserveBookingNos(supabase: any, count: number): Promise<string[]
   return Array.from({ length: count }, (_, i) => `BP-${year}-${String(start + i + 1).padStart(4, "0")}`);
 }
 
-type Result = { row: number; status: "imported" | "skipped"; reason?: string; booking_number?: string };
+type Skip = { row: number; reason: string };
 
+// Rewritten from a one-row-at-a-time loop (10+ sequential DB round trips
+// PER ROW - forwarder/trucker/supplier/buyer lookups, creates, booking
+// insert, container insert) to a handful of bulk operations for the
+// whole file. The per-row version worked in testing on a handful of rows
+// but timed out for real: a 81-row import meant 800+ sequential round
+// trips in one serverless request, which Vercel kills past its function
+// time limit - the request never gets to send a JSON error, so the
+// browser sees an HTML/plaintext timeout page and throws "Unexpected
+// token 'A', An error o... is not valid JSON" trying to parse it as JSON.
+// carrier_booking_no has no DB-level unique constraint (checked
+// supabase/migrations/0002_extraction_fields.sql - it's a plain text
+// column), so duplicate detection has to happen here, not via a 23505
+// conflict from Postgres.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const headers: string[] = body.headers ?? [];
@@ -47,96 +60,165 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Booking Number must be mapped to a column before importing." }, { status: 400 });
   }
 
-  const supabase = createServiceClient();
-  const bookingNos = await reserveBookingNos(supabase, rows.length);
-  const partyCache = new Map<string, string>();
-  const results: Result[] = [];
+  type Candidate = {
+    sheetRow: number;
+    carrierBookingNo: string;
+    fields: Record<string, any>;
+    containerNo: string;
+    parties: { role: string; name: string }[];
+  };
+
+  const skipped: Skip[] = [];
+  const seenInFile = new Set<string>();
+  const candidates: Candidate[] = [];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const sheetRowNumber = i + 2; // +1 for header row, +1 for 1-indexing
+    const sheetRow = i + 2; // +1 for header row, +1 for 1-indexing
     const get = (key: string) => (colIndex[key] !== undefined ? (row[colIndex[key]] ?? "").trim() : "");
 
     const carrierBookingNo = get("carrier_booking_no");
     if (!carrierBookingNo) {
-      results.push({ row: sheetRowNumber, status: "skipped", reason: "Booking Number is blank" });
+      skipped.push({ row: sheetRow, reason: "Booking Number is blank" });
       continue;
     }
+    if (seenInFile.has(carrierBookingNo.toLowerCase())) {
+      skipped.push({ row: sheetRow, reason: `Duplicate Booking Number "${carrierBookingNo}" earlier in this file` });
+      continue;
+    }
+    seenInFile.add(carrierBookingNo.toLowerCase());
 
-    const bookingFields: Record<string, any> = {
+    const fields: Record<string, any> = {
       carrier_booking_no: carrierBookingNo,
       company_id: DEFAULT_COMPANY_ID,
-      booking_no: bookingNos[i],
       status: "confirmed"
     };
     for (const f of IMPORT_FIELDS) {
       if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
       const raw = get(f.key);
       if (!raw) continue;
-      bookingFields[f.key] = f.kind === "date" ? parseDateish(raw) : raw;
+      fields[f.key] = f.kind === "date" ? parseDateish(raw) : raw;
     }
 
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert(bookingFields)
-      .select("id")
-      .single();
+    const parties = IMPORT_FIELDS.filter((f) => f.kind === "party")
+      .map((f) => ({ role: f.role!, name: get(f.key) }))
+      .filter((p) => p.name);
 
-    if (bookingError) {
-      const reason =
-        bookingError.code === "23505"
-          ? `Booking Number "${carrierBookingNo}" already exists`
-          : bookingError.message;
-      results.push({ row: sheetRowNumber, status: "skipped", reason });
-      continue;
-    }
-
-    const containerNo = get("container_no");
-    if (containerNo) {
-      await supabase.from("containers").insert({ booking_id: booking.id, container_no: containerNo });
-    }
-
-    for (const f of IMPORT_FIELDS) {
-      if (f.kind !== "party") continue;
-      const name = get(f.key);
-      if (!name) continue;
-
-      const cacheKey = `${f.role}:${name.toLowerCase()}`;
-      let partyId = partyCache.get(cacheKey);
-
-      if (!partyId) {
-        const { data: existing } = await supabase
-          .from("parties")
-          .select("id, roles")
-          .eq("company_id", DEFAULT_COMPANY_ID)
-          .ilike("legal_name", name)
-          .maybeSingle();
-
-        if (existing) {
-          partyId = existing.id;
-          if (!(existing.roles ?? []).includes(f.role)) {
-            await supabase.from("parties").update({ roles: [...(existing.roles ?? []), f.role] }).eq("id", existing.id);
-          }
-        } else {
-          const { data: created, error: createError } = await supabase
-            .from("parties")
-            .insert({ company_id: DEFAULT_COMPANY_ID, legal_name: name, roles: [f.role] })
-            .select("id")
-            .single();
-          if (createError) continue;
-          partyId = created.id;
-        }
-        partyCache.set(cacheKey, partyId!);
-      }
-
-      await supabase.from("booking_parties").insert({ booking_id: booking.id, party_id: partyId, role: f.role });
-    }
-
-    results.push({ row: sheetRowNumber, status: "imported", booking_number: carrierBookingNo });
+    candidates.push({ sheetRow, carrierBookingNo, fields, containerNo: get("container_no"), parties });
   }
 
-  const imported = results.filter((r) => r.status === "imported").length;
-  const skipped = results.filter((r) => r.status === "skipped");
+  if (candidates.length === 0) {
+    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+  }
 
-  return NextResponse.json({ imported, skipped, total: rows.length });
+  const supabase = createServiceClient();
+
+  // Business-level duplicate check against already-imported bookings -
+  // carrier_booking_no has no DB uniqueness constraint, so this is the
+  // only thing that catches it.
+  const { data: existingBookings } = await supabase
+    .from("bookings")
+    .select("carrier_booking_no")
+    .in("carrier_booking_no", candidates.map((c) => c.carrierBookingNo));
+  const existingSet = new Set((existingBookings ?? []).map((b: any) => (b.carrier_booking_no ?? "").toLowerCase()));
+
+  const toInsert = candidates.filter((c) => {
+    if (existingSet.has(c.carrierBookingNo.toLowerCase())) {
+      skipped.push({ row: c.sheetRow, reason: `Booking Number "${c.carrierBookingNo}" already exists` });
+      return false;
+    }
+    return true;
+  });
+
+  if (toInsert.length === 0) {
+    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+  }
+
+  // 1 round trip: bulk-insert every booking in the file at once.
+  const bookingNos = await reserveBookingNos(supabase, toInsert.length);
+  const insertPayload = toInsert.map((c, idx) => ({ ...c.fields, booking_no: bookingNos[idx] }));
+  const { data: insertedBookings, error: insertError } = await supabase
+    .from("bookings")
+    .insert(insertPayload)
+    .select("id, carrier_booking_no");
+
+  if (insertError) {
+    for (const c of toInsert) skipped.push({ row: c.sheetRow, reason: insertError.message });
+    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+  }
+
+  // carrier_booking_no isn't unique, so map by array position, not by value.
+  const bookingIdByRow = new Map(toInsert.map((c, idx) => [c.sheetRow, insertedBookings[idx].id]));
+
+  // 1 round trip: bulk-insert every container in the file at once.
+  const containerRows = toInsert
+    .filter((c) => c.containerNo)
+    .map((c) => ({ booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
+  if (containerRows.length > 0) {
+    await supabase.from("containers").insert(containerRows);
+  }
+
+  // Parties: fetch this company's whole party list once (typically dozens,
+  // not thousands) instead of one lookup per row per role.
+  const anyParties = toInsert.some((c) => c.parties.length > 0);
+  if (anyParties) {
+    const { data: allParties } = await supabase
+      .from("parties")
+      .select("id, legal_name, roles")
+      .eq("company_id", DEFAULT_COMPANY_ID);
+
+    const partyByName = new Map<string, { id: string; roles: string[] }>();
+    for (const p of allParties ?? []) partyByName.set(p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] });
+
+    const nameOriginal = new Map<string, string>();
+    const rolesNeededByName = new Map<string, Set<string>>();
+    for (const c of toInsert) {
+      for (const p of c.parties) {
+        const key = p.name.toLowerCase();
+        nameOriginal.set(key, p.name);
+        if (!rolesNeededByName.has(key)) rolesNeededByName.set(key, new Set());
+        rolesNeededByName.get(key)!.add(p.role);
+      }
+    }
+
+    const toCreate = Array.from(rolesNeededByName.entries())
+      .filter(([key]) => !partyByName.has(key))
+      .map(([key, roles]) => ({
+        company_id: DEFAULT_COMPANY_ID,
+        legal_name: nameOriginal.get(key)!,
+        roles: Array.from(roles)
+      }));
+
+    if (toCreate.length > 0) {
+      const { data: created } = await supabase.from("parties").insert(toCreate).select("id, legal_name, roles");
+      for (const p of created ?? []) partyByName.set(p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] });
+    }
+
+    // Existing parties that need an extra role added (e.g. a party
+    // already used as a Buyer is now also seen as a Forwarder).
+    for (const [key, roles] of rolesNeededByName) {
+      const existing = partyByName.get(key);
+      if (!existing) continue;
+      const missing = Array.from(roles).filter((r) => !existing.roles.includes(r));
+      if (missing.length === 0) continue;
+      const newRoles = [...existing.roles, ...missing];
+      await supabase.from("parties").update({ roles: newRoles }).eq("id", existing.id);
+      existing.roles = newRoles;
+    }
+
+    // 1 round trip: bulk-insert every booking_parties link at once.
+    const bookingPartyRows: { booking_id: string; party_id: string; role: string }[] = [];
+    for (const c of toInsert) {
+      const bookingId = bookingIdByRow.get(c.sheetRow)!;
+      for (const p of c.parties) {
+        const party = partyByName.get(p.name.toLowerCase());
+        if (party) bookingPartyRows.push({ booking_id: bookingId, party_id: party.id, role: p.role });
+      }
+    }
+    if (bookingPartyRows.length > 0) {
+      await supabase.from("booking_parties").insert(bookingPartyRows);
+    }
+  }
+
+  return NextResponse.json({ imported: toInsert.length, total: rows.length, skipped });
 }
