@@ -1,29 +1,42 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import TeamClient from "@/components/TeamClient";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// TEMPORARY: service-role client, DEFAULT_COMPANY_ID - same pattern as
-// every other module until real session-based company_id lands (see
-// lib/constants.ts). This page itself is stage-1 login groundwork: it
-// manages who CAN sign in, but nothing yet blocks a signed-out visitor
-// from reaching the app - see middleware.ts for why that's deliberate.
+// Unlike every other module (still on DEFAULT_COMPANY_ID/service-role
+// until the rest of Stage 2 happens - see lib/constants.ts), this page
+// requires a real signed-in session: managing who can log in only makes
+// sense per-company, and there's more than one company as of the first
+// client onboarding built here.
 export default async function TeamPage() {
+  const me = await getCurrentProfile();
+  if (!me) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center text-center">
+        <h1 className="text-lg font-semibold text-ink">Sign in required</h1>
+        <p className="text-sm text-ink/50 mt-1">Manage Users needs to know which company you belong to.</p>
+        <a href="/login" className="mt-4 text-sm bg-accent text-white px-4 py-2 rounded-lg">
+          Go to sign in
+        </a>
+      </div>
+    );
+  }
+
   const supabase = createServiceClient();
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
-    .select("seat_limit")
-    .eq("id", DEFAULT_COMPANY_ID)
+    .select("name, seat_limit")
+    .eq("id", me.company_id)
     .single();
   if (companyError) return <p className="text-red-600 p-6">{companyError.message}</p>;
 
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
     .select("id, full_name, role, is_active, created_at")
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", me.company_id)
     .order("created_at");
   if (profilesError) return <p className="text-red-600 p-6">{profilesError.message}</p>;
 
@@ -35,5 +48,13 @@ export default async function TeamPage() {
     email: emailById.get(p.id) ?? "—",
   }));
 
-  return <TeamClient initialTeammates={teammates} seatLimit={company.seat_limit} />;
+  return (
+    <TeamClient
+      initialTeammates={teammates}
+      seatLimit={company.seat_limit}
+      companyName={company.name}
+      isAdmin={me.role === "admin"}
+      isPlatformOwner={me.is_platform_owner}
+    />
+  );
 }

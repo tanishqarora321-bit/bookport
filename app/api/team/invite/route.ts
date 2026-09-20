@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 const ROLES = ["admin", "operations", "finance", "readonly"];
 
-// Creates a teammate login under the current company, blocked once the
-// company's seat_limit is reached. Uses inviteUserByEmail rather than
-// admin.createUser with a generated password - Supabase emails the
-// invitee a link where THEY set their own password, so there's never a
-// password sitting in a request body, a log line, or a chat message.
+// Creates a teammate login under the CALLER's OWN company, blocked once
+// that company's seat_limit is reached. Only an admin of that company can
+// invite - the endpoint has no way to invite into a company other than
+// the caller's own, by construction, so there's no need for a separate
+// "which company" input to trust or validate. Uses inviteUserByEmail
+// rather than admin.createUser with a generated password - Supabase
+// emails the invitee a link where THEY set their own password, so there's
+// never a password sitting in a request body, a log line, or a chat
+// message.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  if (me.role !== "admin") return NextResponse.json({ error: "Only an admin can invite teammates" }, { status: 403 });
+
   const body = await req.json();
   const email = (body.email ?? "").trim().toLowerCase();
   const full_name = (body.full_name ?? "").trim();
@@ -22,14 +30,14 @@ export async function POST(req: NextRequest) {
   const { data: company, error: companyError } = await supabase
     .from("companies")
     .select("seat_limit")
-    .eq("id", DEFAULT_COMPANY_ID)
+    .eq("id", me.company_id)
     .single();
   if (companyError) return NextResponse.json({ error: companyError.message }, { status: 500 });
 
   const { count, error: countError } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", me.company_id)
     .eq("is_active", true);
   if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
 
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert(
-    { id: invited.user.id, full_name: full_name || null, role, company_id: DEFAULT_COMPANY_ID },
+    { id: invited.user.id, full_name: full_name || null, role, company_id: me.company_id },
     { onConflict: "id" }
   );
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });

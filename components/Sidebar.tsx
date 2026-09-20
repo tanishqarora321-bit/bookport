@@ -48,6 +48,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
@@ -67,11 +68,18 @@ export default function Sidebar() {
   // no one has signed in - the footer just falls back to the
   // placeholder below.
   useEffect(() => {
+    function loadProfile() {
+      fetch("/api/me")
+        .then((r) => r.json())
+        .then(({ user }) => {
+          setUserEmail(user?.email ?? null);
+          setCompanyName(user?.company_name ?? null);
+        })
+        .catch(() => {});
+    }
+    loadProfile();
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
-    });
+    const { data: sub } = supabase.auth.onAuthStateChange(() => loadProfile());
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -149,7 +157,12 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="min-w-0 flex-1">
             {userEmail ? (
-              <div className="text-white/80 truncate" title={userEmail}>{userEmail}</div>
+              <>
+                <div className="text-white/90 font-medium truncate" title={companyName ?? undefined}>
+                  {companyName ?? "—"}
+                </div>
+                <div className="truncate" title={userEmail}>{userEmail}</div>
+              </>
             ) : (
               <>
                 <div className="text-white/80 truncate">Default Company</div>

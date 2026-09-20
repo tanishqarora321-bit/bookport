@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, CheckCircle2 } from "lucide-react";
+import { Users, CheckCircle2, Building2 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -19,15 +19,27 @@ const ROLES = ["admin", "operations", "finance", "readonly"];
 export default function TeamClient({
   initialTeammates,
   seatLimit,
+  companyName,
+  isAdmin,
+  isPlatformOwner,
 }: {
   initialTeammates: Teammate[];
   seatLimit: number;
+  companyName: string;
+  isAdmin: boolean;
+  isPlatformOwner: boolean;
 }) {
   const [teammates, setTeammates] = useState(initialTeammates);
   const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState({ email: "", full_name: "", role: "operations" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [onboarding, setOnboarding] = useState(false);
+  const [companyForm, setCompanyForm] = useState({ companyName: "", adminEmail: "", adminName: "" });
+  const [companySaving, setCompanySaving] = useState(false);
+  const [companyError, setCompanyError] = useState<string | null>(null);
+  const [companySuccess, setCompanySuccess] = useState<string | null>(null);
 
   const activeCount = teammates.filter((t) => t.is_active).length;
   const seatsLeft = Math.max(0, seatLimit - activeCount);
@@ -60,6 +72,32 @@ export default function TeamClient({
     }
   }
 
+  async function createCompany() {
+    if (!companyForm.companyName.trim() || !companyForm.adminEmail.trim()) {
+      setCompanyError("Company name and admin email are both required.");
+      return;
+    }
+    setCompanySaving(true);
+    setCompanyError(null);
+    setCompanySuccess(null);
+    try {
+      const res = await fetch("/api/companies/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(companyForm),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to create company");
+      setCompanySuccess(`"${companyForm.companyName}" created - an invite was sent to ${companyForm.adminEmail}.`);
+      setCompanyForm({ companyName: "", adminEmail: "", adminName: "" });
+      setOnboarding(false);
+    } catch (err: any) {
+      setCompanyError(err.message);
+    } finally {
+      setCompanySaving(false);
+    }
+  }
+
   async function toggleActive(t: Teammate) {
     const method = t.is_active ? "DELETE" : "PATCH";
     const res = await fetch(`/api/team/${t.id}`, { method });
@@ -75,17 +113,19 @@ export default function TeamClient({
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink">Manage Users</h1>
+          <h1 className="text-xl font-semibold text-ink">Manage Users — {companyName}</h1>
           <p className="text-sm text-ink/40">Invited teammates sign in with email + the password they set from the invite email.</p>
         </div>
-        <button
-          onClick={() => setInviting(!inviting)}
-          disabled={seatsLeft <= 0}
-          className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-40"
-          title={seatsLeft <= 0 ? "No seats left - remove a teammate or upgrade the plan" : undefined}
-        >
-          + Invite Teammate
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setInviting(!inviting)}
+            disabled={seatsLeft <= 0}
+            className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-40"
+            title={seatsLeft <= 0 ? "No seats left - remove a teammate or upgrade the plan" : undefined}
+          >
+            + Invite Teammate
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
@@ -93,7 +133,7 @@ export default function TeamClient({
         <StatCard icon={CheckCircle2} label="Seats Left" value={seatsLeft} tone={seatsLeft <= 0 ? "danger" : "success"} />
       </div>
 
-      {inviting && (
+      {isAdmin && inviting && (
         <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-3 gap-3">
           <input
             placeholder="Email *"
@@ -137,7 +177,7 @@ export default function TeamClient({
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Role</th>
               <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2 w-24"></th>
+              {isAdmin && <th className="px-3 py-2 w-24"></th>}
             </tr>
           </thead>
           <tbody>
@@ -151,17 +191,19 @@ export default function TeamClient({
                     {t.is_active ? "Active" : "Removed"}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    onClick={() => toggleActive(t)}
-                    disabled={!t.is_active && seatsLeft <= 0}
-                    className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${
-                      t.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
-                    }`}
-                  >
-                    {t.is_active ? "Remove" : "Restore"}
-                  </button>
-                </td>
+                {isAdmin && (
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      onClick={() => toggleActive(t)}
+                      disabled={!t.is_active && seatsLeft <= 0}
+                      className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${
+                        t.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                      }`}
+                    >
+                      {t.is_active ? "Remove" : "Restore"}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -170,6 +212,59 @@ export default function TeamClient({
           <EmptyState icon={Users} title="No teammates yet" hint='Click "+ Invite Teammate" above to bring the first person in.' />
         )}
       </div>
+
+      {isPlatformOwner && (
+        <div className="mt-8 pt-6 border-t border-ink/10">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+                <Building2 className="w-4 h-4" size={16} /> Platform Owner: Onboard a New Client Company
+              </h2>
+              <p className="text-xs text-ink/40 mt-0.5">Creates the company and invites its first admin in one step. Only you can see this section.</p>
+            </div>
+            {!onboarding && (
+              <button onClick={() => setOnboarding(true)} className="text-sm border px-3 py-1.5 rounded font-medium">
+                + New Company
+              </button>
+            )}
+          </div>
+
+          {companySuccess && <div className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 mb-3">{companySuccess}</div>}
+
+          {onboarding && (
+            <div className="border border-ink/10 bg-slate-50 rounded p-4 grid grid-cols-3 gap-3">
+              <input
+                placeholder="Company name *"
+                className="border rounded px-2 py-1.5 text-sm"
+                value={companyForm.companyName}
+                onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })}
+              />
+              <input
+                placeholder="Admin email *"
+                type="email"
+                className="border rounded px-2 py-1.5 text-sm"
+                value={companyForm.adminEmail}
+                onChange={(e) => setCompanyForm({ ...companyForm, adminEmail: e.target.value })}
+              />
+              <input
+                placeholder="Admin name"
+                className="border rounded px-2 py-1.5 text-sm"
+                value={companyForm.adminName}
+                onChange={(e) => setCompanyForm({ ...companyForm, adminName: e.target.value })}
+              />
+              {companyError && <div className="col-span-3 text-xs text-cutoff">{companyError}</div>}
+              <div className="col-span-3 flex gap-2">
+                <button onClick={createCompany} disabled={companySaving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+                  {companySaving ? "Creating…" : "Create Company & Invite Admin"}
+                </button>
+                <button onClick={() => setOnboarding(false)} className="text-sm border px-3 py-1.5 rounded">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
