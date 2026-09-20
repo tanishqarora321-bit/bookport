@@ -161,14 +161,6 @@ export async function POST(req: NextRequest) {
   // avoids relying on that constraint for correctness of this mapping.
   const bookingIdByRow = new Map(toInsert.map((c, idx) => [c.sheetRow, insertedBookings[idx].id]));
 
-  // 1 round trip: bulk-insert every container in the file at once.
-  const containerRows = toInsert
-    .filter((c) => c.containerNo)
-    .map((c) => ({ booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
-  if (containerRows.length > 0) {
-    await supabase.from("containers").insert(containerRows);
-  }
-
   // Parties: fetch this company's whole party list once (typically dozens,
   // not thousands) instead of one lookup per row per role.
   const anyParties = toInsert.some((c) => c.parties.length > 0);
@@ -229,6 +221,23 @@ export async function POST(req: NextRequest) {
     if (bookingPartyRows.length > 0) {
       await supabase.from("booking_parties").insert(bookingPartyRows);
     }
+  }
+
+  // Containers are inserted LAST, after booking_parties - a container
+  // insert fires the live sync_container_to_tracking() trigger (see
+  // supabase/migrations/0015_forwarder_invoice_automation.sql), which
+  // reads the booking's forwarder off booking_parties AT THAT MOMENT.
+  // Inserting containers first meant every bulk-imported container
+  // synced to tracking with no forwarder yet (booking_parties didn't
+  // exist), and nothing ever re-touched container_no afterward to
+  // re-fire it - so no forwarder invoice ever got auto-created for an
+  // imported booking. Same reasoning as the "touch container_no to
+  // itself" re-sync trick in app/api/bookings/[id]/parties/route.ts.
+  const containerRows = toInsert
+    .filter((c) => c.containerNo)
+    .map((c) => ({ booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
+  if (containerRows.length > 0) {
+    await supabase.from("containers").insert(containerRows);
   }
 
   return NextResponse.json({ imported: toInsert.length, total: rows.length, skipped });
