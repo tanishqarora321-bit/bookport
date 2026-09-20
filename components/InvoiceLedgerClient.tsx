@@ -44,6 +44,23 @@ async function patchInvoice(id: string, updates: Record<string, any>) {
   return json;
 }
 
+// ETA/Status here are read live from `tracking` (see the page's join) -
+// editing them writes to that same tracking row via its own route, the
+// same one components/TrackingClient.tsx uses, so a change here shows
+// up in Shipment Tracking too and vice versa - there's only one copy.
+async function patchTracking(trackingId: string, updates: Record<string, any>) {
+  const res = await fetch(`/api/tracking/${trackingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Save failed");
+  return json;
+}
+
+const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
+
 function fmtDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -215,23 +232,66 @@ function InvoiceRow({
       <Td>
         <span className="font-medium">{fmtMoney(inv.total_usd, "USD")}</span>
       </Td>
-      <Td>
-        <span className="text-ink/60">{fmtDate(inv.tracking?.eta ?? null)}</span>
-      </Td>
-      <td className="px-3 py-2 whitespace-nowrap">
-        <StatusPill value={inv.tracking?.release_status ?? null} />
-      </td>
+      {inv.tracking_id ? (
+        <EditableCell
+          value={inv.tracking?.eta ?? null}
+          isDate
+          onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
+        />
+      ) : (
+        <Td><span className="text-ink/30">—</span></Td>
+      )}
+      {inv.tracking_id ? (
+        <td className="px-3 py-2 whitespace-nowrap">
+          <ReleaseStatusSelect
+            value={inv.tracking?.release_status ?? ""}
+            onSave={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
+          />
+        </td>
+      ) : (
+        <td className="px-3 py-2"><StatusPill value={null} /></td>
+      )}
       <td className="px-3 py-2">
-        <button
-          onClick={() => patchInvoice(inv.id, { paid_status: inv.paid_status === "PAID" ? "UNPAID" : "PAID" }).then((r) => onChange(r.invoice))}
-          className={`text-xs px-2 py-1 rounded font-medium ${
+        <select
+          value={inv.paid_status}
+          onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
+          className={`text-xs px-2 py-1 rounded font-medium border-0 ${
             inv.paid_status === "PAID" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
           }`}
         >
-          {inv.paid_status}
-        </button>
+          <option value="UNPAID">UNPAID</option>
+          <option value="PAID">PAID</option>
+        </select>
       </td>
     </tr>
+  );
+}
+
+function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
+  const [saving, setSaving] = useState(false);
+  async function handleChange(v: string) {
+    setSaving(true);
+    try {
+      await onSave(v);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <StatusPill value={value || null} />
+      <select
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        disabled={saving}
+        className="text-xs border rounded px-1 py-0.5 text-ink/50"
+      >
+        <option value="">— set —</option>
+        {RELEASE_STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+    </div>
   );
 }
 
