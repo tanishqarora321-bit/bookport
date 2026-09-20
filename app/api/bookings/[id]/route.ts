@@ -1,37 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-// Adds one more description line under this booking's buyer/consignee --
-// the "+" from Tanishq's screenshot. Kept as its own row (not a jsonb
-// array on bookings) since these are meant to become invoice line items
-// later, per his note -- a real table joins into that cleanly, an array
-// column doesn't.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+// Every column EditableCell.tsx is allowed to PATCH from the Booking &
+// Instructions grid (components/BookingsClient.tsx) - kept as an
+// allow-list, same pattern as containers/[containerId]/route.ts, so a
+// stray/unexpected key in the request body is silently ignored rather
+// than letting a client write to an arbitrary bookings column.
+const EDITABLE_COLUMNS = [
+  "carrier_booking_no",
+  "erd",
+  "si_cutoff",
+  "cargo_cutoff",
+  "pol",
+  "pod",
+  "final_destination",
+  "bl_issued_at",
+  "carrier",
+  "vessel",
+];
+
+// This previously had no PATCH export at all (Next's auto-405 for an
+// unimplemented method returns an empty body, which is what made every
+// cell edit in the grid fail with "Unexpected end of JSON input" -
+// EditableCell.tsx always calls res.json() on the response).
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json();
   const supabase = createServiceClient();
 
-  if (!body.description || !body.description.toString().trim()) {
-    return NextResponse.json({ error: "Description is required" }, { status: 400 });
+  const updates: Record<string, any> = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (EDITABLE_COLUMNS.includes(key)) updates[key] = value === "" ? null : value;
   }
 
-  const { data: existing } = await supabase
-    .from("booking_consignee_items")
-    .select("sort_order")
-    .eq("booking_id", params.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
-    .from("booking_consignee_items")
-    .insert({
-      booking_id: params.id,
-      description: body.description.toString().trim(),
-      sort_order: (existing?.sort_order ?? -1) + 1,
-    })
+    .from("bookings")
+    .update(updates)
+    .eq("id", params.id)
     .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ item: data });
+  return NextResponse.json({ booking: data });
 }

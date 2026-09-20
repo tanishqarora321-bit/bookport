@@ -81,6 +81,9 @@ export default function AuthCallbackPage() {
       setSaving(false);
       return;
     }
+    // Claim this device as the account's one active session, same as a
+    // normal password sign-in (see app/api/session/register).
+    await fetch("/api/session/register", { method: "POST" });
     router.push("/bookings");
     router.refresh();
   }

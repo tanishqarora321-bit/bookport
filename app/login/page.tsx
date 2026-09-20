@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Ship, Container, MapPinned, FileCheck2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
@@ -12,8 +12,20 @@ const FEATURES = [
   { icon: FileCheck2, text: "Documents, invoices and P&L in one place" },
 ];
 
+// useSearchParams() opts the page out of static rendering unless it's
+// wrapped in Suspense - this is that wrapper; LoginForm has the actual
+// page content and logic.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,6 +54,10 @@ export default function LoginPage() {
       setSaving(false);
       return;
     }
+    // Claim this device as the one active session for the account -
+    // any other device currently signed in gets signed out on its next
+    // request (see app/api/session/register and middleware.ts).
+    await fetch("/api/session/register", { method: "POST" });
     router.push("/bookings");
     router.refresh();
   }
@@ -108,6 +124,12 @@ export default function LoginPage() {
             <h1 className="text-2xl font-semibold text-ink mb-1">Welcome back</h1>
             <p className="text-sm text-ink/40">Sign in to your Ship-Sphere account.</p>
           </div>
+
+          {searchParams.get("reason") === "elsewhere" && (
+            <div className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+              You've been signed out because this account signed in on another device. Ship-Sphere only allows one active session at a time.
+            </div>
+          )}
 
           <form onSubmit={signIn} className="space-y-4">
             <div>

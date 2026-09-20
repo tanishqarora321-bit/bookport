@@ -6,13 +6,26 @@ import { useRouter } from "next/navigation";
 type FieldVal = { value: string | null; confidence: number; source_quote: string };
 type Extracted = Record<string, FieldVal>;
 
+// Best-effort conversion to the format <input type="datetime-local">
+// requires. Returns "" for an empty field (still renders the picker,
+// just empty) and null when the value can't be parsed as a date at
+// all (e.g. an odd AI-extracted date format) - null falls back to a
+// plain text box below so nothing extracted is ever silently dropped.
+function toLocalInputValue(v: string): string | null {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // Maps the extraction schema's field names to the actual bookings table
 // columns (see migration 0002 for which ones are new vs. pre-existing).
-const FIELD_MAP: { key: string; column: string; label: string; extractKey: string }[] = [
+const FIELD_MAP: { key: string; column: string; label: string; extractKey: string; isDate?: boolean }[] = [
   { key: "booking_number", column: "carrier_booking_no", label: "Booking Number", extractKey: "booking_number" },
-  { key: "erd", column: "erd", label: "ERD", extractKey: "erd" },
-  { key: "doc_cutoff", column: "si_cutoff", label: "DOC Cut Off", extractKey: "doc_cutoff" },
-  { key: "cargo_cutoff", column: "cargo_cutoff", label: "Cargo Cut Off", extractKey: "cargo_cutoff" },
+  { key: "erd", column: "erd", label: "ERD", extractKey: "erd", isDate: true },
+  { key: "doc_cutoff", column: "si_cutoff", label: "DOC Cut Off", extractKey: "doc_cutoff", isDate: true },
+  { key: "cargo_cutoff", column: "cargo_cutoff", label: "Cargo Cut Off", extractKey: "cargo_cutoff", isDate: true },
   { key: "pol", column: "pol", label: "POL", extractKey: "pol" },
   { key: "port_of_discharge", column: "pod", label: "Port of Discharge", extractKey: "port_of_discharge" },
   { key: "port_of_delivery", column: "final_destination", label: "Port of Delivery", extractKey: "port_of_delivery" },
@@ -118,22 +131,33 @@ export default function NewBookingPage() {
         const meta = extracted?.[f.extractKey];
         const lowConfidence = meta && meta.confidence < 0.6;
         const isMandatory = f.key === "booking_number";
+        const dateVal = f.isDate ? toLocalInputValue(form[f.column] ?? "") : null;
+        const inputClass = `w-full border rounded px-2 py-1.5 text-sm ${
+          meta ? "border-amber-400 bg-amber-50" : "border-slate-300"
+        } ${lowConfidence ? "border-cutoff" : ""}`;
         return (
           <div key={f.key} className="grid grid-cols-3 gap-3 items-start py-1.5 border-b last:border-0">
             <label className="text-sm text-slate-600 pt-2">
               {f.label} {isMandatory && <span className="text-cutoff">*</span>}
             </label>
             <div className="col-span-2">
-              <input
-                className={`w-full border rounded px-2 py-1.5 text-sm ${
-                  meta ? "border-amber-400 bg-amber-50" : "border-slate-300"
-                } ${lowConfidence ? "border-cutoff" : ""}`}
-                value={form[f.column] ?? ""}
-                onChange={(e) => setForm({ ...form, [f.column]: e.target.value })}
-                placeholder={
-                  isMandatory && !form[f.column] ? "Required" : lowConfidence ? "Low confidence — please verify" : ""
-                }
-              />
+              {dateVal !== null ? (
+                <input
+                  type="datetime-local"
+                  className={inputClass}
+                  value={dateVal}
+                  onChange={(e) => setForm({ ...form, [f.column]: e.target.value })}
+                />
+              ) : (
+                <input
+                  className={inputClass}
+                  value={form[f.column] ?? ""}
+                  onChange={(e) => setForm({ ...form, [f.column]: e.target.value })}
+                  placeholder={
+                    isMandatory && !form[f.column] ? "Required" : lowConfidence ? "Low confidence — please verify" : ""
+                  }
+                />
+              )}
               {meta?.source_quote && (
                 <div className="text-xs text-slate-400 mt-0.5">from PDF: "{meta.source_quote}"</div>
               )}

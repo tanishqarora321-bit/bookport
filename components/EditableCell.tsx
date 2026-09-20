@@ -32,8 +32,14 @@ export default function EditableCell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [column]: val })
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Save failed");
+      // A non-JSON or empty body (e.g. a route with no handler for this
+      // method) shouldn't surface as an opaque "Unexpected end of JSON
+      // input" - fall back to the raw status so the real problem is
+      // visible instead.
+      const text = await res.text();
+      let json: any = {};
+      try { json = text ? JSON.parse(text) : {}; } catch { /* non-JSON body, fall through to status */ }
+      if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
       window.location.reload();
     } catch (err: any) {
       setSaving(false);
