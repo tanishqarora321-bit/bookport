@@ -1,13 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Groundwork only, stage 1: this refreshes a logged-in user's session
-// cookie on every request so it doesn't silently expire. It does NOT
-// redirect anyone yet - every page still works exactly as before
-// (service-role + DEFAULT_COMPANY_ID). Route-protection (redirect to
-// /login when signed out) is a deliberate separate step, added only
-// once real accounts exist and login has been confirmed working -
-// turning it on before that would lock everyone out of the app.
+// Stage 2: now that real accounts exist and login/invite has been
+// confirmed working end to end, this redirects signed-out visitors to
+// /login instead of letting them straight into the app. /login,
+// /auth/callback (invite/password-reset links) and /api/* (routes do
+// their own auth via getCurrentProfile and return JSON, not an HTML
+// redirect) stay reachable either way.
+const PUBLIC_PATHS = ["/login", "/auth/callback"];
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
@@ -33,7 +34,22 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { pathname } = request.nextUrl;
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isApi = pathname.startsWith("/api");
+
+  if (!user && !isPublic && !isApi) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (user && pathname === "/login") {
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = "/";
+    return NextResponse.redirect(homeUrl);
+  }
 
   return response;
 }

@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
   const companyName = (body.companyName ?? "").trim();
   const adminEmail = (body.adminEmail ?? "").trim().toLowerCase();
   const adminName = (body.adminName ?? "").trim();
+  const seatLimitRaw = Number(body.seatLimit);
+  const seatLimit = Number.isFinite(seatLimitRaw) && seatLimitRaw > 0 ? Math.floor(seatLimitRaw) : 5;
 
   if (!companyName) return NextResponse.json({ error: "Company name is required" }, { status: 400 });
   if (!adminEmail) return NextResponse.json({ error: "Admin email is required" }, { status: 400 });
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
   for (const slug of [baseSlug, `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`]) {
     const { data, error } = await supabase
       .from("companies")
-      .insert({ name: companyName, slug })
+      .insert({ name: companyName, slug, seat_limit: seatLimit })
       .select("id")
       .single();
     if (!error) {

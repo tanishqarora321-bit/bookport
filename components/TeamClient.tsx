@@ -36,7 +36,7 @@ export default function TeamClient({
   const [error, setError] = useState<string | null>(null);
 
   const [onboarding, setOnboarding] = useState(false);
-  const [companyForm, setCompanyForm] = useState({ companyName: "", adminEmail: "", adminName: "" });
+  const [companyForm, setCompanyForm] = useState({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
   const [companySaving, setCompanySaving] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [companySuccess, setCompanySuccess] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export default function TeamClient({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create company");
       setCompanySuccess(`"${companyForm.companyName}" created - an invite was sent to ${companyForm.adminEmail}.`);
-      setCompanyForm({ companyName: "", adminEmail: "", adminName: "" });
+      setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
       setOnboarding(false);
     } catch (err: any) {
       setCompanyError(err.message);
@@ -232,7 +232,7 @@ export default function TeamClient({
           {companySuccess && <div className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 mb-3">{companySuccess}</div>}
 
           {onboarding && (
-            <div className="border border-ink/10 bg-slate-50 rounded p-4 grid grid-cols-3 gap-3">
+            <div className="border border-ink/10 bg-slate-50 rounded p-4 grid grid-cols-4 gap-3">
               <input
                 placeholder="Company name *"
                 className="border rounded px-2 py-1.5 text-sm"
@@ -252,8 +252,16 @@ export default function TeamClient({
                 value={companyForm.adminName}
                 onChange={(e) => setCompanyForm({ ...companyForm, adminName: e.target.value })}
               />
-              {companyError && <div className="col-span-3 text-xs text-cutoff">{companyError}</div>}
-              <div className="col-span-3 flex gap-2">
+              <input
+                placeholder="Seats allowed"
+                type="number"
+                min={1}
+                className="border rounded px-2 py-1.5 text-sm"
+                value={companyForm.seatLimit}
+                onChange={(e) => setCompanyForm({ ...companyForm, seatLimit: e.target.value })}
+              />
+              {companyError && <div className="col-span-4 text-xs text-cutoff">{companyError}</div>}
+              <div className="col-span-4 flex gap-2">
                 <button onClick={createCompany} disabled={companySaving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
                   {companySaving ? "Creating…" : "Create Company & Invite Admin"}
                 </button>
