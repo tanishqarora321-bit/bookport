@@ -14,7 +14,7 @@ export default async function BookingsPage() {
       supabase
         .from("bookings")
         .select(
-          "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, status, " +
+          "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, " +
             "containers (id, container_no, seal_no, size_type), " +
             "booking_parties (role, party_id, parties (legal_name)), " +
             "consignee_items:booking_consignee_items (id, description, sort_order)"
@@ -59,6 +59,7 @@ export default async function BookingsPage() {
         bl_issued_at: b.bl_issued_at,
         carrier: b.carrier,
         vessel: b.vessel,
+        container_size: b.container_size,
         status: b.status,
         container_no: c.container_no,
         forwarder: partyByRole["forwarder"] ?? null,

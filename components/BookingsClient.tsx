@@ -27,6 +27,7 @@ type Row = {
   bl_issued_at: string | null;
   carrier: string | null;
   vessel: string | null;
+  container_size: string | null;
   status: string;
   container_no: string | null;
   forwarder: PartyRef;
@@ -66,7 +67,7 @@ function toCsv(rows: Row[]) {
       r.carrier_booking_no ?? "", monthOfLoading(r.erd), formatPlain(r.erd, true), formatPlain(r.si_cutoff, true), formatPlain(r.cargo_cutoff, true),
       r.pol ?? "", r.pod ?? "", r.final_destination ?? "", formatPlain(r.bl_issued_at),
       r.carrier ?? "", r.forwarder?.name ?? "", r.trucker?.name ?? "", r.supplier?.name ?? "", r.buyer?.name ?? "",
-      r.container_no ?? "", r.vessel ?? "", r.status,
+      r.container_no ?? "", r.container_size ?? "", r.status,
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(",")
@@ -169,6 +170,24 @@ export default function BookingsClient({
       next.splice(idx + 1, 0, newRow);
       return next;
     });
+  }
+
+  // Irreversible and cascades across containers/tracking/documents/
+  // amendments - matches the confirm() convention already used for
+  // other permanent deletes in this app (e.g. OfferSheetGridClient's
+  // "Delete this row?"), not TeamClient's silent Remove/Restore toggle,
+  // since there's no "Restore" for a deleted booking.
+  async function deleteBooking(bookingId: string, bookingNo: string | null) {
+    if (!confirm(`Delete booking ${bookingNo ?? "(no number)"}? This permanently removes it and everything on it (containers, documents, tracking, amendments). This cannot be undone.`)) {
+      return;
+    }
+    const res = await fetch(`/api/bookings/${bookingId}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(json.error || "Failed to delete booking");
+      return;
+    }
+    setRows((prev) => prev.filter((r) => r.booking_id !== bookingId));
   }
 
   function exportCsv() {
@@ -325,23 +344,32 @@ export default function BookingsClient({
                     onSaved={(containerId, containerNo) => updateSingleRow(r.booking_id, r.container_id, { container_id: containerId, container_no: containerNo })}
                     onAddContainer={() => addContainer(r)}
                   />
-                  <EditableCell bookingId={r.booking_id} column="vessel" value={r.vessel} />
+                  <EditableCell bookingId={r.booking_id} column="container_size" value={r.container_size} />
                   <StatusCell
                     bookingId={r.booking_id}
                     value={r.status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
                   />
                   <td className="px-3 py-2">
-                    <Link href={`/bookings/${r.booking_id}`} className="text-accent hover:underline text-sm whitespace-nowrap">
-                      View →
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/bookings/${r.booking_id}`} className="text-accent hover:underline text-sm whitespace-nowrap">
+                        View →
+                      </Link>
+                      <button
+                        onClick={() => deleteBooking(r.booking_id, r.carrier_booking_no)}
+                        className="text-cutoff hover:underline text-sm whitespace-nowrap"
+                        title="Delete booking"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={19} className="p-8 text-center text-ink/40">
+                <td colSpan={20} className="p-8 text-center text-ink/40">
                   {rows.length === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
                 </td>
               </tr>
