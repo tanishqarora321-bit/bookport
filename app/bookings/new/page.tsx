@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type FieldVal = { value: string | null; confidence: number; source_quote: string };
 type Extracted = Record<string, FieldVal>;
@@ -96,9 +97,9 @@ export default function NewBookingPage() {
 
   if (mode === "choose") {
     return (
-      <div className="max-w-lg mx-auto mt-12 space-y-4">
+      <div className="max-w-2xl mx-auto mt-12 space-y-4">
         <h1 className="text-xl font-semibold text-center">New Booking</h1>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
             <div className="font-medium">Type it in</div>
             <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
@@ -110,6 +111,10 @@ export default function NewBookingPage() {
             </div>
             <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
           </label>
+          <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
+            <div className="font-medium">Import Excel</div>
+            <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
+          </Link>
         </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
       </div>

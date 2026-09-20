@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { bookingExtractionSchema as schema } from "./booking-schema";
+import { IMPORT_FIELDS } from "./booking-import-fields";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -89,5 +90,38 @@ match the meaning, not the literal words):
     { inlineData: { mimeType: "application/pdf", data: fileBase64 } }
   ]);
 
+  return JSON.parse(result.response.text());
+}
+
+/**
+ * Suggests which spreadsheet header best matches each Booking &
+ * Instructions field, for the Excel import mapping screen
+ * (app/bookings/import/page.tsx). This is only ever a pre-filled
+ * suggestion - the user reviews and can override every field before
+ * anything is imported, so a wrong guess here costs a dropdown change,
+ * never bad data.
+ */
+export async function suggestColumnMapping(headers: string[]): Promise<Record<string, string | null>> {
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 }
+  });
+
+  const fieldList = IMPORT_FIELDS.map((f) => `"${f.key}" (${f.label})`).join(", ");
+  const keys = IMPORT_FIELDS.map((f) => f.key);
+
+  const prompt = `A user is importing a freight booking spreadsheet into a database. Its column
+headers, in order, are:
+${headers.map((h, i) => `${i}: ${JSON.stringify(h)}`).join("\n")}
+
+For each of these target fields: ${fieldList}
+pick the single best-matching header from the list above by its EXACT text
+(copy it verbatim, don't paraphrase), or null if nothing in the sheet matches
+that field's meaning.
+
+Respond with ONLY a JSON object whose keys are exactly: ${JSON.stringify(keys)}
+and whose values are each either one of the exact header strings above, or null.`;
+
+  const result = await model.generateContent(prompt);
   return JSON.parse(result.response.text());
 }
