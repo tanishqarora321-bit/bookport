@@ -84,7 +84,7 @@ begin
   if v_forwarder_id is not null then
     insert into forwarder_invoices (company_id, forwarder_id, tracking_id, booking_number, container_number, shipping_line, pol, pod)
     values (v_booking.company_id, v_forwarder_id, v_tracking_id, v_booking.carrier_booking_no, new.container_no, v_booking.carrier, v_booking.pol, v_booking.pod)
-    on conflict (tracking_id) do update
+    on conflict (tracking_id) where tracking_id is not null do update
       set forwarder_id = excluded.forwarder_id,
           booking_number = excluded.booking_number,
           container_number = excluded.container_number,
@@ -108,4 +108,4 @@ select t.company_id, t.forwarder_id, t.id, t.booking_number, t.container_number,
 from tracking t
 join bookings b on b.id = t.booking_id
 where t.forwarder_id is not null
-on conflict (tracking_id) do nothing;
+on conflict (tracking_id) where tracking_id is not null do nothing;
