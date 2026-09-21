@@ -63,6 +63,30 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // forwarder_invoices snapshots booking_number/shipping_line/pol/pod at
+  // the moment a container's forwarder is synced (migration 0015) rather
+  // than joining them live - so editing the source booking afterward
+  // otherwise leaves any already-created invoice stale (this is what
+  // Total showed correctly but POL/POD blank for imported bookings).
+  const INVOICE_SYNC_MAP: Record<string, string> = {
+    carrier_booking_no: "booking_number",
+    carrier: "shipping_line",
+    pol: "pol",
+    pod: "pod",
+  };
+  const invoiceUpdates: Record<string, any> = {};
+  for (const [bookingCol, invoiceCol] of Object.entries(INVOICE_SYNC_MAP)) {
+    if (bookingCol in updates) invoiceUpdates[invoiceCol] = updates[bookingCol];
+  }
+  if (Object.keys(invoiceUpdates).length > 0) {
+    const { data: trackingRows } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
+    const trackingIds = (trackingRows ?? []).map((t: any) => t.id);
+    if (trackingIds.length > 0) {
+      await supabase.from("forwarder_invoices").update(invoiceUpdates).in("tracking_id", trackingIds);
+    }
+  }
+
   return NextResponse.json({ booking: data });
 }
 

@@ -26,10 +26,16 @@ export async function extractForwarderInvoiceFromPdf(fileBase64: string) {
   const prompt = `You are extracting a freight forwarder's invoice PDF into the given JSON
 schema. This is a billing document from a forwarder to their client - find
 the invoice number, invoice date, due date, currency, and each charge line
-(freight, BL fee, AES filing fee, correction charge, demurrage/detention,
-and any other miscellaneous charge as "extra_charges"). Use 0 for a charge
-type that isn't itemized on this invoice, never null, so totals compute
-correctly. Dates must be ISO 8601 (YYYY-MM-DD).`;
+(freight, BL fee, AES filing fee, correction charge, demurrage/detention).
+Use 0 for a charge type that isn't itemized on this invoice, never null, so
+totals compute correctly. Dates must be ISO 8601 (YYYY-MM-DD).
+
+For any charge line that doesn't fit one of those named fields: if it's
+vague/small (a generic "misc" or "other" line), put it in extra_charges.
+If it has its own specific name that's clearly a distinct charge type (e.g.
+"Chassis Fee", "Fumigation", "Storage"), list it in other_charges instead,
+with its exact printed name and amount, so it isn't silently merged into
+extra_charges and lost.`;
 
   const result = await model.generateContent([
     { text: prompt },

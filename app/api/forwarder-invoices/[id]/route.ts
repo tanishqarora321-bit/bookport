@@ -38,6 +38,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  // custom_charges is a merge (set one column's value), not a full
+  // overwrite - the client only ever sends the one key it's editing,
+  // and PostgREST has no partial-jsonb-update operator to do this in
+  // one round trip, so read-merge-write here instead.
+  if (body.custom_charges && typeof body.custom_charges === "object") {
+    const { data: existing } = await supabase.from("forwarder_invoices").select("custom_charges").eq("id", params.id).single();
+    updates.custom_charges = { ...(existing?.custom_charges ?? {}), ...body.custom_charges };
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
   }

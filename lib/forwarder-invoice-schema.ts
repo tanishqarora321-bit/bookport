@@ -14,9 +14,22 @@ export const forwarderInvoiceExtractionSchema = {
     freight_charges: { type: "number", nullable: true, description: "Ocean freight charge line, 0 if not present" },
     bl_fees: { type: "number", nullable: true, description: "Bill of Lading / documentation fee line, 0 if not present" },
     aes_fees: { type: "number", nullable: true, description: "AES filing fee line, 0 if not present" },
-    extra_charges: { type: "number", nullable: true, description: "Any other miscellaneous surcharge line not covered above, 0 if not present" },
+    extra_charges: { type: "number", nullable: true, description: "A small/generic miscellaneous surcharge line that isn't worth naming separately, 0 if not present. If the invoice has a named charge type worth tracking on its own (e.g. 'Chassis Fee', 'Fumigation'), put it in other_charges instead of here." },
     correction_charges: { type: "number", nullable: true, description: "Manifest/BL correction charge line, 0 if not present" },
-    demurrage: { type: "number", nullable: true, description: "Demurrage/detention charge line, 0 if not present" }
+    demurrage: { type: "number", nullable: true, description: "Demurrage/detention charge line, 0 if not present" },
+    other_charges: {
+      type: "array",
+      nullable: true,
+      description: "Named charge lines that don't match any field above and are specific/significant enough to be worth tracking under their own name (not vague/generic - those go in extra_charges).",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The charge's own label as printed on the invoice, e.g. 'Chassis Fee'" },
+          amount: { type: "number", description: "The charge amount" }
+        },
+        required: ["name", "amount"]
+      }
+    }
   },
   required: ["invoice_number"]
 };

@@ -49,6 +49,9 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
   }
 
   async function toggleActive(f: Forwarder) {
+    if (f.is_active && !confirm(`Remove "${f.legal_name}"? Its bookings/invoices stay intact - you can Restore it later from "Show removed".`)) {
+      return;
+    }
     const res = await fetch(`/api/forwarders/${f.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
