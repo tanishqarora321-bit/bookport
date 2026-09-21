@@ -184,14 +184,19 @@ export default function InvoiceLedgerClient({
       </Link>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">{forwarderName} — Invoices</h1>
-        <button
-          onClick={handleAddColumn}
-          disabled={addingColumn || customColumns.length >= MAX_CUSTOM_COLUMNS}
-          className="text-sm border px-3 py-1.5 rounded font-medium flex items-center gap-1 disabled:opacity-50"
-          title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a charge column"}
-        >
-          <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href={`/forwarders/${forwarderId}/invoices/import`} className="text-sm border px-3 py-1.5 rounded font-medium">
+            Import Excel
+          </Link>
+          <button
+            onClick={handleAddColumn}
+            disabled={addingColumn || customColumns.length >= MAX_CUSTOM_COLUMNS}
+            className="text-sm border px-3 py-1.5 rounded font-medium flex items-center gap-1 disabled:opacity-50"
+            title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a charge column"}
+          >
+            <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
