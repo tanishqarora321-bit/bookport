@@ -48,7 +48,7 @@ function LoginForm() {
     setSaving(true);
     setError(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setSaving(false);
@@ -56,8 +56,24 @@ function LoginForm() {
     }
     // Claim this device as the one active session for the account -
     // any other device currently signed in gets signed out on its next
-    // request (see app/api/session/register and middleware.ts).
-    await fetch("/api/session/register", { method: "POST" });
+    // request (see app/api/session/register and middleware.ts). Passing
+    // the access_token directly (rather than relying on the just-set
+    // session cookie already having propagated to this very next
+    // request) is what actually makes this reliable - without it, this
+    // call could come back "not signed in" and leave the previous
+    // device's session in place, which then immediately signs this
+    // brand new login right back out as if it were "the other device".
+    const registerRes = await fetch("/api/session/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: data.session?.access_token }),
+    });
+    if (!registerRes.ok) {
+      const json = await registerRes.json().catch(() => ({}));
+      setError(json.error || "Signed in, but couldn't finish setting up your session. Please try again.");
+      setSaving(false);
+      return;
+    }
     router.push("/bookings");
     router.refresh();
   }

@@ -21,6 +21,7 @@ export default function AuthCallbackPage() {
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -57,6 +58,7 @@ export default function AuthCallbackPage() {
         // used - it's a live credential and shouldn't linger in the
         // address bar or browser history.
         window.history.replaceState(null, "", window.location.pathname);
+        setAccessToken(data.session.access_token);
         setStatus("ready");
       }
     });
@@ -82,8 +84,21 @@ export default function AuthCallbackPage() {
       return;
     }
     // Claim this device as the account's one active session, same as a
-    // normal password sign-in (see app/api/session/register).
-    await fetch("/api/session/register", { method: "POST" });
+    // normal password sign-in (see app/api/session/register) - passing
+    // the access_token explicitly so this doesn't depend on the session
+    // cookie having propagated to this request yet (see the matching
+    // comment in app/login/page.tsx for why that mattered in practice).
+    const registerRes = await fetch("/api/session/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+    if (!registerRes.ok) {
+      const json = await registerRes.json().catch(() => ({}));
+      setSaveError(json.error || "Password saved, but couldn't finish setting up your session. Please try signing in.");
+      setSaving(false);
+      return;
+    }
     router.push("/bookings");
     router.refresh();
   }
