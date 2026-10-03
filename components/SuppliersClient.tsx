@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Factory, CheckCircle2 } from "lucide-react";
+import StatCard from "@/components/ui/StatCard";
 
 type Supplier = {
   id: string;
@@ -78,6 +80,9 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show removed
           </label>
+          <Link href="/suppliers/import" className="text-sm border px-3 py-1.5 rounded font-medium">
+            Import Excel
+          </Link>
           <button
             onClick={() => setAdding(!adding)}
             className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium"
@@ -85,6 +90,11 @@ export default function SuppliersClient({ initialSuppliers }: { initialSuppliers
             + New Supplier
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
+        <StatCard icon={Factory} label="Total Suppliers" value={suppliers.length} />
+        <StatCard icon={CheckCircle2} label="Active" value={suppliers.filter((s) => s.is_active).length} tone="success" />
       </div>
 
       {adding && (
