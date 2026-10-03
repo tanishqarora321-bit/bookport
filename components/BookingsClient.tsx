@@ -98,6 +98,7 @@ export default function BookingsClient({
   const [destination, setDestination] = useState("all");
   const [status, setStatus] = useState("all");
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [search, setSearch] = useState("");
 
   const lines = useMemo(() => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[], [rows]);
@@ -121,6 +122,10 @@ export default function BookingsClient({
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
         if (diff > 3 * 24 * 3600 * 1000 || diff < 0) return false;
       }
+      if (overdueOnly) {
+        if (!r.cargo_cutoff) return false;
+        if (new Date(r.cargo_cutoff).getTime() - Date.now() >= 0) return false;
+      }
       if (q) {
         const haystack = [r.carrier_booking_no, r.pol, r.pod, r.final_destination, r.forwarder?.name, r.buyer?.name]
           .filter(Boolean)
@@ -130,7 +135,7 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, cutoffSoonOnly, search]);
+  }, [rows, line, destination, status, cutoffSoonOnly, overdueOnly, search]);
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -256,6 +261,12 @@ export default function BookingsClient({
           className={`border rounded-lg px-3 py-2 text-sm ${cutoffSoonOnly ? "bg-accent text-white border-accent" : "bg-white border-slate-200"}`}
         >
           Cut off within 3 days
+        </button>
+        <button
+          onClick={() => setOverdueOnly(!overdueOnly)}
+          className={`border rounded-lg px-3 py-2 text-sm ${overdueOnly ? "bg-cutoff text-white border-cutoff" : "bg-white border-slate-200"}`}
+        >
+          Cut-off overdue
         </button>
         <button onClick={exportCsv} className="ml-auto border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white hover:bg-slate-50">
           ⬇ Export CSV
