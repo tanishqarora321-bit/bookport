@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
+import { reserveBookingNos } from "@/lib/booking-number";
 
 export const maxDuration = 60;
 
@@ -9,26 +10,6 @@ function parseDateish(v: string): string | null {
   if (!v) return null;
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-// Same BP-YY-NNNN sequence as app/api/bookings/route.ts's nextBookingNo,
-// but reserves a whole block up front so a batch import doesn't make one
-// lookup round trip per row. Was count(rows matching BP-YY-%) - breaks
-// as soon as any booking is ever deleted (leaves a gap, so the next
-// batch collides with an existing row's booking_no) - uses the actual
-// highest existing sequence number instead, same fix as the single-row
-// path, for the same reason (confirmed live via a QA test run).
-async function reserveBookingNos(supabase: any, count: number): Promise<string[]> {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const { data } = await supabase
-    .from("bookings")
-    .select("booking_no")
-    .like("booking_no", `BP-${year}-%`)
-    .order("booking_no", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const start = data?.booking_no ? parseInt(data.booking_no.split("-")[2], 10) || 0 : 0;
-  return Array.from({ length: count }, (_, i) => `BP-${year}-${String(start + i + 1).padStart(4, "0")}`);
 }
 
 type Skip = { row: number; reason: string };

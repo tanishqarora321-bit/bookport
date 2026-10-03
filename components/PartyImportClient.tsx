@@ -75,21 +75,23 @@ export default function PartyImportClient({
 
   if (step === "upload") {
     return (
-      <div className="max-w-lg mx-auto mt-12 space-y-4">
-        <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
+      <div className="h-full flex flex-col">
+        <Link href={backHref} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
           ← Back to {roleLabel}s
         </Link>
-        <h1 className="text-xl font-semibold text-center">Import {roleLabel}s from Excel</h1>
-        <p className="text-sm text-slate-500 text-center">
-          Upload an .xlsx spreadsheet of existing {roleLabel.toLowerCase()}s. You'll match its columns to
-          Ship-Sphere's fields before anything is saved.
-        </p>
-        <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
-          <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
-          <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet, first row must be headers</div>
-          <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
-        </label>
-        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        <div className="max-w-lg mx-auto mt-12 space-y-4 w-full">
+          <h1 className="text-xl font-semibold text-center">Import {roleLabel}s from Excel</h1>
+          <p className="text-sm text-slate-500 text-center">
+            Upload an .xlsx spreadsheet of existing {roleLabel.toLowerCase()}s. You'll match its columns to
+            Ship-Sphere's fields before anything is saved.
+          </p>
+          <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
+            <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
+            <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet, first row must be headers</div>
+            <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        </div>
       </div>
     );
   }

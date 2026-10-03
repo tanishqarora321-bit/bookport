@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
-import { FORWARDER_INVOICE_DATE_KEYS, FORWARDER_INVOICE_NUMERIC_KEYS } from "@/lib/forwarder-invoice-import-fields";
+import {
+  FORWARDER_INVOICE_DATE_KEYS,
+  FORWARDER_INVOICE_NUMERIC_KEYS,
+  FORWARDER_INVOICE_BOOKING_CREATE_KEYS
+} from "@/lib/forwarder-invoice-import-fields";
+import { reserveBookingNos } from "@/lib/booking-number";
 
 export const maxDuration = 60;
 
@@ -14,9 +19,13 @@ function parseDateish(v: string): string | null {
 type Skip = { row: number; reason: string };
 
 // Fills in charge data on invoice rows that already exist (auto-created
-// from Booking & Instructions, see migration 0015) - this never creates
-// a booking or an invoice shell. A sheet row with no matching pending
-// invoice is skipped and reported, not silently ignored.
+// from Booking & Instructions, see migration 0015). If a row's Booking
+// Number doesn't exist ANYWHERE yet, creates that booking (with this
+// forwarder assigned, and POL/POD/Shipping Line/Container Number from
+// this sheet if mapped) rather than skipping it - that's the one case
+// this import is allowed to create new records for. A booking that
+// already exists under a different (or no) forwarder is still skipped
+// and reported, not silently reassigned.
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const forwarderId: string = body.forwarderId;
@@ -43,12 +52,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: existingInvoices, error: fetchError } = await supabase
-    .from("forwarder_invoices")
-    .select("id, booking_number, container_number")
-    .eq("company_id", DEFAULT_COMPANY_ID)
-    .eq("forwarder_id", forwarderId);
+  const [{ data: existingInvoices, error: fetchError }, { data: allBookings, error: bookingsError }] = await Promise.all([
+    supabase
+      .from("forwarder_invoices")
+      .select("id, booking_number, container_number")
+      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("forwarder_id", forwarderId),
+    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", DEFAULT_COMPANY_ID)
+  ]);
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (bookingsError) return NextResponse.json({ error: bookingsError.message }, { status: 500 });
 
   // Index by booking number (lowercased) - a list, since one booking can
   // have several containers/invoice rows.
@@ -58,6 +71,17 @@ export async function POST(req: NextRequest) {
     if (!byBooking.has(key)) byBooking.set(key, []);
     byBooking.get(key)!.push({ id: inv.id, container_number: inv.container_number });
   }
+
+  const bookingIdByNumber = new Map<string, string>();
+  for (const b of allBookings ?? []) {
+    if (b.carrier_booking_no) bookingIdByNumber.set(b.carrier_booking_no.toLowerCase(), b.id);
+  }
+
+  // Upper bound: every row could turn out to need a new booking. Unused
+  // reserved numbers are simply never written anywhere, so this can't
+  // leave a gap - only actually-inserted bookings consume one.
+  const reservedNos = await reserveBookingNos(supabase, rows.length);
+  let reservedIdx = 0;
 
   const skipped: Skip[] = [];
   let imported = 0;
@@ -76,27 +100,105 @@ export async function POST(req: NextRequest) {
 
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
     let targetId: string | null = null;
-    if (candidates.length === 0) {
-      skipped.push({ row: sheetRow, reason: `No pending invoice found for booking "${bookingNumber}" under this forwarder - add it in Booking & Instructions first` });
-      continue;
-    } else if (candidates.length === 1) {
-      targetId = candidates[0].id;
-    } else if (containerNumber) {
-      const match = candidates.find((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase());
-      if (!match) {
-        skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers here, but "${containerNumber}" isn't one of them` });
+    let wasCreated = false;
+
+    if (candidates.length > 0) {
+      if (candidates.length === 1) {
+        targetId = candidates[0].id;
+      } else if (containerNumber) {
+        const match = candidates.find((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase());
+        if (!match) {
+          skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers here, but "${containerNumber}" isn't one of them` });
+          continue;
+        }
+        targetId = match.id;
+      } else {
+        skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
         continue;
       }
-      targetId = match.id;
-    } else {
-      skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
+    } else if (bookingIdByNumber.has(bookingNumber.toLowerCase())) {
+      // The booking exists, just not linked to this forwarder - don't
+      // silently reassign it, that's a decision for a human to make.
+      skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" already exists but isn't linked to this forwarder yet - check Booking & Instructions` });
       continue;
+    } else {
+      // Booking Number doesn't exist anywhere - create it.
+      wasCreated = true;
+      const bookingFields: Record<string, any> = {
+        carrier_booking_no: bookingNumber,
+        booking_no: reservedNos[reservedIdx++],
+        company_id: DEFAULT_COMPANY_ID,
+        status: "confirmed"
+      };
+      for (const key of FORWARDER_INVOICE_BOOKING_CREATE_KEYS) {
+        const raw = get(key);
+        if (raw) bookingFields[key] = raw;
+      }
+
+      const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();
+      if (bookingError) {
+        skipped.push({ row: sheetRow, reason: `Couldn't create booking "${bookingNumber}": ${bookingError.message}` });
+        continue;
+      }
+      bookingIdByNumber.set(bookingNumber.toLowerCase(), newBooking.id);
+
+      const { error: bpError } = await supabase.from("booking_parties").insert({ booking_id: newBooking.id, party_id: forwarderId, role: "forwarder" });
+      if (bpError) {
+        skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but couldn't assign this forwarder: ${bpError.message}` });
+        continue;
+      }
+
+      if (containerNumber) {
+        // Fires sync_container_to_tracking() - with booking_parties
+        // already in place, this auto-creates the tracking row AND a
+        // pending forwarder_invoices shell for it (migrations 0015/0018).
+        const { error: containerError } = await supabase.from("containers").insert({ booking_id: newBooking.id, container_no: containerNumber });
+        if (containerError) {
+          skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but adding the container failed: ${containerError.message}` });
+          continue;
+        }
+        const { data: createdInvoice } = await supabase
+          .from("forwarder_invoices")
+          .select("id")
+          .eq("forwarder_id", forwarderId)
+          .eq("booking_number", bookingNumber)
+          .eq("container_number", containerNumber)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        targetId = createdInvoice?.id ?? null;
+      } else {
+        // No container on this row, so no trigger will fire - create
+        // the invoice shell directly instead.
+        const { data: createdInvoice, error: invError } = await supabase
+          .from("forwarder_invoices")
+          .insert({
+            company_id: DEFAULT_COMPANY_ID,
+            forwarder_id: forwarderId,
+            booking_number: bookingNumber,
+            pol: get("pol") || null,
+            pod: get("pod") || null,
+            shipping_line: get("carrier") || null
+          })
+          .select("id")
+          .single();
+        if (invError) {
+          skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but the invoice shell failed: ${invError.message}` });
+          continue;
+        }
+        targetId = createdInvoice?.id ?? null;
+      }
+
+      if (!targetId) {
+        skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but couldn't locate its invoice shell to fill in charges` });
+        continue;
+      }
     }
 
     const updates: Record<string, any> = {};
     const customCharges: Record<string, number> = {};
     for (const [key] of Object.entries(mapping)) {
-      if (key === "booking_number" || key === "container_number") continue;
+      if (key === "booking_number" || key === "container_number" || FORWARDER_INVOICE_BOOKING_CREATE_KEYS.has(key)) continue;
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
@@ -115,16 +217,22 @@ export async function POST(req: NextRequest) {
       updates.custom_charges = { ...(existing?.custom_charges ?? {}), ...customCharges };
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 0 && !wasCreated) {
+      // Matched an existing invoice but had nothing new to fill in -
+      // genuinely a no-op, unlike the wasCreated case where the booking
+      // itself (and its invoice shell) is a real, successful outcome
+      // even with zero charges mapped.
       skipped.push({ row: sheetRow, reason: "No mapped charge fields had a value" });
       continue;
     }
 
-    updates.updated_at = new Date().toISOString();
-    const { error: updateError } = await supabase.from("forwarder_invoices").update(updates).eq("id", targetId);
-    if (updateError) {
-      skipped.push({ row: sheetRow, reason: updateError.message });
-      continue;
+    if (Object.keys(updates).length > 0) {
+      updates.updated_at = new Date().toISOString();
+      const { error: updateError } = await supabase.from("forwarder_invoices").update(updates).eq("id", targetId);
+      if (updateError) {
+        skipped.push({ row: sheetRow, reason: updateError.message });
+        continue;
+      }
     }
     imported++;
   }

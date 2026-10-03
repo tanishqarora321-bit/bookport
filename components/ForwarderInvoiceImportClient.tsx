@@ -115,22 +115,25 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
 
   if (step === "upload") {
     return (
-      <div className="max-w-lg mx-auto mt-12 space-y-4">
-        <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
+      <div className="h-full flex flex-col">
+        <Link href={backHref} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
           ← Back to {forwarderName}'s Invoices
         </Link>
-        <h1 className="text-xl font-semibold text-center">Import Invoice Charges from Excel</h1>
-        <p className="text-sm text-slate-500 text-center">
-          Fills in invoice numbers/charges on {forwarderName}'s existing pending invoices, matched by Booking
-          Number (and Container Number if a booking has more than one). It won't create new bookings or invoices -
-          those come from Booking &amp; Instructions.
-        </p>
-        <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
-          <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
-          <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet, first row must be headers</div>
-          <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
-        </label>
-        {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        <div className="max-w-lg mx-auto mt-12 space-y-4 w-full">
+          <h1 className="text-xl font-semibold text-center">Import Invoice Charges from Excel</h1>
+          <p className="text-sm text-slate-500 text-center">
+            Fills in invoice numbers/charges on {forwarderName}'s pending invoices, matched by Booking Number
+            (and Container Number if a booking has more than one). If a Booking Number isn't found anywhere yet,
+            it creates that booking with {forwarderName} assigned, using whatever POL/POD/container details this
+            sheet has for it.
+          </p>
+          <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
+            <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
+            <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet, first row must be headers</div>
+            <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
+          </label>
+          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+        </div>
       </div>
     );
   }

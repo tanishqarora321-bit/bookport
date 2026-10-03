@@ -1,28 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
-
-// Was count(rows matching BP-YY-%) + 1 - correct only as long as no
-// booking is ever deleted. Deleting one (e.g. the Delete button added
-// to the grid, or clearing a duplicate) leaves a gap, so the next
-// count-based number collides with an EXISTING row's booking_no and
-// the next manual/PDF/import booking creation fails outright with a
-// raw 500. Confirmed live via a QA test run. Uses the actual highest
-// existing sequence number instead, which survives gaps; the POST
-// handler below also retries on a 23505 for this column specifically,
-// covering the rarer case of two inserts racing each other.
-async function nextBookingNo(supabase: any): Promise<string> {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const { data } = await supabase
-    .from("bookings")
-    .select("booking_no")
-    .like("booking_no", `BP-${year}-%`)
-    .order("booking_no", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const lastSeq = data?.booking_no ? parseInt(data.booking_no.split("-")[2], 10) || 0 : 0;
-  return `BP-${year}-${String(lastSeq + 1).padStart(4, "0")}`;
-}
+import { nextBookingNo } from "@/lib/booking-number";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
