@@ -7,14 +7,9 @@ import {
   FORWARDER_INVOICE_BOOKING_CREATE_KEYS
 } from "@/lib/forwarder-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
+import { parseDateish } from "@/lib/parse-date";
 
 export const maxDuration = 60;
-
-function parseDateish(v: string): string | null {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
-}
 
 // A charge column in someone's sheet showing "$1,983.00" is still just
 // a number to a human - Number("$1,983.00") is NaN, which silently
@@ -315,7 +310,8 @@ export async function POST(req: NextRequest) {
       if (customKeys.includes(key)) {
         customCharges[key] = parseNumeric(raw);
       } else if (FORWARDER_INVOICE_DATE_KEYS.has(key)) {
-        updates[key] = parseDateish(raw);
+        const parsed = parseDateish(raw);
+        updates[key] = parsed ? parsed.toISOString().slice(0, 10) : null;
       } else if (FORWARDER_INVOICE_NUMERIC_KEYS.has(key)) {
         updates[key] = parseNumeric(raw);
       } else {

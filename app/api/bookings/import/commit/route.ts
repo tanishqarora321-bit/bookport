@@ -3,14 +3,9 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
+import { parseDateish } from "@/lib/parse-date";
 
 export const maxDuration = 60;
-
-function parseDateish(v: string): string | null {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 type Skip = { row: number; reason: string };
 
@@ -85,7 +80,7 @@ export async function POST(req: NextRequest) {
       if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
       const raw = get(f.key);
       if (!raw) continue;
-      fields[f.key] = f.kind === "date" ? parseDateish(raw) : raw;
+      fields[f.key] = f.kind === "date" ? (parseDateish(raw)?.toISOString() ?? null) : raw;
     }
 
     const parties = IMPORT_FIELDS.filter((f) => f.kind === "party")
