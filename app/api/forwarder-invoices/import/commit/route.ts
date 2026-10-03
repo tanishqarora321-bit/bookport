@@ -22,10 +22,11 @@ type Skip = { row: number; reason: string };
 // from Booking & Instructions, see migration 0015). If a row's Booking
 // Number doesn't exist ANYWHERE yet, creates that booking (with this
 // forwarder assigned, and POL/POD/Shipping Line/Container Number from
-// this sheet if mapped) rather than skipping it - that's the one case
-// this import is allowed to create new records for. A booking that
-// already exists under a different (or no) forwarder is still skipped
-// and reported, not silently reassigned.
+// this sheet if mapped). If the booking exists but is assigned to a
+// different (or no) forwarder, this sheet is treated as authoritative
+// for who the real forwarder is, so it reassigns it rather than
+// skipping the row (migration 0018 reattaches that booking's existing
+// invoice/charge history onto this forwarder instead of orphaning it).
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const forwarderId: string = body.forwarderId;
@@ -180,11 +181,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const { data: linkedInvoice } = await supabase
+      // A booking with multiple containers has one invoice row per
+      // container, all sharing forwarder_id+booking_number - must also
+      // filter by container_number or this grabs an arbitrary row (seen
+      // live: container 1's charges landing on container 2's invoice).
+      let linkedInvoiceQuery = supabase
         .from("forwarder_invoices")
         .select("id")
         .eq("forwarder_id", forwarderId)
-        .eq("booking_number", bookingNumber)
+        .eq("booking_number", bookingNumber);
+      linkedInvoiceQuery = containerNumber
+        ? linkedInvoiceQuery.eq("container_number", containerNumber)
+        : linkedInvoiceQuery.is("container_number", null);
+      const { data: linkedInvoice } = await linkedInvoiceQuery
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
