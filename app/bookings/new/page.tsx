@@ -101,25 +101,27 @@ export default function NewBookingPage() {
         <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
           ← Back to Bookings
         </Link>
-        <h1 className="text-xl font-semibold mb-4">New Booking</h1>
-        <div className="grid grid-cols-3 gap-4 max-w-3xl">
-          <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
-            <div className="font-medium">Type it in</div>
-            <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
-          </button>
-          <label className="border rounded-lg p-6 bg-white hover:border-ink text-left cursor-pointer">
-            <div className="font-medium">Upload PDF</div>
-            <div className="text-sm text-slate-500">
-              {uploading ? "Extracting…" : "Booking confirmation → AI pre-fills the form, you review."}
-            </div>
-            <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
-          </label>
-          <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
-            <div className="font-medium">Import Excel</div>
-            <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
-          </Link>
+        <div className="max-w-2xl mx-auto mt-12 space-y-4 w-full">
+          <h1 className="text-xl font-semibold text-center">New Booking</h1>
+          <div className="grid grid-cols-3 gap-4">
+            <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
+              <div className="font-medium">Type it in</div>
+              <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
+            </button>
+            <label className="border rounded-lg p-6 bg-white hover:border-ink text-left cursor-pointer">
+              <div className="font-medium">Upload PDF</div>
+              <div className="text-sm text-slate-500">
+                {uploading ? "Extracting…" : "Booking confirmation → AI pre-fills the form, you review."}
+              </div>
+              <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
+            </label>
+            <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
+              <div className="font-medium">Import Excel</div>
+              <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
+            </Link>
+          </div>
+          {error && <p className="text-red-600 text-sm">{error}</p>}
         </div>
-        {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
       </div>
     );
   }
