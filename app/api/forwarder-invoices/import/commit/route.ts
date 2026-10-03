@@ -9,7 +9,7 @@ import {
 import { reserveBookingNos } from "@/lib/booking-number";
 import { parseDateish } from "@/lib/parse-date";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // A charge column in someone's sheet showing "$1,983.00" is still just
 // a number to a human - Number("$1,983.00") is NaN, which silently
@@ -85,23 +85,22 @@ export async function POST(req: NextRequest) {
 
   // Upper bound: every row could turn out to need a new booking. Unused
   // reserved numbers are simply never written anywhere, so this can't
-  // leave a gap - only actually-inserted bookings consume one.
+  // leave a gap - only actually-inserted bookings consume one. Safe to
+  // hand out from concurrent rows below: a plain array index increment
+  // can't interleave with another one mid-statement in JS, so each row
+  // still gets a unique slot regardless of completion order.
   const reservedNos = await reserveBookingNos(supabase, rows.length);
   let reservedIdx = 0;
 
   const skipped: Skip[] = [];
   let imported = 0;
 
-  for (let i = 0; i < rows.length; i++) {
+  async function processRow(i: number) {
     const row = rows[i];
     const sheetRow = i + 2;
     const get = (key: string) => (colIndex[key] !== undefined ? (row[colIndex[key]] ?? "").trim() : "");
 
     const bookingNumber = get("booking_number");
-    if (!bookingNumber) {
-      skipped.push({ row: sheetRow, reason: "Booking Number is blank" });
-      continue;
-    }
     const containerNumber = get("container_number");
 
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
@@ -127,7 +126,7 @@ export async function POST(req: NextRequest) {
       targetId = matchedCandidate.id;
     } else if (!containerNumber && candidates.length > 1) {
       skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
-      continue;
+      return;
     } else if (bookingIdByNumber.has(bookingNumber.toLowerCase())) {
       // The booking exists but this forwarder isn't the one assigned to
       // it (or none is) - this invoice sheet is treated as authoritative
@@ -139,12 +138,12 @@ export async function POST(req: NextRequest) {
       const { error: unassignError } = await supabase.from("booking_parties").delete().eq("booking_id", existingBookingId).eq("role", "forwarder");
       if (unassignError) {
         skipped.push({ row: sheetRow, reason: `Couldn't link forwarder to booking "${bookingNumber}": ${unassignError.message}` });
-        continue;
+        return;
       }
       const { error: assignError } = await supabase.from("booking_parties").insert({ booking_id: existingBookingId, party_id: forwarderId, role: "forwarder" });
       if (assignError) {
         skipped.push({ row: sheetRow, reason: `Couldn't link forwarder to booking "${bookingNumber}": ${assignError.message}` });
-        continue;
+        return;
       }
 
       const { data: existingContainers } = await supabase
@@ -162,7 +161,7 @@ export async function POST(req: NextRequest) {
         const { error: containerError } = await supabase.from("containers").insert({ booking_id: existingBookingId, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but adding the container failed: ${containerError.message}` });
-          continue;
+          return;
         }
       } else if ((existingContainers ?? []).length > 0) {
         // Re-touch every existing container to re-fire the sync trigger -
@@ -188,7 +187,7 @@ export async function POST(req: NextRequest) {
           });
         if (invError) {
           skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but the invoice shell failed: ${invError.message}` });
-          continue;
+          return;
         }
       }
 
@@ -211,7 +210,7 @@ export async function POST(req: NextRequest) {
       targetId = linkedInvoice?.id ?? null;
       if (!targetId) {
         skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but couldn't locate its invoice to fill in charges` });
-        continue;
+        return;
       }
       wasCreated = true;
       // So a later row for the same booking (e.g. a second container) in
@@ -237,14 +236,14 @@ export async function POST(req: NextRequest) {
       const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();
       if (bookingError) {
         skipped.push({ row: sheetRow, reason: `Couldn't create booking "${bookingNumber}": ${bookingError.message}` });
-        continue;
+        return;
       }
       bookingIdByNumber.set(bookingNumber.toLowerCase(), newBooking.id);
 
       const { error: bpError } = await supabase.from("booking_parties").insert({ booking_id: newBooking.id, party_id: forwarderId, role: "forwarder" });
       if (bpError) {
         skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but couldn't assign this forwarder: ${bpError.message}` });
-        continue;
+        return;
       }
 
       if (containerNumber) {
@@ -254,7 +253,7 @@ export async function POST(req: NextRequest) {
         const { error: containerError } = await supabase.from("containers").insert({ booking_id: newBooking.id, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but adding the container failed: ${containerError.message}` });
-          continue;
+          return;
         }
         const { data: createdInvoice } = await supabase
           .from("forwarder_invoices")
@@ -283,14 +282,14 @@ export async function POST(req: NextRequest) {
           .single();
         if (invError) {
           skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but the invoice shell failed: ${invError.message}` });
-          continue;
+          return;
         }
         targetId = createdInvoice?.id ?? null;
       }
 
       if (!targetId) {
         skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but couldn't locate its invoice shell to fill in charges` });
-        continue;
+        return;
       }
 
       // So a later row for the same new booking (e.g. a second container)
@@ -330,7 +329,7 @@ export async function POST(req: NextRequest) {
       // itself (and its invoice shell) is a real, successful outcome
       // even with zero charges mapped.
       skipped.push({ row: sheetRow, reason: "No mapped charge fields had a value" });
-      continue;
+      return;
     }
 
     if (Object.keys(updates).length > 0) {
@@ -338,10 +337,44 @@ export async function POST(req: NextRequest) {
       const { error: updateError } = await supabase.from("forwarder_invoices").update(updates).eq("id", targetId);
       if (updateError) {
         skipped.push({ row: sheetRow, reason: updateError.message });
-        continue;
+        return;
       }
     }
     imported++;
+  }
+
+  // Rows for the SAME booking number must run in order (multi-container
+  // bookings rely on each row seeing the previous one's byBooking entry -
+  // see the matchedCandidate comment above), but rows for DIFFERENT
+  // bookings have no such dependency. Grouping by booking number and
+  // running different groups concurrently is what makes a real sheet
+  // finish within Vercel's function time limit - running everything
+  // sequentially, a sheet of just 80 new bookings blew past 60 seconds
+  // and died with FUNCTION_INVOCATION_TIMEOUT having completed under
+  // half the rows (confirmed live).
+  const groups = new Map<string, number[]>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const bookingNumber = (colIndex["booking_number"] !== undefined ? (row[colIndex["booking_number"]] ?? "").trim() : "");
+    if (!bookingNumber) {
+      skipped.push({ row: i + 2, reason: "Booking Number is blank" });
+      continue;
+    }
+    const key = bookingNumber.toLowerCase();
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(i);
+  }
+
+  async function processGroup(indices: number[]) {
+    for (const i of indices) {
+      await processRow(i);
+    }
+  }
+
+  const CONCURRENCY = 20;
+  const groupList = Array.from(groups.values());
+  for (let i = 0; i < groupList.length; i += CONCURRENCY) {
+    await Promise.all(groupList.slice(i, i + CONCURRENCY).map(processGroup));
   }
 
   return NextResponse.json({ imported, total: rows.length, skipped });
