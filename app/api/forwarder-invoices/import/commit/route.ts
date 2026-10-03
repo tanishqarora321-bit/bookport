@@ -103,20 +103,26 @@ export async function POST(req: NextRequest) {
     let targetId: string | null = null;
     let wasCreated = false;
 
-    if (candidates.length > 0) {
-      if (candidates.length === 1) {
-        targetId = candidates[0].id;
-      } else if (containerNumber) {
-        const match = candidates.find((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase());
-        if (!match) {
-          skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers here, but "${containerNumber}" isn't one of them` });
-          continue;
-        }
-        targetId = match.id;
-      } else {
-        skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
-        continue;
-      }
+    // When a container number is given, only an EXACT container match
+    // counts as "already resolved" - with multiple rows in the same
+    // file touching the same booking, byBooking can hold one container's
+    // invoice by the time a later row for a DIFFERENT container is
+    // processed, and blindly taking a lone candidate caused container 1's
+    // charges to land on container 2's invoice (found via live QA).
+    // No match falls through to the link/create branches below, which
+    // resolve this specific container against the real `containers`
+    // table instead of trusting whatever's already in byBooking.
+    const matchedCandidate = containerNumber
+      ? candidates.find((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase())
+      : candidates.length === 1
+      ? candidates[0]
+      : undefined;
+
+    if (matchedCandidate) {
+      targetId = matchedCandidate.id;
+    } else if (!containerNumber && candidates.length > 1) {
+      skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
+      continue;
     } else if (bookingIdByNumber.has(bookingNumber.toLowerCase())) {
       // The booking exists but this forwarder isn't the one assigned to
       // it (or none is) - this invoice sheet is treated as authoritative
