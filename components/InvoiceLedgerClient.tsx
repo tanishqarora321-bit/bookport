@@ -123,9 +123,34 @@ export default function InvoiceLedgerClient({
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
   const [addingColumn, setAddingColumn] = useState(false);
+  const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
     setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  }
+
+  async function handleDeleteColumn(col: CustomColumn) {
+    if (!confirm(`Delete the "${col.label}" column? This only works if it's 0 (or unset) on every forwarder's invoices, not just ${forwarderName}'s - checked before anything is removed.`)) {
+      return;
+    }
+    setDeletingColumnId(col.id);
+    try {
+      const res = await fetch(`/api/forwarder-invoice-columns/${col.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to delete column");
+      setCustomColumns((prev) => prev.filter((c) => c.id !== col.id));
+      setInvoices((prev) =>
+        prev.map((inv) => {
+          if (!(col.key in (inv.custom_charges ?? {}))) return inv;
+          const { [col.key]: _removed, ...rest } = inv.custom_charges;
+          return { ...inv, custom_charges: rest };
+        })
+      );
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeletingColumnId(null);
+    }
   }
 
   async function handleAddColumn() {
@@ -243,7 +268,19 @@ export default function InvoiceLedgerClient({
               <Th>Correction</Th>
               <Th>Demurrage</Th>
               {customColumns.map((col) => (
-                <Th key={col.key}>{col.label}</Th>
+                <Th key={col.key}>
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    <button
+                      onClick={() => handleDeleteColumn(col)}
+                      disabled={deletingColumnId === col.id}
+                      title={`Delete "${col.label}" column (only works if it's 0 everywhere)`}
+                      className="text-ink/30 hover:text-cutoff font-normal normal-case tracking-normal"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </Th>
               ))}
               <Th>Total</Th>
               <Th>Total (USD)</Th>

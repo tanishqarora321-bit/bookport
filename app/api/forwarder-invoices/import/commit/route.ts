@@ -117,10 +117,89 @@ export async function POST(req: NextRequest) {
         continue;
       }
     } else if (bookingIdByNumber.has(bookingNumber.toLowerCase())) {
-      // The booking exists, just not linked to this forwarder - don't
-      // silently reassign it, that's a decision for a human to make.
-      skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" already exists but isn't linked to this forwarder yet - check Booking & Instructions` });
-      continue;
+      // The booking exists but this forwarder isn't the one assigned to
+      // it (or none is) - this invoice sheet is treated as authoritative
+      // for who the real forwarder is, so link it: replace whatever
+      // forwarder role existed with this one, same single-select-per-
+      // role rule PartyPickerCell already enforces everywhere else.
+      const existingBookingId = bookingIdByNumber.get(bookingNumber.toLowerCase())!;
+
+      const { error: unassignError } = await supabase.from("booking_parties").delete().eq("booking_id", existingBookingId).eq("role", "forwarder");
+      if (unassignError) {
+        skipped.push({ row: sheetRow, reason: `Couldn't link forwarder to booking "${bookingNumber}": ${unassignError.message}` });
+        continue;
+      }
+      const { error: assignError } = await supabase.from("booking_parties").insert({ booking_id: existingBookingId, party_id: forwarderId, role: "forwarder" });
+      if (assignError) {
+        skipped.push({ row: sheetRow, reason: `Couldn't link forwarder to booking "${bookingNumber}": ${assignError.message}` });
+        continue;
+      }
+
+      const { data: existingContainers } = await supabase
+        .from("containers")
+        .select("id, container_no")
+        .eq("booking_id", existingBookingId)
+        .not("container_no", "is", null);
+      const matchingContainer = containerNumber
+        ? (existingContainers ?? []).find((c: { id: string; container_no: string | null }) => (c.container_no ?? "").toLowerCase() === containerNumber.toLowerCase())
+        : null;
+
+      if (containerNumber && !matchingContainer) {
+        // A container this booking doesn't have yet - add it (fires the
+        // sync trigger with the forwarder link already in place).
+        const { error: containerError } = await supabase.from("containers").insert({ booking_id: existingBookingId, container_no: containerNumber });
+        if (containerError) {
+          skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but adding the container failed: ${containerError.message}` });
+          continue;
+        }
+      } else if ((existingContainers ?? []).length > 0) {
+        // Re-touch every existing container to re-fire the sync trigger -
+        // this repoints tracking.forwarder_id (and, via the trigger's own
+        // ON CONFLICT, the existing invoice row for that tracking_id) from
+        // whoever it was before onto this forwarder, without losing
+        // whatever charges/invoice_number that row already had.
+        for (const c of existingContainers ?? []) {
+          await supabase.from("containers").update({ container_no: c.container_no }).eq("id", c.id);
+        }
+      } else {
+        // Booking has no containers at all yet - no trigger to fire, so
+        // create the invoice shell directly.
+        const { error: invError } = await supabase
+          .from("forwarder_invoices")
+          .insert({
+            company_id: DEFAULT_COMPANY_ID,
+            forwarder_id: forwarderId,
+            booking_number: bookingNumber,
+            pol: get("pol") || null,
+            pod: get("pod") || null,
+            shipping_line: get("carrier") || null
+          });
+        if (invError) {
+          skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but the invoice shell failed: ${invError.message}` });
+          continue;
+        }
+      }
+
+      const { data: linkedInvoice } = await supabase
+        .from("forwarder_invoices")
+        .select("id")
+        .eq("forwarder_id", forwarderId)
+        .eq("booking_number", bookingNumber)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      targetId = linkedInvoice?.id ?? null;
+      if (!targetId) {
+        skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but couldn't locate its invoice to fill in charges` });
+        continue;
+      }
+      wasCreated = true;
+      // So a later row for the same booking (e.g. a second container) in
+      // this same file takes the fast "already linked" path above instead
+      // of redundantly re-linking.
+      const key = bookingNumber.toLowerCase();
+      if (!byBooking.has(key)) byBooking.set(key, []);
+      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null });
     } else {
       // Booking Number doesn't exist anywhere - create it.
       wasCreated = true;
@@ -193,6 +272,13 @@ export async function POST(req: NextRequest) {
         skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but couldn't locate its invoice shell to fill in charges` });
         continue;
       }
+
+      // So a later row for the same new booking (e.g. a second container)
+      // in this same file is treated as "already linked" above, not
+      // re-created.
+      const key = bookingNumber.toLowerCase();
+      if (!byBooking.has(key)) byBooking.set(key, []);
+      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null });
     }
 
     const updates: Record<string, any> = {};
