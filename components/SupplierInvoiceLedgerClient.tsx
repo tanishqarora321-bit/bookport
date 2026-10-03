@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle } from "lucide-react";
+import StatCard from "@/components/ui/StatCard";
 
 type Item = {
   id: string;
@@ -22,13 +24,17 @@ type Invoice = {
   invoice_number: string | null;
   invoice_date: string | null;
   total: number;
+  total_usd: number;
   currency: string;
+  fx_rate: number;
   paid_status: "PAID" | "UNPAID";
   notes: string | null;
   tracking_id: string | null;
   tracking: { eta: string | null; release_status: string | null } | null;
   items: Item[];
 };
+
+const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -37,6 +43,9 @@ function fmtDate(d: string | null) {
 function fmtMonth(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
+function fmtMoney(amount: number | null | undefined, currency: string) {
+  return `${currency} ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 async function patchInvoice(id: string, updates: Record<string, any>) {
@@ -64,6 +73,9 @@ export default function SupplierInvoiceLedgerClient({
   const [invoices, setInvoices] = useState(initialInvoices);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paidFilter, setPaidFilter] = useState("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
     setInvoices(invoices.map((i) => (i.id === id ? { ...i, ...patch } : i)));
@@ -73,10 +85,37 @@ export default function SupplierInvoiceLedgerClient({
     setExpanded({ ...expanded, [id]: !expanded[id] });
   }
 
-  const grandTotal = invoices.reduce((sum, inv) => {
-    // Only sums same-currency invoices meaningfully -- shown per-currency below.
-    return sum;
-  }, 0);
+  async function handleDelete(inv: Invoice) {
+    if (!confirm(`Delete this invoice (${inv.invoice_number || inv.booking_number || "no reference"})? This also removes its cost-section lines.`)) return;
+    setDeletingId(inv.id);
+    try {
+      const res = await fetch(`/api/supplier-invoices/${inv.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to delete invoice");
+      setInvoices((prev) => prev.filter((i) => i.id !== inv.id));
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    return invoices.filter((inv) => {
+      if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
+      if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
+      return true;
+    });
+  }, [invoices, statusFilter, paidFilter]);
+
+  // KPI cards reflect the whole ledger regardless of the filters above,
+  // same convention as the Forwarders invoice ledger.
+  const pendingCount = invoices.filter((i) => !i.invoice_number).length;
+  const onWaterCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
+  const releasedCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
+  const paidCount = invoices.filter((i) => i.paid_status === "PAID").length;
+  const unpaidCount = invoices.filter((i) => i.paid_status === "UNPAID").length;
+  const totalUsd = invoices.reduce((s, i) => s + Number(i.total_usd || 0), 0);
 
   const totalsByCurrency: Record<string, number> = {};
   for (const inv of invoices) {
@@ -90,17 +129,43 @@ export default function SupplierInvoiceLedgerClient({
       </Link>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">{supplierName} — Invoices</h1>
-        <div className="flex items-center gap-4">
-          <div className="text-xs text-ink/50">
-            {Object.entries(totalsByCurrency).map(([cur, total]) => (
-              <span key={cur} className="mr-3">
-                Total {cur}: <span className="font-medium text-ink/80">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              </span>
-            ))}
-          </div>
+        <div className="flex items-center gap-2">
+          <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border px-3 py-1.5 rounded font-medium">
+            Import Excel
+          </Link>
           <button onClick={() => setAdding(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
             + Add Invoice
           </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
+        <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
+        <StatCard icon={Ship} label="On Water" value={onWaterCount} />
+        <StatCard icon={CheckCircle2} label="Released" value={releasedCount} tone="success" />
+        <StatCard icon={CheckCircle2} label="Paid" value={paidCount} tone="success" />
+        <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
+        <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Status</option>
+          {RELEASE_STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Paid</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+        <div className="text-xs text-ink/50 ml-auto">
+          {Object.entries(totalsByCurrency).map(([cur, total]) => (
+            <span key={cur} className="mr-3">
+              Total {cur}: <span className="font-medium text-ink/80">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </span>
+          ))}
         </div>
       </div>
 
@@ -116,39 +181,45 @@ export default function SupplierInvoiceLedgerClient({
       )}
 
       <div className="flex-1 overflow-auto border rounded">
-        <table className="text-sm border-collapse min-w-[1700px]">
+        <table className="text-sm border-collapse min-w-[1800px]">
           <thead className="sticky top-0 bg-slate-50 z-10">
             <tr className="text-left text-ink/50 border-b">
-              <Th>Sr. N</Th>
+              <Th>Sr. No</Th>
               <Th>Date</Th>
               <Th>Month of Loading</Th>
-              <Th>Invoice #</Th>
-              <Th>FF</Th>
+              <Th>Invoice</Th>
+              <Th>Forwarder</Th>
               <Th>Consignee</Th>
               <Th>Booking No.</Th>
               <Th>Container No.</Th>
               <Th>Total</Th>
+              <Th>Total (USD)</Th>
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
               <Th></Th>
+              <Th></Th>
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv, idx) => (
+            {filtered.map((inv, idx) => (
               <InvoiceRows
                 key={inv.id}
-                sr={invoices.length - idx}
+                sr={filtered.length - idx}
                 inv={inv}
                 expanded={!!expanded[inv.id]}
                 onToggle={() => toggleExpanded(inv.id)}
                 onChange={(patch) => updateLocal(inv.id, patch)}
+                onDelete={() => handleDelete(inv)}
+                deleting={deletingId === inv.id}
               />
             ))}
-            {invoices.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-3 py-10 text-center text-ink/40">
-                  No invoices yet for this supplier. Click "+ Add Invoice" to enter one.
+                <td colSpan={15} className="px-3 py-10 text-center text-ink/40">
+                  {invoices.length === 0
+                    ? 'No invoices yet for this supplier. Click "+ Add Invoice" to enter one.'
+                    : "No invoices match these filters."}
                 </td>
               </tr>
             )}
@@ -192,6 +263,7 @@ function AddInvoicePanel({
     invoice_number: "",
     invoice_date: "",
     currency: "EUR",
+    fx_rate: "1",
   });
   const [items, setItems] = useState<DraftItem[]>([blankItem()]);
   const [saving, setSaving] = useState(false);
@@ -208,7 +280,7 @@ function AddInvoicePanel({
       setLookupResult(json);
       if (!json.matched) {
         setLookupError(
-          "No matching Tracking entry found for that number. You can still enter this invoice manually below — it just won't have a live ETA/status link, and Booking/Container/FF/Consignee/Month of Loading won't auto-fill."
+          "No matching Tracking entry found for that number. You can still enter this invoice manually below — it just won't have a live ETA/status link, and Booking/Container/Forwarder/Consignee/Month of Loading won't auto-fill."
         );
       }
     } catch (err: any) {
@@ -289,13 +361,13 @@ function AddInvoicePanel({
         <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-white border rounded p-3">
           <div><span className="text-ink/40">Matched by:</span> {lookupResult.matched_by}</div>
           <div><span className="text-ink/40">Container:</span> {lookupResult.container_number || "—"}</div>
-          <div><span className="text-ink/40">FF (Forwarder):</span> {lookupResult.forwarder_name || "—"}</div>
+          <div><span className="text-ink/40">Forwarder:</span> {lookupResult.forwarder_name || "—"}</div>
           <div><span className="text-ink/40">Consignee:</span> {lookupResult.consignee_name || "—"}</div>
           <div><span className="text-ink/40">Month of Loading:</span> {lookupResult.month_of_loading || "—"}</div>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-4 gap-3 mb-4">
         <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
         <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
         <div>
@@ -312,6 +384,12 @@ function AddInvoicePanel({
             <option value="AED">AED</option>
           </select>
         </div>
+        <LabeledInput
+          label={`FX Rate (→ USD)`}
+          type="number"
+          value={form.fx_rate}
+          onChange={(v) => setForm({ ...form, fx_rate: v })}
+        />
       </div>
 
       {/* Cost section -- kept visually separate, this is the line-item table */}
@@ -381,6 +459,9 @@ function AddInvoicePanel({
           </button>
           <div className="text-sm text-ink/70">
             Computed total: <span className="font-medium">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
+              <span className="text-ink/50"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+            )}
           </div>
         </div>
       </div>
@@ -426,12 +507,16 @@ function InvoiceRows({
   expanded,
   onToggle,
   onChange,
+  onDelete,
+  deleting,
 }: {
   sr: number;
   inv: Invoice;
   expanded: boolean;
   onToggle: () => void;
   onChange: (patch: Partial<Invoice>) => void;
+  onDelete: () => void;
+  deleting: boolean;
 }) {
   return (
     <>
@@ -445,7 +530,10 @@ function InvoiceRows({
         <Td>{inv.booking_number || "—"}</Td>
         <Td>{inv.container_number || "—"}</Td>
         <Td>
-          <span className="font-medium">{inv.currency} {Number(inv.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span className="font-medium">{fmtMoney(inv.total, inv.currency)}</span>
+        </Td>
+        <Td>
+          <span className="text-ink/60">{fmtMoney(inv.total_usd, "USD")}</span>
         </Td>
         <Td>
           <span className="text-ink/60">{fmtDate(inv.tracking?.eta ?? null)}</span>
@@ -471,10 +559,15 @@ function InvoiceRows({
             {expanded ? "Hide cost ▲" : "Cost section ▼"}
           </button>
         </td>
+        <td className="px-3 py-2">
+          <button onClick={onDelete} disabled={deleting} className="text-xs text-cutoff underline whitespace-nowrap disabled:opacity-50">
+            {deleting ? "…" : "Delete"}
+          </button>
+        </td>
       </tr>
       {expanded && (
         <tr className="border-b bg-slate-50/60">
-          <td colSpan={13} className="px-6 py-3">
+          <td colSpan={15} className="px-6 py-3">
             <CostSection invoiceId={inv.id} items={inv.items} currency={inv.currency} onTotalChange={(total) => onChange({ total })} onItemsChange={(items) => onChange({ items })} />
           </td>
         </tr>

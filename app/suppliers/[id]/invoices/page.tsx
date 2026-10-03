@@ -31,7 +31,7 @@ export default async function SupplierInvoicesPage({ params }: { params: { id: s
   const { data: invoices, error: invoicesError } = await supabase
     .from("supplier_invoices")
     .select(
-      "id, booking_number, container_number, month_of_loading, forwarder_name, consignee_name, invoice_number, invoice_date, total, currency, paid_status, notes, tracking_id, tracking:tracking_id (eta, release_status), items:supplier_invoice_items (id, description, weight_kg, unit_price, amount, sort_order)"
+      "id, booking_number, container_number, month_of_loading, forwarder_name, consignee_name, invoice_number, invoice_date, total, total_usd, currency, fx_rate, paid_status, notes, tracking_id, tracking:tracking_id (eta, release_status), items:supplier_invoice_items (id, description, weight_kg, unit_price, amount, sort_order)"
     )
     .eq("company_id", DEFAULT_COMPANY_ID)
     .eq("supplier_id", params.id)
