@@ -16,6 +16,16 @@ function parseDateish(v: string): string | null {
   return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
+// A charge column in someone's sheet showing "$1,983.00" is still just
+// a number to a human - Number("$1,983.00") is NaN, which silently
+// became 0 here, erasing real charges on import without a single row
+// being reported as skipped.
+function parseNumeric(v: string): number {
+  const cleaned = v.replace(/[^0-9.\-]/g, "");
+  const n = Number(cleaned);
+  return isNaN(n) ? 0 : n;
+}
+
 type Skip = { row: number; reason: string };
 
 // Fills in charge data on invoice rows that already exist (auto-created
@@ -303,11 +313,11 @@ export async function POST(req: NextRequest) {
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
-        customCharges[key] = Number(raw) || 0;
+        customCharges[key] = parseNumeric(raw);
       } else if (FORWARDER_INVOICE_DATE_KEYS.has(key)) {
         updates[key] = parseDateish(raw);
       } else if (FORWARDER_INVOICE_NUMERIC_KEYS.has(key)) {
-        updates[key] = Number(raw) || 0;
+        updates[key] = parseNumeric(raw);
       } else {
         updates[key] = raw;
       }
