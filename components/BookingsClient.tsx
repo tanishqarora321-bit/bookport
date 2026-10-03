@@ -29,6 +29,7 @@ type Row = {
   vessel: string | null;
   container_size: string | null;
   status: string;
+  instruction_status: string | null;
   container_no: string | null;
   forwarder: PartyRef;
   trucker: PartyRef;
@@ -60,14 +61,14 @@ function toCsv(rows: Row[]) {
     "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
     "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
     "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-    "Container Number", "Vessel", "Status",
+    "Container Number", "Vessel", "Status", "Instruction Status",
   ];
   const lines = rows.map((r) =>
     [
       r.carrier_booking_no ?? "", monthOfLoading(r.erd), formatPlain(r.erd, true), formatPlain(r.si_cutoff, true), formatPlain(r.cargo_cutoff, true),
       r.pol ?? "", r.pod ?? "", r.final_destination ?? "", formatPlain(r.bl_issued_at),
       r.carrier ?? "", r.forwarder?.name ?? "", r.trucker?.name ?? "", r.supplier?.name ?? "", r.buyer?.name ?? "",
-      r.container_no ?? "", r.container_size ?? "", r.status,
+      r.container_no ?? "", r.container_size ?? "", r.status, r.instruction_status ?? "",
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(",")
@@ -282,7 +283,7 @@ export default function BookingsClient({
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)", "",
-                "Container Number", "Vessel", "Status", "Open",
+                "Container Number", "Vessel", "Status", "Instruction Status", "Open",
               ].map((label, i) => (
                 <th key={i} className="px-3 py-2.5 font-semibold uppercase tracking-wide text-[11px] whitespace-nowrap">
                   {label}
@@ -361,6 +362,11 @@ export default function BookingsClient({
                     value={r.status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
                   />
+                  <InstructionStatusCell
+                    bookingId={r.booking_id}
+                    value={r.instruction_status}
+                    onChanged={(v) => updateRowsForBooking(r.booking_id, { instruction_status: v })}
+                  />
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <Link href={`/bookings/${r.booking_id}`} className="text-accent hover:underline text-sm whitespace-nowrap">
@@ -380,7 +386,7 @@ export default function BookingsClient({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={20} className="p-8 text-center text-ink/40">
+                <td colSpan={21} className="p-8 text-center text-ink/40">
                   {rows.length === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
                 </td>
               </tr>
@@ -389,5 +395,65 @@ export default function BookingsClient({
         </table>
       </div>
     </div>
+  );
+}
+
+// Separate from the shipment's own `status` (draft/confirmed/in_transit/
+// delivered/cancelled) - this just tracks whether shipping instructions
+// have gone out to the carrier yet. Blank (unset) has no color, matching
+// how every other optional field in this grid reads "—" rather than a
+// colored pill until someone actually sets it.
+const INSTRUCTION_STATUS_COLORS: Record<string, string> = {
+  sent: "bg-emerald-100 text-emerald-700",
+  not_sent: "bg-red-100 text-red-700",
+};
+const INSTRUCTION_STATUS_LABELS: Record<string, string> = {
+  sent: "Sent",
+  not_sent: "Not Sent",
+};
+
+function InstructionStatusCell({
+  bookingId, value, onChanged
+}: { bookingId: string; value: string | null; onChanged: (value: string) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleChange(next: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction_status: next }),
+      });
+      const text = await res.text();
+      let json: any = {};
+      try { json = text ? JSON.parse(text) : {}; } catch { /* non-JSON body, fall through to status */ }
+      if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
+      onChanged(next);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const colorClass = value ? INSTRUCTION_STATUS_COLORS[value] ?? "bg-slate-100 text-slate-600" : "bg-white border border-slate-200 text-ink/60";
+
+  return (
+    <td className="px-3 py-2 min-w-[140px]">
+      <select
+        value={value ?? ""}
+        onChange={(e) => handleChange(e.target.value)}
+        disabled={saving}
+        className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
+      >
+        <option value="">—</option>
+        <option value="sent">{INSTRUCTION_STATUS_LABELS.sent}</option>
+        <option value="not_sent">{INSTRUCTION_STATUS_LABELS.not_sent}</option>
+      </select>
+      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+    </td>
   );
 }

@@ -97,12 +97,12 @@ export default function NewBookingPage() {
 
   if (mode === "choose") {
     return (
-      <div className="max-w-2xl mx-auto space-y-4">
+      <div className="h-full flex flex-col">
         <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
           ← Back to Bookings
         </Link>
-        <h1 className="text-xl font-semibold text-center">New Booking</h1>
-        <div className="grid grid-cols-3 gap-4">
+        <h1 className="text-xl font-semibold mb-4">New Booking</h1>
+        <div className="grid grid-cols-3 gap-4 max-w-3xl">
           <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
             <div className="font-medium">Type it in</div>
             <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
@@ -119,13 +119,16 @@ export default function NewBookingPage() {
             <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
           </Link>
         </div>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-600 text-sm mt-4">{error}</p>}
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-1">
+    <div className="h-full flex flex-col max-w-2xl space-y-1">
+      <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
+        ← Back to Bookings
+      </Link>
       <h1 className="text-xl font-semibold mb-4">
         {mode === "review" ? "Review extracted fields" : "New Booking"}
       </h1>

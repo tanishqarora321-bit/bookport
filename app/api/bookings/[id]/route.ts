@@ -18,6 +18,7 @@ const EDITABLE_COLUMNS = [
   "carrier",
   "vessel",
   "status",
+  "instruction_status",
   // These 6 back the "Shipment & Routing Details" section on the
   // single-booking detail page (app/bookings/[id]/page.tsx) - they were
   // never added here, so every one of those fields silently failed to
