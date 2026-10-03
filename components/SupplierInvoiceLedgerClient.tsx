@@ -268,6 +268,42 @@ function AddInvoicePanel({
   const [items, setItems] = useState<DraftItem[]>([blankItem()]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setSaveError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/supplier-invoices/extract", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Extraction failed");
+      const ex = json.extracted ?? {};
+      setForm((f) => ({
+        invoice_number: ex.invoice_number ?? f.invoice_number,
+        invoice_date: ex.invoice_date ?? f.invoice_date,
+        currency: ex.currency || f.currency,
+        fx_rate: f.fx_rate,
+      }));
+      if (Array.isArray(ex.items) && ex.items.length > 0) {
+        setItems(
+          ex.items.map((it: any) => ({
+            description: it.description ?? "",
+            weight_kg: it.weight_kg != null ? String(it.weight_kg) : "",
+            unit_price: it.unit_price != null ? String(it.unit_price) : "",
+            amount: it.amount != null ? String(it.amount) : "",
+          }))
+        );
+      }
+    } catch (err: any) {
+      setSaveError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function lookup() {
     if (!query.trim()) return;
@@ -342,6 +378,11 @@ function AddInvoicePanel({
 
   return (
     <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
+      <label className="block border-2 border-dashed rounded-lg p-4 bg-white hover:border-accent text-center cursor-pointer mb-3">
+        <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills invoice number/date/currency and cost lines below)"}</div>
+        <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={uploading} />
+      </label>
+
       <div className="flex gap-2 mb-3">
         <input
           placeholder="Enter Booking Number or Container Number"
