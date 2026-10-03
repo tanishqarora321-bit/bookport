@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FORWARDER_INVOICE_IMPORT_FIELDS } from "@/lib/forwarder-invoice-import-fields";
+import { resolveSuggestedHeader } from "@/lib/match-header";
 
 type CustomColumn = { key: string; label: string };
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; customColumns: CustomColumn[] };
@@ -42,8 +43,8 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
       const initialMapping: Record<string, string> = {};
       const fields = [...FORWARDER_INVOICE_IMPORT_FIELDS, ...(json.customColumns ?? []).map((c: CustomColumn) => ({ key: c.key }))];
       for (const f of fields) {
-        const suggested = json.suggestedMapping?.[f.key];
-        if (suggested && json.headers.includes(suggested)) initialMapping[f.key] = suggested;
+        const resolved = resolveSuggestedHeader(json.headers, json.suggestedMapping?.[f.key]);
+        if (resolved) initialMapping[f.key] = resolved;
       }
       setMapping(initialMapping);
       setStep("mapping");

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { PARTY_IMPORT_FIELDS, type PartyRole } from "@/lib/party-import-fields";
+import { resolveSuggestedHeader } from "@/lib/match-header";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
@@ -36,8 +37,8 @@ export default function PartyImportClient({
       setParsed(json);
       const initialMapping: Record<string, string> = {};
       for (const f of PARTY_IMPORT_FIELDS) {
-        const suggested = json.suggestedMapping?.[f.key];
-        if (suggested && json.headers.includes(suggested)) initialMapping[f.key] = suggested;
+        const resolved = resolveSuggestedHeader(json.headers, json.suggestedMapping?.[f.key]);
+        if (resolved) initialMapping[f.key] = resolved;
       }
       setMapping(initialMapping);
       setStep("mapping");
