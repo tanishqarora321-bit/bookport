@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
 
 // Deliberately excludes: id, company_id, supplier_id, tracking_id, total,
 // total_usd (both totals are Postgres-maintained - total via the live
@@ -95,9 +96,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 // supplier_invoice_items has "on delete cascade" on its supplier_invoice_id
 // FK, so this cleanly removes the invoice's line items along with it.
+// Also clears the Supplier Name picker on this booking (only once no
+// other container's invoice still needs this supplier) - same logic as
+// the Forwarders equivalent.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createServiceClient();
+
+  const { data: invoice } = await supabase.from("supplier_invoices").select("tracking_id, supplier_id").eq("id", params.id).single();
+
   const { error } = await supabase.from("supplier_invoices").delete().eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (invoice) {
+    await unassignPartyIfNoInvoicesRemain(supabase, {
+      trackingId: invoice.tracking_id,
+      partyId: invoice.supplier_id,
+      role: "supplier",
+      invoiceTable: "supplier_invoices",
+      partyColumn: "supplier_id",
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

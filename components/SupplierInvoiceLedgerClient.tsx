@@ -45,7 +45,11 @@ function fmtMonth(d: string | null) {
   return new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 function fmtMoney(amount: number | null | undefined, currency: string) {
-  return `${currency} ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(amount ?? 0);
+  } catch {
+    return `${currency} ${(amount ?? 0).toFixed(2)}`;
+  }
 }
 
 async function patchInvoice(id: string, updates: Record<string, any>) {
@@ -87,7 +91,7 @@ export default function SupplierInvoiceLedgerClient({
   }
 
   async function handleDelete(inv: Invoice) {
-    if (!confirm(`Delete this invoice (${inv.invoice_number || inv.booking_number || "no reference"})? This also removes its cost-section lines.`)) return;
+    if (!confirm(`Delete this invoice (${inv.invoice_number || inv.booking_number || "no reference"})? This also removes its cost-section lines, and clears this supplier from Booking & Instructions if it was their only invoice there.`)) return;
     setDeletingId(inv.id);
     try {
       const res = await fetch(`/api/supplier-invoices/${inv.id}`, { method: "DELETE" });

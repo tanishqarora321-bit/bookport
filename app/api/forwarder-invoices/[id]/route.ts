@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
 
 // Deliberately excludes: id, company_id, forwarder_id, tracking_id, total
 // (total is a Postgres GENERATED column -- trying to write it directly
@@ -68,10 +69,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // delete - no cascade/detach concerns like a booking or party delete
 // has. Mainly for a legacy row from before invoices were auto-created
 // (no tracking_id, so it can never get a live ETA/status) or a wrong
-// pending shell someone wants gone rather than filled in.
+// pending shell someone wants gone rather than filled in - e.g. the
+// wrong forwarder got picked, so its invoice is deleted here AND the
+// Forwarder Name picker on that booking should go back to empty,
+// handled below (only once no other container's invoice still needs
+// this forwarder on this same booking).
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const supabase = createServiceClient();
+
+  const { data: invoice } = await supabase.from("forwarder_invoices").select("tracking_id, forwarder_id").eq("id", params.id).single();
+
   const { error } = await supabase.from("forwarder_invoices").delete().eq("id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (invoice) {
+    await unassignPartyIfNoInvoicesRemain(supabase, {
+      trackingId: invoice.tracking_id,
+      partyId: invoice.forwarder_id,
+      role: "forwarder",
+      invoiceTable: "forwarder_invoices",
+      partyColumn: "forwarder_id",
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

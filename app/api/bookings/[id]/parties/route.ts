@@ -23,6 +23,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: `role must be one of ${VALID_ROLES.join(", ")}` }, { status: 400 });
   }
 
+  // Needed below to clean up that party's invoices when this clears the
+  // assignment entirely (partyId null) - captured before the delete.
+  const { data: existingLink } = await supabase
+    .from("booking_parties")
+    .select("party_id")
+    .eq("booking_id", params.id)
+    .eq("role", role)
+    .maybeSingle();
+  const previousPartyId = existingLink?.party_id ?? null;
+
   const { error: deleteError } = await supabase
     .from("booking_parties")
     .delete()
@@ -37,6 +47,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       .insert({ booking_id: params.id, party_id: partyId, role });
 
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  // Clearing a Forwarder/Supplier assignment entirely (not reassigning to
+  // someone else) should also remove that party's invoice(s) for this
+  // booking, not leave them behind pointing at a party the booking no
+  // longer shows as assigned - mirrors deleting the invoice itself also
+  // clearing the picker below. A reassignment (old party -> a new one)
+  // is unaffected: the sync trigger moves that same invoice row onto the
+  // new party instead of deleting it.
+  if (!partyId && previousPartyId && (role === "forwarder" || role === "supplier")) {
+    const { data: ownTracking } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
+    const trackingIds = (ownTracking ?? []).map((t: { id: string }) => t.id);
+    if (trackingIds.length > 0) {
+      const table = role === "forwarder" ? "forwarder_invoices" : "supplier_invoices";
+      const partyCol = role === "forwarder" ? "forwarder_id" : "supplier_id";
+      await supabase.from(table).delete().eq(partyCol, previousPartyId).in("tracking_id", trackingIds);
+    }
   }
 
   // Re-sync tracking for every container already on this booking -- a

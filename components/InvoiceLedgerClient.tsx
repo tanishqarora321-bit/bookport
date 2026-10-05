@@ -365,7 +365,7 @@ function InvoiceRow({
   onDeleted: () => void;
 }) {
   async function handleDelete() {
-    if (!confirm(`Delete this invoice (${inv.booking_number || "no booking"} / ${inv.container_number || "no container"})? This cannot be undone.`)) return;
+    if (!confirm(`Delete this invoice (${inv.booking_number || "no booking"} / ${inv.container_number || "no container"})? This cannot be undone, and clears this forwarder from Booking & Instructions if it was their only invoice there.`)) return;
     const res = await fetch(`/api/forwarder-invoices/${inv.id}`, { method: "DELETE" });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
