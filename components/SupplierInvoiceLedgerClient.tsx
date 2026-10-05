@@ -73,6 +73,7 @@ export default function SupplierInvoiceLedgerClient({
   const [invoices, setInvoices] = useState(initialInvoices);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [entering, setEntering] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -180,6 +181,17 @@ export default function SupplierInvoiceLedgerClient({
         />
       )}
 
+      {entering && (
+        <EnterInvoiceModal
+          inv={entering}
+          onClose={() => setEntering(null)}
+          onSaved={(updated) => {
+            updateLocal(updated.id, updated);
+            setEntering(null);
+          }}
+        />
+      )}
+
       <div className="flex-1 overflow-auto border rounded">
         <table className="text-sm border-collapse min-w-[1800px]">
           <thead className="sticky top-0 bg-slate-50 z-10">
@@ -212,6 +224,7 @@ export default function SupplierInvoiceLedgerClient({
                 onChange={(patch) => updateLocal(inv.id, patch)}
                 onDelete={() => handleDelete(inv)}
                 deleting={deletingId === inv.id}
+                onEnterInvoice={() => setEntering(inv)}
               />
             ))}
             {filtered.length === 0 && (
@@ -550,6 +563,7 @@ function InvoiceRows({
   onChange,
   onDelete,
   deleting,
+  onEnterInvoice,
 }: {
   sr: number;
   inv: Invoice;
@@ -558,6 +572,7 @@ function InvoiceRows({
   onChange: (patch: Partial<Invoice>) => void;
   onDelete: () => void;
   deleting: boolean;
+  onEnterInvoice: () => void;
 }) {
   return (
     <>
@@ -565,7 +580,15 @@ function InvoiceRows({
         <Td>{sr}</Td>
         <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then(() => onChange({ invoice_date: v }))} />
         <Td>{fmtMonth(inv.month_of_loading)}</Td>
-        <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
+        {inv.invoice_number ? (
+          <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
+        ) : (
+          <td className="px-3 py-2 whitespace-nowrap">
+            <button onClick={onEnterInvoice} className="text-xs bg-accent text-white px-2 py-1 rounded font-medium">
+              Enter Invoice
+            </button>
+          </td>
+        )}
         <Td>{inv.forwarder_name || "—"}</Td>
         <Td>{inv.consignee_name || "—"}</Td>
         <Td>{inv.booking_number || "—"}</Td>
@@ -614,6 +637,233 @@ function InvoiceRows({
         </tr>
       )}
     </>
+  );
+}
+
+// ---------------- Enter Invoice modal: PDF upload (or manual entry) for a pending shell ----------------
+
+function EnterInvoiceModal({
+  inv, onClose, onSaved,
+}: { inv: Invoice; onClose: () => void; onSaved: (invoice: Invoice) => void }) {
+  const [form, setForm] = useState({
+    invoice_number: inv.invoice_number ?? "",
+    invoice_date: inv.invoice_date ?? "",
+    currency: inv.currency || "EUR",
+    fx_rate: String(inv.fx_rate ?? 1),
+  });
+  const [items, setItems] = useState<DraftItem[]>(
+    inv.items.length > 0
+      ? inv.items.map((it) => ({
+          description: it.description ?? "",
+          weight_kg: it.weight_kg != null ? String(it.weight_kg) : "",
+          unit_price: it.unit_price != null ? String(it.unit_price) : "",
+          amount: it.amount != null ? String(it.amount) : "",
+        }))
+      : [blankItem()]
+  );
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/supplier-invoices/extract", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Extraction failed");
+      const ex = json.extracted ?? {};
+      setForm((f) => ({
+        invoice_number: ex.invoice_number ?? f.invoice_number,
+        invoice_date: ex.invoice_date ?? f.invoice_date,
+        currency: ex.currency || f.currency,
+        fx_rate: f.fx_rate,
+      }));
+      if (Array.isArray(ex.items) && ex.items.length > 0) {
+        setItems(
+          ex.items.map((it: any) => ({
+            description: it.description ?? "",
+            weight_kg: it.weight_kg != null ? String(it.weight_kg) : "",
+            unit_price: it.unit_price != null ? String(it.unit_price) : "",
+            amount: it.amount != null ? String(it.amount) : "",
+          }))
+        );
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function updateItem(i: number, patch: Partial<DraftItem>) {
+    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  }
+  function addItemRow() {
+    setItems([...items, blankItem()]);
+  }
+  function removeItemRow(i: number) {
+    setItems(items.filter((_, idx) => idx !== i));
+  }
+
+  const computedTotal = items.reduce((sum, it) => {
+    const explicit = it.amount !== "" ? Number(it.amount) : null;
+    if (explicit !== null && !Number.isNaN(explicit)) return sum + explicit;
+    const w = Number(it.weight_kg);
+    const p = Number(it.unit_price);
+    if (it.weight_kg !== "" && it.unit_price !== "" && !Number.isNaN(w) && !Number.isNaN(p)) {
+      return sum + w * p;
+    }
+    return sum;
+  }, 0);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/supplier-invoices/${inv.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_number: form.invoice_number,
+          invoice_date: form.invoice_date,
+          currency: form.currency,
+          fx_rate: form.fx_rate,
+          items: items.filter((it) => it.description || it.weight_kg || it.unit_price || it.amount),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to save invoice");
+      onSaved(json.invoice);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-ink">
+            Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
+          </h2>
+          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+        </div>
+
+        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+          <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
+        </label>
+
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
+          <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
+          <div>
+            <div className="text-xs text-ink/40 mb-0.5">Currency</div>
+            <select
+              className="border rounded px-2 py-1 text-sm w-full"
+              value={form.currency}
+              onChange={(e) => setForm({ ...form, currency: e.target.value })}
+            >
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="INR">INR</option>
+              <option value="GBP">GBP</option>
+              <option value="AED">AED</option>
+            </select>
+          </div>
+          <LabeledInput label="FX Rate (→ USD)" type="number" value={form.fx_rate} onChange={(v) => setForm({ ...form, fx_rate: v })} />
+        </div>
+
+        <div className="border-t pt-3">
+          <div className="text-xs font-medium text-ink/60 mb-2">Cost Section</div>
+          <table className="w-full text-sm mb-2">
+            <thead>
+              <tr className="text-left text-ink/40">
+                <th className="pb-1 pr-2 font-normal">Description</th>
+                <th className="pb-1 pr-2 font-normal w-28">Weight (KG)</th>
+                <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
+                <th className="pb-1 pr-2 font-normal w-28">Amount</th>
+                <th className="pb-1 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={i}>
+                  <td className="pr-2 pb-1">
+                    <input
+                      className="border rounded px-2 py-1 text-sm w-full"
+                      value={it.description}
+                      onChange={(e) => updateItem(i, { description: e.target.value })}
+                    />
+                  </td>
+                  <td className="pr-2 pb-1">
+                    <input
+                      type="number"
+                      className="border rounded px-2 py-1 text-sm w-full"
+                      value={it.weight_kg}
+                      onChange={(e) => updateItem(i, { weight_kg: e.target.value })}
+                    />
+                  </td>
+                  <td className="pr-2 pb-1">
+                    <input
+                      type="number"
+                      step="0.0001"
+                      className="border rounded px-2 py-1 text-sm w-full"
+                      value={it.unit_price}
+                      onChange={(e) => updateItem(i, { unit_price: e.target.value })}
+                    />
+                  </td>
+                  <td className="pr-2 pb-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="auto"
+                      className="border rounded px-2 py-1 text-sm w-full"
+                      value={it.amount}
+                      onChange={(e) => updateItem(i, { amount: e.target.value })}
+                    />
+                  </td>
+                  <td className="pb-1 text-center">
+                    {items.length > 1 && (
+                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs">
+                        ✕
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex items-center justify-between">
+            <button onClick={addItemRow} className="text-xs text-accent underline">
+              + Add Line
+            </button>
+            <div className="text-sm text-ink/70">
+              Computed total: <span className="font-medium">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
+                <span className="text-ink/50"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
+
+        <div className="flex gap-2 mt-4 justify-end">
+          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
+          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+            {saving ? "Saving…" : "Save Invoice"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
