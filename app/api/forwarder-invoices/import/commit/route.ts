@@ -301,6 +301,21 @@ export async function POST(req: NextRequest) {
     }
 
     const updates: Record<string, any> = {};
+
+    // Backfills Month of Loading from the live tracking row's ETA when
+    // it's still blank - covers every branch above (matched, linked, or
+    // newly created), since none of them ever had a way to set it before.
+    // A sheet importing charges onto an already-auto-created invoice has
+    // no Month of Loading column of its own to map, so without this it
+    // stays blank forever even once the booking has a real ETA.
+    {
+      const { data: existingRow } = await supabase.from("forwarder_invoices").select("tracking_id, month_of_loading").eq("id", targetId).single();
+      if (existingRow && !existingRow.month_of_loading && existingRow.tracking_id) {
+        const { data: trackingRow } = await supabase.from("tracking").select("eta").eq("id", existingRow.tracking_id).single();
+        if (trackingRow?.eta) updates.month_of_loading = trackingRow.eta.slice(0, 10);
+      }
+    }
+
     const customCharges: Record<string, number> = {};
     for (const [key] of Object.entries(mapping)) {
       if (key === "booking_number" || key === "container_number" || FORWARDER_INVOICE_BOOKING_CREATE_KEYS.has(key)) continue;

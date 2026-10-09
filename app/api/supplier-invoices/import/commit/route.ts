@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     let trackingId: string | null = null;
     let monthOfLoading: string | null = null;
     {
-      const SELECT = "id, booking_id, party_id, forwarder_id";
+      const SELECT = "id, booking_id, party_id, forwarder_id, eta";
       let { data: tracking } = await supabase
         .from("tracking")
         .select(SELECT)
@@ -142,12 +142,11 @@ export async function POST(req: NextRequest) {
       }
       if (tracking) {
         trackingId = tracking.id;
-        const [{ data: booking }, { data: party }, { data: forwarder }] = await Promise.all([
-          tracking.booking_id ? supabase.from("bookings").select("etd").eq("id", tracking.booking_id).single() : Promise.resolve({ data: null as any }),
+        monthOfLoading = tracking.eta ? tracking.eta.slice(0, 10) : null;
+        const [{ data: party }, { data: forwarder }] = await Promise.all([
           tracking.party_id ? supabase.from("parties").select("legal_name").eq("id", tracking.party_id).single() : Promise.resolve({ data: null as any }),
           tracking.forwarder_id ? supabase.from("parties").select("legal_name").eq("id", tracking.forwarder_id).single() : Promise.resolve({ data: null as any }),
         ]);
-        monthOfLoading = booking?.etd ? booking.etd.slice(0, 10) : null;
         if (!header["consignee_name"] && party?.legal_name) header["consignee_name"] = party.legal_name;
         if (!header["forwarder_name"] && forwarder?.legal_name) header["forwarder_name"] = forwarder.legal_name;
       }
