@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus } from "lucide-react";
+import StatCard from "@/components/ui/StatCard";
+import StatusPill from "@/components/ui/StatusPill";
+
+type CustomColumn = { id: string; key: string; label: string };
 
 type Invoice = {
   id: string;
@@ -12,9 +17,17 @@ type Invoice = {
   invoice_number: string | null;
   invoice_date: string | null;
   invoice_due_date: string | null;
-  amount: number;
+  trucking: number;
+  fuel_surcharge: number;
+  chassis_rental: number;
+  stop_off: number;
+  chassis_split: number;
+  misc_charges: number;
+  custom_charges: Record<string, number>;
+  total: number;
   currency: string;
-  charges_note: string | null;
+  fx_rate: number;
+  total_usd: number;
   paid_status: "PAID" | "UNPAID";
   tracking_id: string | null;
   tracking: { eta: string | null; release_status: string | null } | null;
@@ -26,33 +39,166 @@ async function patchInvoice(id: string, updates: Record<string, any>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),
   });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error(json.error || "Save failed");
-  }
-  return res.json();
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Save failed");
+  return json;
 }
+
+// ETA/Status here are read live from `tracking` (see the page's join) -
+// editing them writes to that same tracking row via its own route, the
+// same one components/TrackingClient.tsx uses, so a change here shows
+// up in Shipment Tracking too and vice versa - there's only one copy.
+async function patchTracking(trackingId: string, updates: Record<string, any>) {
+  const res = await fetch(`/api/tracking/${trackingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Save failed");
+  return json;
+}
+
+async function createCustomColumn(label: string): Promise<CustomColumn> {
+  const res = await fetch("/api/trucker-invoice-columns", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Failed to add column");
+  return json.column;
+}
+
+const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
+const MAX_CUSTOM_COLUMNS = 10;
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function fmtMoney(amount: number | null | undefined, currency: string) {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(amount ?? 0);
+  } catch {
+    return `${currency} ${(amount ?? 0).toFixed(2)}`;
+  }
+}
+
+const CHARGE_KEYS = ["trucking", "fuel_surcharge", "chassis_rental", "stop_off", "chassis_split", "misc_charges"] as const;
+
+// trucker_invoices.total/total_usd are Postgres GENERATED columns over
+// only the 6 fixed charge fields - they can't reference the
+// custom_charges jsonb blob, so "the real total" (including whatever
+// custom columns exist) is computed here instead of trusted from the
+// DB once any custom column has a value. Mirrors the identical pattern
+// on the Forwarders ledger.
+function customChargesSum(inv: Invoice, columns: CustomColumn[]) {
+  return columns.reduce((s, c) => s + (Number(inv.custom_charges?.[c.key]) || 0), 0);
+}
+function invoiceTotal(inv: Invoice, columns: CustomColumn[]) {
+  return inv.total + customChargesSum(inv, columns);
+}
+function invoiceTotalUsd(inv: Invoice, columns: CustomColumn[]) {
+  return inv.total_usd + customChargesSum(inv, columns) * (inv.fx_rate || 1);
+}
+
 export default function TruckerInvoiceLedgerClient({
   truckerId,
   truckerName,
   initialInvoices,
+  initialCustomColumns,
 }: {
   truckerId: string;
   truckerName: string;
   initialInvoices: Invoice[];
+  initialCustomColumns: CustomColumn[];
 }) {
   const [invoices, setInvoices] = useState(initialInvoices);
-  const [adding, setAdding] = useState(false);
+  const [customColumns, setCustomColumns] = useState(initialCustomColumns);
+  const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [paidFilter, setPaidFilter] = useState("all");
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
-    setInvoices(invoices.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
+
+  async function handleDeleteColumn(col: CustomColumn) {
+    if (!confirm(`Delete the "${col.label}" column? This only works if it's 0 (or unset) on every trucker's invoices, not just ${truckerName}'s - checked before anything is removed.`)) {
+      return;
+    }
+    setDeletingColumnId(col.id);
+    try {
+      const res = await fetch(`/api/trucker-invoice-columns/${col.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to delete column");
+      setCustomColumns((prev) => prev.filter((c) => c.id !== col.id));
+      setInvoices((prev) =>
+        prev.map((inv) => {
+          if (!(col.key in (inv.custom_charges ?? {}))) return inv;
+          const { [col.key]: _removed, ...rest } = inv.custom_charges;
+          return { ...inv, custom_charges: rest };
+        })
+      );
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeletingColumnId(null);
+    }
+  }
+
+  async function handleAddColumn() {
+    const label = prompt("New charge column name:")?.trim();
+    if (!label) return;
+    if (customColumns.length >= MAX_CUSTOM_COLUMNS) {
+      alert(`You already have ${MAX_CUSTOM_COLUMNS} custom columns, the maximum.`);
+      return;
+    }
+    if (!confirm(`Add "${label}" as a new charge column? It will show up on every trucker's invoice ledger, not just ${truckerName}'s.`)) {
+      return;
+    }
+    setAddingColumn(true);
+    try {
+      const column = await createCustomColumn(label);
+      setCustomColumns((prev) => [...prev, column]);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setAddingColumn(false);
+    }
+  }
+
+  const filtered = useMemo(() => {
+    return invoices.filter((inv) => {
+      if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
+      if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
+      return true;
+    });
+  }, [invoices, statusFilter, paidFilter]);
+
+  // KPI cards reflect the whole ledger regardless of the filters above
+  // (same convention as Booking & Instructions' stat cards).
+  const pendingCount = invoices.filter((i) => !i.invoice_number).length;
+  const onWaterCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
+  const releasedCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
+  const paidCount = invoices.filter((i) => i.paid_status === "PAID").length;
+  const unpaidCount = invoices.filter((i) => i.paid_status === "UNPAID").length;
+  const totalUsd = invoices.reduce((s, i) => s + invoiceTotalUsd(i, customColumns), 0);
+
+  const chargeTotalsUsd = CHARGE_KEYS.reduce((acc, key) => {
+    acc[key] = invoices.reduce((s, i) => s + (Number(i[key]) || 0) * (i.fx_rate || 1), 0);
+    return acc;
+  }, {} as Record<(typeof CHARGE_KEYS)[number], number>);
+  const customTotalsUsd = customColumns.reduce((acc, col) => {
+    acc[col.key] = invoices.reduce((s, i) => s + (Number(i.custom_charges?.[col.key]) || 0) * (i.fx_rate || 1), 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  const columnCount = 19 + customColumns.length;
 
   return (
     <div className="h-full flex flex-col">
@@ -61,259 +207,288 @@ export default function TruckerInvoiceLedgerClient({
       </Link>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">{truckerName} — Invoices</h1>
-        <button onClick={() => setAdding(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
-          + Add Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href={`/truckers/${truckerId}/invoices/import`} className="text-sm border px-3 py-1.5 rounded font-medium">
+            Import Excel
+          </Link>
+          <button
+            onClick={handleAddColumn}
+            disabled={addingColumn || customColumns.length >= MAX_CUSTOM_COLUMNS}
+            className="text-sm border px-3 py-1.5 rounded font-medium flex items-center gap-1 disabled:opacity-50"
+            title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a charge column"}
+          >
+            <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
+          </button>
+        </div>
       </div>
 
-      {adding && (
-        <AddInvoicePanel
-          truckerId={truckerId}
-          onClose={() => setAdding(false)}
-          onCreated={(inv) => {
-            setInvoices([inv, ...invoices]);
-            setAdding(false);
-          }}
-        />
-      )}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
+        <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
+        <StatCard icon={Ship} label="On Water" value={onWaterCount} />
+        <StatCard icon={CheckCircle2} label="Released" value={releasedCount} tone="success" />
+        <StatCard icon={CheckCircle2} label="Paid" value={paidCount} tone="success" />
+        <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
+        <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
+      </div>
+
+      <div className="flex flex-wrap gap-2 mb-4 shrink-0">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Status</option>
+          {RELEASE_STATUS_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Paid</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+      </div>
 
       <div className="flex-1 overflow-auto border rounded">
-        <table className="text-sm border-collapse min-w-[1700px]">
+        <table className="text-sm border-collapse min-w-[2100px]">
           <thead className="sticky top-0 bg-slate-50 z-10">
             <tr className="text-left text-ink/50 border-b">
-              <Th>Booking #</Th>
-              <Th>Container #</Th>
+              <Th>Booking Number</Th>
+              <Th>Container Number</Th>
               <Th>Month of Loading</Th>
               <Th>Location</Th>
-              <Th>Invoice #</Th>
+              <Th>Invoice Number</Th>
               <Th>Invoice Date</Th>
               <Th>Due Date</Th>
-              <Th>Amount</Th>
-              <Th>Charges Note</Th>
+              <Th>Trucking</Th>
+              <Th>Fuel Surcharge</Th>
+              <Th>Chassis Rental</Th>
+              <Th>Stop Off</Th>
+              <Th>Chassis Split</Th>
+              <Th>Misc Charges</Th>
+              {customColumns.map((col) => (
+                <Th key={col.key}>
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    <button
+                      onClick={() => handleDeleteColumn(col)}
+                      disabled={deletingColumnId === col.id}
+                      title={`Delete "${col.label}" column (only works if it's 0 everywhere)`}
+                      className="text-ink/30 hover:text-cutoff font-normal normal-case tracking-normal"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </Th>
+              ))}
+              <Th>Total</Th>
+              <Th>Total (USD)</Th>
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
+              <Th></Th>
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv) => (
-              <InvoiceRow key={inv.id} inv={inv} onChange={(patch) => updateLocal(inv.id, patch)} />
+            {filtered.map((inv) => (
+              <InvoiceRow
+                key={inv.id}
+                inv={inv}
+                customColumns={customColumns}
+                onChange={(patch) => updateLocal(inv.id, patch)}
+                onEnterInvoice={() => setEnteringInvoice(inv)}
+                onDeleted={() => setInvoices((prev) => prev.filter((x) => x.id !== inv.id))}
+              />
             ))}
-            {invoices.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-3 py-10 text-center text-ink/40">
-                  No invoices yet for this trucker. Click "+ Add Invoice" to enter one.
+                <td colSpan={columnCount} className="px-3 py-10 text-center text-ink/40">
+                  {invoices.length === 0
+                    ? <>No invoices yet — one appears here automatically as soon as a container with this trucker assigned is added in Booking &amp; Instructions.</>
+                    : "No invoices match these filters."}
                 </td>
               </tr>
             )}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr className="font-medium bg-slate-50 border-t">
+                <td colSpan={7} className="px-3 py-2 text-right text-ink/60">Totals (converted to USD):</td>
+                {CHARGE_KEYS.map((key) => (
+                  <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
+                ))}
+                {customColumns.map((col) => (
+                  <td key={col.key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(customTotalsUsd[col.key], "USD")}</td>
+                ))}
+                <td className="px-3 py-2 text-ink/30">—</td>
+                <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
+                <td colSpan={4}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
+
+      {enteringInvoice && (
+        <EnterInvoiceModal
+          inv={enteringInvoice}
+          customColumns={customColumns}
+          onColumnAdded={(col) => setCustomColumns((prev) => [...prev, col])}
+          onClose={() => setEnteringInvoice(null)}
+          onSaved={(updated) => {
+            updateLocal(updated.id, updated);
+            setEnteringInvoice(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) {
+function Th({ children }: { children?: React.ReactNode }) {
   return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-2 whitespace-nowrap text-ink/80">{children}</td>;
 }
 
-// ---------------- Add Invoice panel ----------------
-
-function AddInvoicePanel({
-  truckerId,
-  onClose,
-  onCreated,
-}: {
-  truckerId: string;
-  onClose: () => void;
-  onCreated: (inv: Invoice) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [looking, setLooking] = useState(false);
-  const [lookupResult, setLookupResult] = useState<any>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-
-  const [form, setForm] = useState({
-    location: "",
-    invoice_number: "",
-    invoice_date: "",
-    invoice_due_date: "",
-    amount: "",
-    currency: "USD",
-    charges_note: "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  async function lookup() {
-    if (!query.trim()) return;
-    setLooking(true);
-    setLookupError(null);
-    try {
-      const res = await fetch(`/api/tracking-lookup?query=${encodeURIComponent(query.trim())}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Lookup failed");
-      setLookupResult(json);
-      if (json.matched) {
-        // POL is a sensible starting point for "location" -- pickup is
-        // usually near port of loading -- but stays fully editable per
-        // spec ("manual...or from invoice scan").
-        setForm((f) => ({ ...f, location: f.location || json.pol || "" }));
-      } else {
-        setLookupError("No matching Tracking entry found for that number. You can still enter this invoice manually below — it just won't have a live ETA/status link.");
-      }
-    } catch (err: any) {
-      setLookupError(err.message);
-    } finally {
-      setLooking(false);
-    }
-  }
-
-  async function save() {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/trucker-invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          trucker_id: truckerId,
-          tracking_id: lookupResult?.tracking_id ?? null,
-          booking_number: lookupResult?.booking_number ?? query,
-          container_number: lookupResult?.container_number ?? null,
-          month_of_loading: lookupResult?.month_of_loading ?? null,
-          ...form,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to save invoice");
-      onCreated(json.invoice);
-    } catch (err: any) {
-      setSaveError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="flex gap-2 mb-3">
-        <input
-          placeholder="Enter Booking Number or Container Number"
-          className="border rounded px-2 py-1.5 text-sm flex-1"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && lookup()}
-        />
-        <button onClick={lookup} disabled={looking} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
-          {looking ? "Looking up…" : "Lookup"}
-        </button>
-      </div>
-
-      {lookupError && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">{lookupError}</div>}
-
-      {lookupResult?.matched && (
-        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-white border rounded p-3">
-          <div><span className="text-ink/40">Matched by:</span> {lookupResult.matched_by}</div>
-          <div><span className="text-ink/40">Month of Loading:</span> {lookupResult.month_of_loading || "—"}</div>
-          <div><span className="text-ink/40">Suggested Location (POL):</span> {lookupResult.pol || "—"}</div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-3">
-        <LabeledInput label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
-        <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
-        <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
-        <LabeledInput label="Due Date" type="date" value={form.invoice_due_date} onChange={(v) => setForm({ ...form, invoice_due_date: v })} />
-        <LabeledInput label="Amount" type="number" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} />
-        <LabeledInput label="Charges Note (optional)" value={form.charges_note} onChange={(v) => setForm({ ...form, charges_note: v })} />
-      </div>
-
-      {saveError && <div className="text-xs text-cutoff mt-2">{saveError}</div>}
-
-      <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving || !query.trim()} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50">
-          {saving ? "Saving…" : "Save Invoice"}
-        </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function LabeledInput({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <div className="text-xs text-ink/40 mb-0.5">{label}</div>
-      <input type={type} className="border rounded px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
 // ---------------- One invoice row ----------------
 
-function InvoiceRow({ inv, onChange }: { inv: Invoice; onChange: (patch: Partial<Invoice>) => void }) {
+function InvoiceRow({
+  inv, customColumns, onChange, onEnterInvoice, onDeleted
+}: {
+  inv: Invoice;
+  customColumns: CustomColumn[];
+  onChange: (patch: Partial<Invoice>) => void;
+  onEnterInvoice: () => void;
+  onDeleted: () => void;
+}) {
+  async function handleDelete() {
+    if (!confirm(`Delete this invoice (${inv.booking_number || "no booking"} / ${inv.container_number || "no container"})? This cannot be undone, and clears this trucker from Booking & Instructions if it was their only invoice there.`)) return;
+    const res = await fetch(`/api/trucker-invoices/${inv.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(json.error || "Failed to delete");
+      return;
+    }
+    onDeleted();
+  }
   return (
     <tr className="border-b hover:bg-blue-50/30">
       <Td>{inv.booking_number || "—"}</Td>
       <Td>{inv.container_number || "—"}</Td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>
-      <EditableCell value={inv.location} onSave={(v) => patchInvoice(inv.id, { location: v }).then(() => onChange({ location: v }))} />
-      <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
-      <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then(() => onChange({ invoice_date: v }))} />
-      <EditableCell value={inv.invoice_due_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_due_date: v }).then(() => onChange({ invoice_due_date: v }))} />
-      <EditableCell value={String(inv.amount ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { amount: Number(v) }).then(() => onChange({ amount: Number(v) }))} />
-      <EditableCell value={inv.charges_note} onSave={(v) => patchInvoice(inv.id, { charges_note: v }).then(() => onChange({ charges_note: v }))} wide />
+      <EditableCell value={inv.location} onSave={(v) => patchInvoice(inv.id, { location: v }).then((r) => onChange(r.invoice))} />
+      {inv.invoice_number ? (
+        <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then((r) => onChange(r.invoice))} />
+      ) : (
+        <td className="px-3 py-2 whitespace-nowrap">
+          <button onClick={onEnterInvoice} className="text-xs bg-accent text-white px-2 py-1 rounded font-medium">
+            Enter Invoice
+          </button>
+        </td>
+      )}
+      <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then((r) => onChange(r.invoice))} />
+      <EditableCell value={inv.invoice_due_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_due_date: v }).then((r) => onChange(r.invoice))} />
+      <EditableCell value={String(inv.trucking ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { trucking: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.trucking, inv.currency)} />
+      <EditableCell value={String(inv.fuel_surcharge ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { fuel_surcharge: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.fuel_surcharge, inv.currency)} />
+      <EditableCell value={String(inv.chassis_rental ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { chassis_rental: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.chassis_rental, inv.currency)} />
+      <EditableCell value={String(inv.stop_off ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { stop_off: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.stop_off, inv.currency)} />
+      <EditableCell value={String(inv.chassis_split ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { chassis_split: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.chassis_split, inv.currency)} />
+      <EditableCell value={String(inv.misc_charges ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { misc_charges: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.misc_charges, inv.currency)} />
+      {customColumns.map((col) => (
+        <EditableCell
+          key={col.key}
+          value={String(inv.custom_charges?.[col.key] ?? 0)}
+          isNumber
+          onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: Number(v) || 0 } }).then((r) => onChange(r.invoice))}
+          display={fmtMoney(inv.custom_charges?.[col.key] ?? 0, inv.currency)}
+        />
+      ))}
       <Td>
-        <span className="text-ink/60">{fmtDate(inv.tracking?.eta ?? null)}</span>
+        <span className="font-medium">{fmtMoney(invoiceTotal(inv, customColumns), inv.currency)}</span>
       </Td>
       <Td>
-        <span className="text-ink/60">{inv.tracking?.release_status || "—"}</span>
+        <span className="font-medium">{fmtMoney(invoiceTotalUsd(inv, customColumns), "USD")}</span>
       </Td>
+      {inv.tracking_id ? (
+        <EditableCell
+          value={inv.tracking?.eta ?? null}
+          isDate
+          onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
+        />
+      ) : (
+        <Td><span className="text-ink/30">—</span></Td>
+      )}
+      {inv.tracking_id ? (
+        <td className="px-3 py-2 whitespace-nowrap">
+          <ReleaseStatusSelect
+            value={inv.tracking?.release_status ?? ""}
+            onSave={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
+          />
+        </td>
+      ) : (
+        <td className="px-3 py-2"><StatusPill value={null} /></td>
+      )}
       <td className="px-3 py-2">
-        <button
-          onClick={() => {
-            const next = inv.paid_status === "PAID" ? "UNPAID" : "PAID";
-            patchInvoice(inv.id, { paid_status: next }).then(() => onChange({ paid_status: next }));
-          }}
-          className={`text-xs px-2 py-1 rounded font-medium ${
-            inv.paid_status === "PAID" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+        <select
+          value={inv.paid_status}
+          onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
+          className={`text-xs px-2 py-1 rounded font-medium border-0 ${
+            inv.paid_status === "PAID" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
           }`}
         >
-          {inv.paid_status}
+          <option value="UNPAID">UNPAID</option>
+          <option value="PAID">PAID</option>
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <button onClick={handleDelete} className="text-xs text-cutoff hover:underline" title="Delete this invoice">
+          Delete
         </button>
       </td>
     </tr>
   );
 }
 
+// The select IS the pill - same reasoning as the Forwarders ledger: a
+// separate colored StatusPill next to a plain gray <select> looked like
+// two controls showing conflicting info for the same value.
+const RELEASE_STATUS_COLORS: Record<string, string> = {
+  "on water": "bg-sky-100 text-sky-700",
+  released: "bg-emerald-100 text-emerald-700",
+};
+
+function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
+  const [saving, setSaving] = useState(false);
+  async function handleChange(v: string) {
+    setSaving(true);
+    try {
+      await onSave(v);
+    } finally {
+      setSaving(false);
+    }
+  }
+  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-slate-100 text-slate-600";
+  return (
+    <select
+      value={value}
+      onChange={(e) => handleChange(e.target.value)}
+      disabled={saving}
+      className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
+    >
+      <option value="">— set —</option>
+      {RELEASE_STATUS_OPTIONS.map((s) => (
+        <option key={s} value={s}>{s}</option>
+      ))}
+    </select>
+  );
+}
+
 function EditableCell({
-  value,
-  onSave,
-  isDate = false,
-  isNumber = false,
-  wide = false,
+  value, onSave, isDate = false, isNumber = false, display,
 }: {
   value: string | null;
   onSave: (v: string) => Promise<any>;
   isDate?: boolean;
   isNumber?: boolean;
-  wide?: boolean;
+  display?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
@@ -333,13 +508,13 @@ function EditableCell({
     }
   }
 
-  const display = value ? (isDate ? fmtDate(value) : value) : "—";
+  const shown = display ?? (value ? (isDate ? fmtDate(value) : value) : "—");
 
   if (!editing) {
     return (
-      <td className={`px-3 py-2 ${wide ? "max-w-[300px] truncate" : "whitespace-nowrap"}`}>
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block" title={value ?? ""}>
-          {display}
+      <td className="px-3 py-2 whitespace-nowrap">
+        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+          {shown}
         </span>
       </td>
     );
@@ -351,7 +526,7 @@ function EditableCell({
         <input
           autoFocus
           type={isDate ? "date" : isNumber ? "number" : "text"}
-          className={`border border-accent rounded px-1.5 py-0.5 text-sm ${wide ? "w-56" : "w-24"}`}
+          className="border border-accent rounded px-1.5 py-0.5 text-sm w-24"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
@@ -366,5 +541,235 @@ function EditableCell({
         {error && <span className="text-xs text-cutoff">{error}</span>}
       </div>
     </td>
+  );
+}
+
+// ---------------- Enter Invoice modal: manual fields, or PDF upload to pre-fill them ----------------
+
+function EnterInvoiceModal({
+  inv, customColumns, onColumnAdded, onClose, onSaved,
+}: {
+  inv: Invoice;
+  customColumns: CustomColumn[];
+  onColumnAdded: (col: CustomColumn) => void;
+  onClose: () => void;
+  onSaved: (invoice: Invoice) => void;
+}) {
+  const [form, setForm] = useState({
+    invoice_number: inv.invoice_number ?? "",
+    invoice_date: inv.invoice_date ?? "",
+    invoice_due_date: inv.invoice_due_date ?? "",
+    location: inv.location ?? "",
+    trucking: String(inv.trucking ?? 0),
+    fuel_surcharge: String(inv.fuel_surcharge ?? 0),
+    chassis_rental: String(inv.chassis_rental ?? 0),
+    stop_off: String(inv.stop_off ?? 0),
+    chassis_split: String(inv.chassis_split ?? 0),
+    misc_charges: String(inv.misc_charges ?? 0),
+    currency: inv.currency || "USD",
+    fx_rate: String(inv.fx_rate ?? 1),
+  });
+  const [customValues, setCustomValues] = useState<Record<string, string>>(
+    Object.fromEntries(customColumns.map((c) => [c.key, String(inv.custom_charges?.[c.key] ?? 0)]))
+  );
+  const [suggestedCharges, setSuggestedCharges] = useState<{ name: string; amount: number }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [fetchingRate, setFetchingRate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/trucker-invoices/extract", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Extraction failed");
+      const ex = json.extracted ?? {};
+      setForm((f) => ({
+        ...f,
+        invoice_number: ex.invoice_number ?? f.invoice_number,
+        invoice_date: ex.invoice_date ?? f.invoice_date,
+        invoice_due_date: ex.invoice_due_date ?? f.invoice_due_date,
+        location: ex.location ?? f.location,
+        trucking: ex.trucking != null ? String(ex.trucking) : f.trucking,
+        fuel_surcharge: ex.fuel_surcharge != null ? String(ex.fuel_surcharge) : f.fuel_surcharge,
+        chassis_rental: ex.chassis_rental != null ? String(ex.chassis_rental) : f.chassis_rental,
+        stop_off: ex.stop_off != null ? String(ex.stop_off) : f.stop_off,
+        chassis_split: ex.chassis_split != null ? String(ex.chassis_split) : f.chassis_split,
+        misc_charges: ex.misc_charges != null ? String(ex.misc_charges) : f.misc_charges,
+        currency: ex.currency || f.currency,
+      }));
+      if (ex.currency && ex.currency !== "USD") await handleCurrencyChange(ex.currency, false);
+      // Charge lines the AI found that don't match any of the 6 fixed
+      // fields - surfaced as suggestions rather than silently dropped;
+      // adding one as a column is a deliberate, confirmed action.
+      if (Array.isArray(ex.other_charges) && ex.other_charges.length > 0) {
+        setSuggestedCharges(ex.other_charges.filter((c: any) => c?.name && c?.amount != null));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function acceptSuggestion(s: { name: string; amount: number }) {
+    if (customColumns.length >= MAX_CUSTOM_COLUMNS) {
+      alert(`You already have ${MAX_CUSTOM_COLUMNS} custom columns, the maximum - enter "${s.name}" under an existing column instead.`);
+      return;
+    }
+    if (!confirm(`Add "${s.name}" as a new charge column (value ${s.amount})? It will show up on every trucker's invoice ledger.`)) return;
+    try {
+      const column = await createCustomColumn(s.name);
+      onColumnAdded(column);
+      setCustomValues((prev) => ({ ...prev, [column.key]: String(s.amount) }));
+      setSuggestedCharges((prev) => prev.filter((c) => c !== s));
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleCurrencyChange(next: string, updateFormCurrency = true) {
+    if (updateFormCurrency) setForm((f) => ({ ...f, currency: next }));
+    if (next === "USD") {
+      setForm((f) => ({ ...f, currency: next, fx_rate: "1" }));
+      return;
+    }
+    setFetchingRate(true);
+    try {
+      const res = await fetch(`/api/fx-rate?from=${next}&to=USD`);
+      const json = await res.json();
+      if (res.ok) setForm((f) => ({ ...f, currency: next, fx_rate: String(json.rate) }));
+    } catch {
+      // Rate lookup is a convenience - fx_rate stays editable regardless.
+    } finally {
+      setFetchingRate(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const updates: Record<string, any> = {
+        invoice_number: form.invoice_number || null,
+        invoice_date: form.invoice_date || null,
+        invoice_due_date: form.invoice_due_date || null,
+        location: form.location || null,
+        trucking: Number(form.trucking) || 0,
+        fuel_surcharge: Number(form.fuel_surcharge) || 0,
+        chassis_rental: Number(form.chassis_rental) || 0,
+        stop_off: Number(form.stop_off) || 0,
+        chassis_split: Number(form.chassis_split) || 0,
+        misc_charges: Number(form.misc_charges) || 0,
+        currency: form.currency,
+        fx_rate: Number(form.fx_rate) || 1,
+      };
+      if (customColumns.length > 0) {
+        updates.custom_charges = Object.fromEntries(customColumns.map((c) => [c.key, Number(customValues[c.key]) || 0]));
+      }
+      const result = await patchInvoice(inv.id, updates);
+      onSaved(result.invoice);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-ink">
+            Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
+          </h2>
+          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+        </div>
+
+        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+          <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
+        </label>
+
+        {suggestedCharges.length > 0 && (
+          <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 mb-4 space-y-2">
+            <div className="text-xs font-medium text-amber-800">
+              This PDF has charge line(s) that don't match a standard field:
+            </div>
+            {suggestedCharges.map((s) => (
+              <div key={s.name} className="flex items-center justify-between text-sm">
+                <span>{s.name} — {s.amount}</span>
+                <button onClick={() => acceptSuggestion(s)} className="text-xs bg-ink text-white px-2 py-1 rounded">
+                  + Add as column
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
+          <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
+          <LabeledInput label="Due Date" type="date" value={form.invoice_due_date} onChange={(v) => setForm({ ...form, invoice_due_date: v })} />
+          <LabeledInput label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
+          <LabeledInput label="Trucking" type="number" value={form.trucking} onChange={(v) => setForm({ ...form, trucking: v })} />
+          <LabeledInput label="Fuel Surcharge" type="number" value={form.fuel_surcharge} onChange={(v) => setForm({ ...form, fuel_surcharge: v })} />
+          <LabeledInput label="Chassis Rental" type="number" value={form.chassis_rental} onChange={(v) => setForm({ ...form, chassis_rental: v })} />
+          <LabeledInput label="Stop Off" type="number" value={form.stop_off} onChange={(v) => setForm({ ...form, stop_off: v })} />
+          <LabeledInput label="Chassis Split" type="number" value={form.chassis_split} onChange={(v) => setForm({ ...form, chassis_split: v })} />
+          <LabeledInput label="Misc Charges" type="number" value={form.misc_charges} onChange={(v) => setForm({ ...form, misc_charges: v })} />
+          {customColumns.map((col) => (
+            <LabeledInput
+              key={col.key}
+              label={col.label}
+              type="number"
+              value={customValues[col.key] ?? "0"}
+              onChange={(v) => setCustomValues({ ...customValues, [col.key]: v })}
+            />
+          ))}
+          <div>
+            <div className="text-xs text-ink/40 mb-0.5">Currency</div>
+            <select className="border rounded px-2 py-1 text-sm w-full" value={form.currency} onChange={(e) => handleCurrencyChange(e.target.value)}>
+              <option value="USD">USD</option>
+              <option value="INR">INR</option>
+            </select>
+          </div>
+          {form.currency !== "USD" && (
+            <LabeledInput
+              label={fetchingRate ? "FX Rate to USD (looking up…)" : "FX Rate to USD"}
+              type="number"
+              value={form.fx_rate}
+              onChange={(v) => setForm({ ...form, fx_rate: v })}
+            />
+          )}
+        </div>
+
+        {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
+
+        <div className="flex gap-2 mt-4 justify-end">
+          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
+          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+            {saving ? "Saving…" : "Save Invoice"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LabeledInput({
+  label, value, onChange, type = "text",
+}: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  return (
+    <div>
+      <div className="text-xs text-ink/40 mb-0.5">{label}</div>
+      <input type={type} className="border rounded px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
   );
 }

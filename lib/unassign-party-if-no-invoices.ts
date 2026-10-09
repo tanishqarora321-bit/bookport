@@ -1,19 +1,19 @@
-// Deleting a forwarder/supplier invoice shouldn't leave the Booking &
-// Instructions picker still showing that party, as if they're still
-// assigned, when their only invoice for this booking is gone. Only
-// clears the assignment once NO invoice (across every container on the
-// booking) still references that same party - a multi-container
+// Deleting a forwarder/supplier/trucker invoice shouldn't leave the
+// Booking & Instructions picker still showing that party, as if they're
+// still assigned, when their only invoice for this booking is gone.
+// Only clears the assignment once NO invoice (across every container on
+// the booking) still references that same party - a multi-container
 // booking where only one container's invoice got deleted keeps its
-// Forwarder/Supplier Name, since the party is still genuinely assigned
-// for the other container(s).
+// Forwarder/Supplier/Trucker Name, since the party is still genuinely
+// assigned for the other container(s).
 export async function unassignPartyIfNoInvoicesRemain(
   supabase: any,
   opts: {
     trackingId: string | null;
     partyId: string | null;
-    role: "forwarder" | "supplier";
-    invoiceTable: "forwarder_invoices" | "supplier_invoices";
-    partyColumn: "forwarder_id" | "supplier_id";
+    role: "forwarder" | "supplier" | "trucker";
+    invoiceTable: "forwarder_invoices" | "supplier_invoices" | "trucker_invoices";
+    partyColumn: "forwarder_id" | "supplier_id" | "trucker_id";
   }
 ) {
   const { trackingId, partyId, role, invoiceTable, partyColumn } = opts;

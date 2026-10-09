@@ -40,7 +40,7 @@ export default function PartyPickerCell({
   const [error, setError] = useState<string | null>(null);
 
   async function assign(partyId: string | null) {
-    if (!partyId && current && (role === "forwarder" || role === "supplier")) {
+    if (!partyId && current && (role === "forwarder" || role === "supplier" || role === "trucker")) {
       if (!confirm(`Clear "${current.name}" as the ${roleLabel}? This also deletes their invoice for this booking (and any other container here that only has this ${roleLabel.toLowerCase()}'s invoice).`)) {
         return;
       }

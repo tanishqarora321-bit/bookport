@@ -49,19 +49,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  // Clearing a Forwarder/Supplier assignment entirely (not reassigning to
-  // someone else) should also remove that party's invoice(s) for this
-  // booking, not leave them behind pointing at a party the booking no
-  // longer shows as assigned - mirrors deleting the invoice itself also
-  // clearing the picker below. A reassignment (old party -> a new one)
-  // is unaffected: the sync trigger moves that same invoice row onto the
-  // new party instead of deleting it.
-  if (!partyId && previousPartyId && (role === "forwarder" || role === "supplier")) {
+  // Clearing a Forwarder/Supplier/Trucker assignment entirely (not
+  // reassigning to someone else) should also remove that party's
+  // invoice(s) for this booking, not leave them behind pointing at a
+  // party the booking no longer shows as assigned - mirrors deleting the
+  // invoice itself also clearing the picker below. A reassignment (old
+  // party -> a new one) is unaffected: the sync trigger moves that same
+  // invoice row onto the new party instead of deleting it.
+  const INVOICE_TABLE_BY_ROLE: Record<string, { table: string; partyCol: string }> = {
+    forwarder: { table: "forwarder_invoices", partyCol: "forwarder_id" },
+    supplier: { table: "supplier_invoices", partyCol: "supplier_id" },
+    trucker: { table: "trucker_invoices", partyCol: "trucker_id" },
+  };
+  if (!partyId && previousPartyId && INVOICE_TABLE_BY_ROLE[role]) {
     const { data: ownTracking } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
     const trackingIds = (ownTracking ?? []).map((t: { id: string }) => t.id);
     if (trackingIds.length > 0) {
-      const table = role === "forwarder" ? "forwarder_invoices" : "supplier_invoices";
-      const partyCol = role === "forwarder" ? "forwarder_id" : "supplier_id";
+      const { table, partyCol } = INVOICE_TABLE_BY_ROLE[role];
       await supabase.from(table).delete().eq(partyCol, previousPartyId).in("tracking_id", trackingIds);
     }
   }
