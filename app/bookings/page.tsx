@@ -9,13 +9,13 @@ export const fetchCache = "force-no-store";
 export default async function BookingsPage() {
   const supabase = createServiceClient();
 
-  const [{ data: bookings, error }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }] =
+  const [{ data: bookings, error }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }, { data: buyerGstEntries }] =
     await Promise.all([
       supabase
         .from("bookings")
         .select(
-          "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, " +
-            "containers (id, container_no, seal_no, size_type), " +
+          "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, consignee_gst_entry_id, " +
+            "containers (id, container_no, seal_no, size_type, packing_items:container_packing_items (id, seal_no, weight, weight_unit, bales, description, sort_order)), " +
             "booking_parties (role, party_id, parties (legal_name)), " +
             "consignee_items:booking_consignee_items (id, description, sort_order)"
         )
@@ -28,6 +28,18 @@ export default async function BookingsPage() {
       supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["trucker"]).order("legal_name"),
       supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["supplier"]).order("legal_name"),
       supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["buyer"]).order("legal_name"),
+      // Every buyer's GST entries, for the "Consignee as per BL" picker -
+      // filtered client-side by whichever buyer is picked on each row,
+      // since one buyer can have several (see migration 0023).
+      supabase
+        .from("buyer_gst_entries")
+        .select("id, buyer_party_id, legal_name, gst_no, iec_code, address, mobile, email, description_of_goods, hs_code, sort_order")
+        .in(
+          "buyer_party_id",
+          (
+            await supabase.from("parties").select("id").eq("company_id", DEFAULT_COMPANY_ID).contains("roles", ["buyer"])
+          ).data?.map((p: { id: string }) => p.id) ?? []
+        ),
     ]);
 
   if (error) return <p className="text-red-600 p-6">{error.message}</p>;
@@ -40,7 +52,7 @@ export default async function BookingsPage() {
   type BookingRow = any;
   const flattened: BookingRow[] = [];
   for (const b of (bookings ?? []) as any[]) {
-    const containers = b.containers?.length ? b.containers : [{ id: null, container_no: null, seal_no: null, size_type: null }];
+    const containers = b.containers?.length ? b.containers : [{ id: null, container_no: null, seal_no: null, size_type: null, packing_items: [] }];
     const partyByRole: Record<string, { id: string; name: string }> = {};
     for (const bp of b.booking_parties ?? []) {
       if (bp.parties) partyByRole[bp.role] = { id: bp.party_id, name: bp.parties.legal_name };
@@ -68,6 +80,8 @@ export default async function BookingsPage() {
         supplier: partyByRole["supplier"] ?? null,
         buyer: partyByRole["buyer"] ?? null,
         consignee_items: (b.consignee_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
+        consignee_gst_entry_id: b.consignee_gst_entry_id,
+        packing_items: (c.packing_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
       });
     }
   }
@@ -79,6 +93,7 @@ export default async function BookingsPage() {
       truckers={truckers ?? []}
       suppliers={suppliers ?? []}
       buyers={buyers ?? []}
+      buyerGstEntries={buyerGstEntries ?? []}
     />
   );
 }

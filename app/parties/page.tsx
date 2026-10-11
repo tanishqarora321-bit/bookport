@@ -10,10 +10,15 @@ export default async function PartiesPage() {
   const supabase = createServiceClient();
 
   const [{ data: parties, error: partiesError }, { data: items, error: itemsError }] = await Promise.all([
+    // Was missing the role filter entirely, so this showed every party
+    // in the company regardless of role (Forwarders/Truckers/Suppliers
+    // mixed in with real buyers) - fixed alongside the GST-entries build
+    // since both touch this same query.
     supabase
       .from("parties")
-      .select("id, legal_name, short_code, country, address, is_active, created_at")
+      .select("id, legal_name, short_code, country, address, is_active, created_at, gst_entries:buyer_gst_entries(id, legal_name, gst_no, iec_code, address, mobile, email, description_of_goods, hs_code, sort_order)")
       .eq("company_id", DEFAULT_COMPANY_ID)
+      .contains("roles", ["buyer"])
       .order("legal_name"),
     supabase
       .from("items")
@@ -25,5 +30,10 @@ export default async function PartiesPage() {
   if (partiesError) return <p className="text-red-600 p-6">{partiesError.message}</p>;
   if (itemsError) return <p className="text-red-600 p-6">{itemsError.message}</p>;
 
-  return <PartiesClient initialParties={parties ?? []} initialItems={items ?? []} />;
+  const sortedParties = (parties ?? []).map((p: any) => ({
+    ...p,
+    gst_entries: (p.gst_entries ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+  }));
+
+  return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} />;
 }

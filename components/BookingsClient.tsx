@@ -9,6 +9,9 @@ import ConsigneeCell from "@/components/ConsigneeCell";
 import ContainerCell from "@/components/ContainerCell";
 import StatCard from "@/components/ui/StatCard";
 import StatusCell from "@/components/StatusCell";
+import ConsigneeAsPerBlCell, { BuyerGstEntry } from "@/components/ConsigneeAsPerBlCell";
+import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
+import GenerateInstructionsCell from "@/components/GenerateInstructionsCell";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -36,6 +39,8 @@ type Row = {
   supplier: PartyRef;
   buyer: PartyRef;
   consignee_items: ConsigneeItem[];
+  consignee_gst_entry_id: string | null;
+  packing_items: PackingItem[];
 };
 
 function monthOfLoading(erd: string | null): string {
@@ -61,18 +66,21 @@ function toCsv(rows: Row[]) {
     "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
     "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
     "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-    "Container Number", "Vessel", "Status", "Instruction Status",
+    "Container Number", "Vessel", "Seal No", "Weight", "Bales", "Status", "Instruction Status",
   ];
-  const lines = rows.map((r) =>
-    [
+  const lines = rows.map((r) => {
+    const firstPacking = r.packing_items[0];
+    return [
       r.carrier_booking_no ?? "", monthOfLoading(r.erd), formatPlain(r.erd, true), formatPlain(r.si_cutoff, true), formatPlain(r.cargo_cutoff, true),
       r.pol ?? "", r.pod ?? "", r.final_destination ?? "", formatPlain(r.bl_issued_at),
       r.carrier ?? "", r.forwarder?.name ?? "", r.trucker?.name ?? "", r.supplier?.name ?? "", r.buyer?.name ?? "",
-      r.container_no ?? "", r.container_size ?? "", r.status, r.instruction_status ?? "",
+      r.container_no ?? "", r.container_size ?? "",
+      firstPacking?.seal_no ?? "", firstPacking ? `${firstPacking.weight ?? ""} ${firstPacking.weight_unit}` : "", firstPacking?.bales ?? "",
+      r.status, r.instruction_status ?? "",
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
-      .join(",")
-  );
+      .join(",");
+  });
   return [headers.join(","), ...lines].join("\n");
 }
 
@@ -82,18 +90,21 @@ export default function BookingsClient({
   truckers,
   suppliers,
   buyers,
+  buyerGstEntries,
 }: {
   rows: Row[];
   forwarders: PartyOption[];
   truckers: PartyOption[];
   suppliers: PartyOption[];
   buyers: PartyOption[];
+  buyerGstEntries: BuyerGstEntry[];
 }) {
   const [rows, setRows] = useState(initialRows);
   const [forwarderOptions, setForwarderOptions] = useState(forwarders);
   const [truckerOptions, setTruckerOptions] = useState(truckers);
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
+  const [gstEntries, setGstEntries] = useState(buyerGstEntries);
 
   const [line, setLine] = useState("all");
   const [destination, setDestination] = useState("all");
@@ -283,7 +294,8 @@ export default function BookingsClient({
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)", "",
-                "Container Number", "Vessel", "Status", "Instruction Status", "Open",
+                "Consignee as per BL",
+                "Container Number", "Vessel", "Packing Details", "Status", "Generate Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
                 <th key={i} className="px-3 py-2.5 font-semibold uppercase tracking-wide text-[11px] whitespace-nowrap">
                   {label}
@@ -349,6 +361,13 @@ export default function BookingsClient({
                     onCreated={(p) => setBuyerOptions((prev) => [...prev, p].sort((a, b) => a.legal_name.localeCompare(b.legal_name)))}
                     onItemsChange={(items) => updateRowsForBooking(r.booking_id, { consignee_items: items })}
                   />
+                  <ConsigneeAsPerBlCell
+                    bookingId={r.booking_id}
+                    buyerId={r.buyer?.id ?? null}
+                    value={r.consignee_gst_entry_id}
+                    entries={gstEntries}
+                    onChanged={(v) => updateRowsForBooking(r.booking_id, { consignee_gst_entry_id: v })}
+                  />
                   <ContainerCell
                     bookingId={r.booking_id}
                     containerId={r.container_id}
@@ -357,11 +376,17 @@ export default function BookingsClient({
                     onAddContainer={() => addContainer(r)}
                   />
                   <EditableCell bookingId={r.booking_id} column="container_size" value={r.container_size} />
+                  <PackingItemsCell
+                    containerId={r.container_id}
+                    items={r.packing_items}
+                    onItemsChange={(items) => updateSingleRow(r.booking_id, r.container_id, { packing_items: items })}
+                  />
                   <StatusCell
                     bookingId={r.booking_id}
                     value={r.status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
                   />
+                  <GenerateInstructionsCell bookingId={r.booking_id} containerId={r.container_id} />
                   <InstructionStatusCell
                     bookingId={r.booking_id}
                     value={r.instruction_status}
@@ -386,7 +411,7 @@ export default function BookingsClient({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={21} className="p-8 text-center text-ink/40">
+                <td colSpan={24} className="p-8 text-center text-ink/40">
                   {rows.length === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
                 </td>
               </tr>

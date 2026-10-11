@@ -29,6 +29,9 @@ const EDITABLE_COLUMNS = [
   "hs_code",
   "gross_weight",
   "incoterm",
+  // Which specific GST entry (legal entity) under the booking's Buyer
+  // should be named on shipping documents - see migration 0023.
+  "consignee_gst_entry_id",
 ];
 
 // This previously had no PATCH export at all (Next's auto-405 for an
@@ -113,6 +116,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   for (const table of ["invoices", "offers", "rate_quotes"]) {
     await supabase.from(table).update({ booking_id: null }).eq("booking_id", params.id);
   }
+
+  // Generated Instructions PDFs anchor to booking_id directly (migration
+  // 0023), not through a tracking row, since they render from the
+  // booking/container data rather than a tracking entry.
+  await supabase.from("generated_documents").delete().eq("booking_id", params.id);
 
   const { data: trackingRows } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
   const trackingIds = (trackingRows ?? []).map((t: any) => t.id);

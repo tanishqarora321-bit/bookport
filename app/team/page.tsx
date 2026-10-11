@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import TeamClient from "@/components/TeamClient";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
+import LetterheadSettingsCard from "@/components/LetterheadSettingsCard";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -41,6 +42,16 @@ export default async function TeamPage() {
     .order("created_at");
   if (profilesError) return <p className="text-red-600 p-6">{profilesError.message}</p>;
 
+  // One letterhead config backs both document types (Final Invoice and
+  // Booking Instructions) - any one row's template_config represents it,
+  // since app/api/document-templates PATCH keeps them in sync.
+  const { data: templateRow } = await supabase
+    .from("document_templates")
+    .select("template_config")
+    .eq("company_id", me.company_id)
+    .limit(1)
+    .maybeSingle();
+
   const { data: authUsers } = await supabase.auth.admin.listUsers();
   const emailById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, u.email as string]));
 
@@ -52,6 +63,7 @@ export default async function TeamPage() {
   return (
     <div>
       <ChangePasswordCard email={me.email} />
+      <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
       <TeamClient
         initialTeammates={teammates}
         seatLimit={company.seat_limit}
