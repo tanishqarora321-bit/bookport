@@ -78,6 +78,15 @@ create policy container_packing_items_company_isolation on container_packing_ite
     )
   );
 
+-- document_templates has a doc_type check constraint that was added
+-- directly in Supabase, not through a committed migration (same gap as
+-- the rest of 0003-0008 - see the migration-gap note), and it only
+-- allows 'final_invoice'. Widen it before inserting the new
+-- 'booking_instruction' row below.
+alter table document_templates drop constraint if exists document_templates_doc_type_check;
+alter table document_templates add constraint document_templates_doc_type_check
+  check (doc_type in ('final_invoice', 'booking_instruction'));
+
 -- Real letterhead for the existing Final Invoice template (was seeded as
 -- an empty '{}' placeholder in 0005) and a second template row for the
 -- new "booking_instruction" doc type (Generate Instructions PDF) -
@@ -125,3 +134,10 @@ alter table generated_documents add column if not exists booking_id uuid referen
 alter table generated_documents drop constraint if exists generated_documents_has_anchor;
 alter table generated_documents add constraint generated_documents_has_anchor
   check (tracking_id is not null or booking_id is not null);
+
+-- Same doc_type check constraint gap as document_templates above - widen
+-- it if one exists on generated_documents too, so the 'booking_instruction'
+-- insert in the API route doesn't hit the same 23514 error.
+alter table generated_documents drop constraint if exists generated_documents_doc_type_check;
+alter table generated_documents add constraint generated_documents_doc_type_check
+  check (doc_type in ('final_invoice', 'booking_instruction'));
