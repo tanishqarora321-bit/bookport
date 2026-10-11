@@ -11,9 +11,9 @@ export async function unassignPartyIfNoInvoicesRemain(
   opts: {
     trackingId: string | null;
     partyId: string | null;
-    role: "forwarder" | "supplier" | "trucker";
-    invoiceTable: "forwarder_invoices" | "supplier_invoices" | "trucker_invoices";
-    partyColumn: "forwarder_id" | "supplier_id" | "trucker_id";
+    role: "forwarder" | "supplier" | "trucker" | "buyer";
+    invoiceTable: "forwarder_invoices" | "supplier_invoices" | "trucker_invoices" | "buyer_invoices";
+    partyColumn: "forwarder_id" | "supplier_id" | "trucker_id" | "buyer_id";
   }
 ) {
   const { trackingId, partyId, role, invoiceTable, partyColumn } = opts;

@@ -238,6 +238,7 @@ function PartiesTab({
               <th className="px-3 py-2">Address</th>
               <th className="px-3 py-2"></th>
               <th className="px-3 py-2"></th>
+              <th className="px-3 py-2"></th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
@@ -272,6 +273,11 @@ function PartiesTab({
                       {expanded[p.id] ? "Hide GST entries ▲" : `GST entries (${p.gst_entries.length}) ▼`}
                     </button>
                   </td>
+                  <td className="px-3 py-2">
+                    <Link href={`/parties/${p.id}/invoices`} className="text-xs text-accent underline">
+                      Invoices →
+                    </Link>
+                  </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => toggleActive(p)}
@@ -294,7 +300,7 @@ function PartiesTab({
                 </tr>
                 {expanded[p.id] && (
                   <tr className="border-b bg-slate-50/60">
-                    <td colSpan={7} className="px-6 py-3">
+                    <td colSpan={8} className="px-6 py-3">
                       <GstEntriesSection buyerPartyId={p.id} entries={p.gst_entries} onChange={(entries) => updateGstEntries(p.id, entries)} />
                     </td>
                   </tr>
