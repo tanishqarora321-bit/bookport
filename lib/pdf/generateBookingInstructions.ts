@@ -105,17 +105,30 @@ export async function generateBookingInstructionsPdf(
   y = 665;
 
   // ---- Booking / Container / Seal / Weight / Bales row ----
+  // Booking No. gets real room (120pt) since it's the carrier's own free-
+  // text booking number, not the short internal BP-YY-NNNN code - it can
+  // run well past 10-12 characters depending on the shipping line.
   const cols = [
     { label: "Booking No.", value: data.booking_number, x: left },
-    { label: "Container No.", value: data.container_number, x: left + 95 },
-    { label: "Seal No.", value: data.seal_no, x: left + 210 },
-    { label: "Weight", value: data.weight ? `${data.weight} ${data.weight_unit}` : "", x: left + 305 },
-    { label: "Bales", value: data.bales, x: left + 400 },
+    { label: "Container No.", value: data.container_number, x: left + 120 },
+    { label: "Seal No.", value: data.seal_no, x: left + 230 },
+    { label: "Weight", value: data.weight ? `${data.weight} ${data.weight_unit}` : "", x: left + 310 },
+    { label: "Bales", value: data.bales, x: left + 410 },
   ];
   page.drawLine({ start: { x: left, y: y + 12 }, end: { x: 562, y: y + 12 }, thickness: 0.5, color: gray });
   cols.forEach((c) => draw(c.label, c.x, y, { font: bold, size: 7.5 }));
   y -= 12;
-  cols.forEach((c) => draw(c.value || "-", c.x, y, { size: 8.5 }));
+  cols.forEach((c, i) => {
+    const text = c.value || "-";
+    const nextX = cols[i + 1]?.x ?? 562;
+    const maxWidth = nextX - c.x - 6;
+    const size = 8.5;
+    // Clamp to the column's own space rather than let a long carrier
+    // booking number run into Container No. - better a slightly smaller
+    // font than overlapping, unreadable text.
+    const fittedSize = font.widthOfTextAtSize(text, size) > maxWidth ? Math.max(6, (maxWidth / font.widthOfTextAtSize(text, size)) * size) : size;
+    draw(text, c.x, y, { size: fittedSize });
+  });
   page.drawLine({ start: { x: left, y: y - 8 }, end: { x: 562, y: y - 8 }, thickness: 0.5, color: gray });
   y -= 30;
 
