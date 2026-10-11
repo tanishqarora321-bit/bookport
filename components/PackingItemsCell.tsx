@@ -187,36 +187,51 @@ function PackingPopover({
         {items.length === 0 && <li className="text-xs text-ink/40">No lines yet.</li>}
       </ul>
 
-      <div className="grid grid-cols-[1fr_1fr_50px_1fr_auto] gap-1 mb-2">
-        <input
-          placeholder="Seal No"
-          className="border rounded px-1 py-1 text-xs w-full"
-          value={draft.seal_no}
-          onChange={(e) => setDraft({ ...draft, seal_no: e.target.value })}
-        />
-        <input
-          placeholder="Weight"
-          className="border rounded px-1 py-1 text-xs w-full"
-          value={draft.weight}
-          onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
-        />
-        <select
-          value={draft.weight_unit}
-          onChange={(e) => setDraft({ ...draft, weight_unit: e.target.value as any })}
-          className="border rounded text-xs"
-        >
-          <option value="LBS">LBS</option>
-          <option value="KG">KG</option>
-        </select>
-        <input
-          placeholder="Bales"
-          className="border rounded px-1 py-1 text-xs w-full"
-          value={draft.bales}
-          onChange={(e) => setDraft({ ...draft, bales: e.target.value })}
-        />
-        <button onClick={addItem} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
-          +
-        </button>
+      <div className="mb-2 border border-slate-200 rounded p-2 bg-slate-50/50">
+        <div className="grid grid-cols-[1fr_1fr_50px_1fr] gap-1 mb-1">
+          <input
+            placeholder="Seal No"
+            className="border rounded px-1 py-1 text-xs w-full"
+            value={draft.seal_no}
+            onChange={(e) => setDraft({ ...draft, seal_no: e.target.value })}
+          />
+          <input
+            placeholder="Weight"
+            className="border rounded px-1 py-1 text-xs w-full"
+            value={draft.weight}
+            onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
+          />
+          <select
+            value={draft.weight_unit}
+            onChange={(e) => setDraft({ ...draft, weight_unit: e.target.value as any })}
+            className="border rounded text-xs"
+          >
+            <option value="LBS">LBS</option>
+            <option value="KG">KG</option>
+          </select>
+          <input
+            placeholder="Bales"
+            className="border rounded px-1 py-1 text-xs w-full"
+            value={draft.bales}
+            onChange={(e) => setDraft({ ...draft, bales: e.target.value })}
+          />
+        </div>
+        <div className="flex gap-1">
+          <input
+            placeholder="Description (optional)"
+            className="border rounded px-1 py-1 text-xs flex-1"
+            value={draft.description}
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && addItem()}
+          />
+          <button
+            onClick={addItem}
+            disabled={saving}
+            className="text-xs font-medium bg-ink text-white px-3 py-1 rounded shrink-0 disabled:opacity-50"
+          >
+            {saving ? "Adding…" : "✓ Add Line"}
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 border-t pt-2">
