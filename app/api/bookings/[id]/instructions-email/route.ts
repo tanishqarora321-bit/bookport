@@ -102,11 +102,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!emailData.sign_off_email || !emailData.sign_off_website) {
     const { data: emailSettings } = await supabase
       .from("company_email_settings")
-      .select("from_name, from_email, website")
+      .select("from_name, reply_to, website")
       .eq("company_id", DEFAULT_COMPANY_ID)
       .maybeSingle();
     emailData.sign_off_name = emailData.sign_off_name || emailSettings?.from_name || "";
-    emailData.sign_off_email = emailData.sign_off_email || emailSettings?.from_email || "";
+    emailData.sign_off_email = emailData.sign_off_email || emailSettings?.reply_to || "";
     emailData.sign_off_website = emailData.sign_off_website || emailSettings?.website || "";
   }
 

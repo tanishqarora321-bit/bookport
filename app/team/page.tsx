@@ -55,7 +55,7 @@ export default async function TeamPage() {
 
   const { data: emailSettingsRow } = await supabase
     .from("company_email_settings")
-    .select("provider, from_email, from_name, website, api_key")
+    .select("from_name, reply_to, website")
     .eq("company_id", me.company_id)
     .maybeSingle();
 
@@ -71,19 +71,7 @@ export default async function TeamPage() {
     <div>
       <ChangePasswordCard email={me.email} />
       <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
-      <EmailSettingsCard
-        config={
-          emailSettingsRow
-            ? {
-                from_email: emailSettingsRow.from_email,
-                from_name: emailSettingsRow.from_name,
-                website: emailSettingsRow.website,
-                configured: !!emailSettingsRow.api_key,
-              }
-            : null
-        }
-        isAdmin={me.role === "admin"}
-      />
+      <EmailSettingsCard config={emailSettingsRow ?? null} isAdmin={me.role === "admin"} />
       <TeamClient
         initialTeammates={teammates}
         seatLimit={company.seat_limit}

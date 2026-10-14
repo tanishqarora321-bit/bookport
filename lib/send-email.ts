@@ -3,6 +3,16 @@
 // things also in the future"). Calls Resend's plain REST API via fetch
 // rather than adding the `resend` package as a dependency - the API is
 // a single POST, not worth a new npm install for.
+//
+// One platform-wide Resend account/domain sends for every company (see
+// migration 0027) - RESEND_API_KEY and PLATFORM_EMAIL_FROM_ADDRESS are
+// env vars, same as GEMINI_API_KEY, not a per-company DB row. Each
+// company's own display name/reply-to (company_email_settings) is
+// optional personalization layered on top, not a requirement gate -
+// sending already works the moment the env vars are set, with zero
+// per-client setup.
+const DEFAULT_FROM_ADDRESS = "notifications@ship-sphere.com";
+
 export type SendEmailInput = {
   companyId: string;
   to: string[];
@@ -16,37 +26,34 @@ export type SendEmailInput = {
 export type SendEmailResult = { ok: true; id: string | null } | { ok: false; error: string };
 
 export async function sendEmail(supabase: any, input: SendEmailInput): Promise<SendEmailResult> {
-  const { data: settings } = await supabase
-    .from("company_email_settings")
-    .select("provider, api_key, from_email, from_name")
-    .eq("company_id", input.companyId)
-    .maybeSingle();
-
-  if (!settings?.api_key || !settings?.from_email) {
-    const error = "Email sending isn't set up yet - add a Resend API key and From address in Settings & Control.";
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    const error = "Email sending isn't configured on this deployment yet - RESEND_API_KEY is missing.";
     await logSentEmail(supabase, input, "failed", error, null);
     return { ok: false, error };
   }
 
-  if (settings.provider !== "resend") {
-    const error = `Unsupported email provider "${settings.provider}"`;
-    await logSentEmail(supabase, input, "failed", error, null);
-    return { ok: false, error };
-  }
+  const [{ data: settings }, { data: company }] = await Promise.all([
+    supabase.from("company_email_settings").select("from_name, reply_to").eq("company_id", input.companyId).maybeSingle(),
+    supabase.from("companies").select("name").eq("id", input.companyId).single(),
+  ]);
 
-  const from = settings.from_name ? `${settings.from_name} <${settings.from_email}>` : settings.from_email;
+  const fromAddress = process.env.PLATFORM_EMAIL_FROM_ADDRESS || DEFAULT_FROM_ADDRESS;
+  const displayName = settings?.from_name || company?.name || "Ship-Sphere";
+  const from = `${displayName} <${fromAddress}>`;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${settings.api_key}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         from,
         to: input.to,
         cc: input.cc && input.cc.length > 0 ? input.cc : undefined,
+        reply_to: settings?.reply_to || undefined,
         subject: input.subject,
         html: input.html,
       }),
