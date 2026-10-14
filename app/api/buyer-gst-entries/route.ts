@@ -28,11 +28,13 @@ export async function POST(req: NextRequest) {
       legal_name: body.legal_name.toString().trim(),
       gst_no: body.gst_no || null,
       iec_code: body.iec_code || null,
+      pan_no: body.pan_no || null,
       address: body.address || null,
       mobile: body.mobile || null,
       email: body.email || null,
       description_of_goods: body.description_of_goods || null,
       hs_code: body.hs_code || null,
+      transit_destination: body.transit_destination || null,
       sort_order: (existing?.sort_order ?? -1) + 1,
     })
     .select()

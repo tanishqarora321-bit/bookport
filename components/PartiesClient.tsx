@@ -12,11 +12,13 @@ type GstEntry = {
   legal_name: string;
   gst_no: string | null;
   iec_code: string | null;
+  pan_no: string | null;
   address: string | null;
   mobile: string | null;
   email: string | null;
   description_of_goods: string | null;
   hs_code: string | null;
+  transit_destination: string | null;
   sort_order: number;
 };
 
@@ -568,10 +570,13 @@ function MergePartiesModal({
 
 // ---------------- GST entries sub-table (one buyer's cost-section equivalent) ----------------
 
-type DraftEntry = { legal_name: string; gst_no: string; iec_code: string; address: string; mobile: string; email: string; description_of_goods: string; hs_code: string };
+type DraftEntry = {
+  legal_name: string; gst_no: string; iec_code: string; pan_no: string; address: string; mobile: string;
+  email: string; description_of_goods: string; hs_code: string; transit_destination: string;
+};
 
 function blankEntry(): DraftEntry {
-  return { legal_name: "", gst_no: "", iec_code: "", address: "", mobile: "", email: "", description_of_goods: "", hs_code: "" };
+  return { legal_name: "", gst_no: "", iec_code: "", pan_no: "", address: "", mobile: "", email: "", description_of_goods: "", hs_code: "", transit_destination: "" };
 }
 
 function GstEntriesSection({
@@ -633,11 +638,13 @@ function GstEntriesSection({
             <th className="pb-1 pr-2 font-normal">Legal Name</th>
             <th className="pb-1 pr-2 font-normal">GST No.</th>
             <th className="pb-1 pr-2 font-normal">IEC Code</th>
+            <th className="pb-1 pr-2 font-normal">PAN No.</th>
             <th className="pb-1 pr-2 font-normal">Mobile</th>
             <th className="pb-1 pr-2 font-normal">Email</th>
             <th className="pb-1 pr-2 font-normal">Description of Goods</th>
             <th className="pb-1 pr-2 font-normal">H.S. Code</th>
             <th className="pb-1 pr-2 font-normal">Address</th>
+            <th className="pb-1 pr-2 font-normal" title="For the Instructions email's shipper-declares clause, e.g. KANDLA SPECIAL ECONOMIC ZONE (INKDL6)">Transit Destination</th>
             <th className="pb-1 w-8"></th>
           </tr>
         </thead>
@@ -647,11 +654,13 @@ function GstEntriesSection({
               <GstCell value={entry.legal_name} onSave={(v) => patchEntry(entry.id, "legal_name", v)} />
               <GstCell value={entry.gst_no} onSave={(v) => patchEntry(entry.id, "gst_no", v)} />
               <GstCell value={entry.iec_code} onSave={(v) => patchEntry(entry.id, "iec_code", v)} />
+              <GstCell value={entry.pan_no} onSave={(v) => patchEntry(entry.id, "pan_no", v)} />
               <GstCell value={entry.mobile} onSave={(v) => patchEntry(entry.id, "mobile", v)} />
               <GstCell value={entry.email} onSave={(v) => patchEntry(entry.id, "email", v)} />
               <GstCell value={entry.description_of_goods} onSave={(v) => patchEntry(entry.id, "description_of_goods", v)} />
               <GstCell value={entry.hs_code} onSave={(v) => patchEntry(entry.id, "hs_code", v)} />
               <GstCell value={entry.address} onSave={(v) => patchEntry(entry.id, "address", v)} wide />
+              <GstCell value={entry.transit_destination} onSave={(v) => patchEntry(entry.id, "transit_destination", v)} wide />
               <td className="py-1 text-center">
                 <button onClick={() => deleteEntry(entry.id)} className="text-cutoff text-xs">✕</button>
               </td>
@@ -659,7 +668,7 @@ function GstEntriesSection({
           ))}
           {entries.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-2 text-ink/40 text-xs">No GST entries yet.</td>
+              <td colSpan={11} className="py-2 text-ink/40 text-xs">No GST entries yet.</td>
             </tr>
           )}
         </tbody>
@@ -670,11 +679,13 @@ function GstEntriesSection({
           <input placeholder="Legal Name *" className="border rounded px-2 py-1 text-sm w-36" value={draft.legal_name} onChange={(e) => setDraft({ ...draft, legal_name: e.target.value })} />
           <input placeholder="GST No." className="border rounded px-2 py-1 text-sm w-28" value={draft.gst_no} onChange={(e) => setDraft({ ...draft, gst_no: e.target.value })} />
           <input placeholder="IEC Code" className="border rounded px-2 py-1 text-sm w-28" value={draft.iec_code} onChange={(e) => setDraft({ ...draft, iec_code: e.target.value })} />
+          <input placeholder="PAN No." className="border rounded px-2 py-1 text-sm w-28" value={draft.pan_no} onChange={(e) => setDraft({ ...draft, pan_no: e.target.value })} />
           <input placeholder="Mobile" className="border rounded px-2 py-1 text-sm w-28" value={draft.mobile} onChange={(e) => setDraft({ ...draft, mobile: e.target.value })} />
           <input placeholder="Email" className="border rounded px-2 py-1 text-sm w-40" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
           <input placeholder="Description of Goods" className="border rounded px-2 py-1 text-sm w-40" value={draft.description_of_goods} onChange={(e) => setDraft({ ...draft, description_of_goods: e.target.value })} />
           <input placeholder="H.S. Code" className="border rounded px-2 py-1 text-sm w-24" value={draft.hs_code} onChange={(e) => setDraft({ ...draft, hs_code: e.target.value })} />
           <input placeholder="Address" className="border rounded px-2 py-1 text-sm w-48" value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} />
+          <input placeholder="Transit Destination (e.g. KANDLA SEZ (INKDL6))" className="border rounded px-2 py-1 text-sm w-56" value={draft.transit_destination} onChange={(e) => setDraft({ ...draft, transit_destination: e.target.value })} />
           <button onClick={saveNewRow} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded">{saving ? "…" : "✓"}</button>
           <button onClick={() => { setAddingRow(false); setDraft(blankEntry()); setError(null); }} className="text-xs border px-2 py-1 rounded">✕</button>
         </div>

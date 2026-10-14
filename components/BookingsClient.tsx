@@ -11,7 +11,7 @@ import StatCard from "@/components/ui/StatCard";
 import StatusCell from "@/components/StatusCell";
 import ConsigneeAsPerBlCell, { BuyerGstEntry } from "@/components/ConsigneeAsPerBlCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
-import GenerateInstructionsCell from "@/components/GenerateInstructionsCell";
+import SendInstructionsCell from "@/components/SendInstructionsCell";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -295,7 +295,7 @@ export default function BookingsClient({
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)", "",
                 "Consignee as per BL",
-                "Container Number", "Vessel", "Packing Details", "Status", "Generate Instructions", "Instruction Status", "Open",
+                "Container Number", "Vessel", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
                 <th key={i} className="px-3 py-2.5 font-semibold uppercase tracking-wide text-[11px] whitespace-nowrap">
                   {label}
@@ -386,7 +386,7 @@ export default function BookingsClient({
                     value={r.status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
                   />
-                  <GenerateInstructionsCell bookingId={r.booking_id} containerId={r.container_id} />
+                  <SendInstructionsCell bookingId={r.booking_id} containerId={r.container_id} />
                   <InstructionStatusCell
                     bookingId={r.booking_id}
                     value={r.instruction_status}

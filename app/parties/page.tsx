@@ -16,7 +16,7 @@ export default async function PartiesPage() {
     // since both touch this same query.
     supabase
       .from("parties")
-      .select("id, legal_name, short_code, country, address, is_active, created_at, gst_entries:buyer_gst_entries(id, legal_name, gst_no, iec_code, address, mobile, email, description_of_goods, hs_code, sort_order)")
+      .select("id, legal_name, short_code, country, address, is_active, created_at, gst_entries:buyer_gst_entries(id, legal_name, gst_no, iec_code, pan_no, address, mobile, email, description_of_goods, hs_code, transit_destination, sort_order)")
       .eq("company_id", DEFAULT_COMPANY_ID)
       .contains("roles", ["buyer"])
       .order("legal_name"),

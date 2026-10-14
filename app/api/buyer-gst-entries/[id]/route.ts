@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-const EDITABLE_COLUMNS = ["legal_name", "gst_no", "iec_code", "address", "mobile", "email", "description_of_goods", "hs_code"];
+const EDITABLE_COLUMNS = ["legal_name", "gst_no", "iec_code", "pan_no", "address", "mobile", "email", "description_of_goods", "hs_code", "transit_destination"];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json();

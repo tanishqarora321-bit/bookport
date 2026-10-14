@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import TeamClient from "@/components/TeamClient";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
 import LetterheadSettingsCard from "@/components/LetterheadSettingsCard";
+import EmailSettingsCard from "@/components/EmailSettingsCard";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -52,6 +53,12 @@ export default async function TeamPage() {
     .limit(1)
     .maybeSingle();
 
+  const { data: emailSettingsRow } = await supabase
+    .from("company_email_settings")
+    .select("provider, from_email, from_name, website, api_key")
+    .eq("company_id", me.company_id)
+    .maybeSingle();
+
   const { data: authUsers } = await supabase.auth.admin.listUsers();
   const emailById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, u.email as string]));
 
@@ -64,6 +71,19 @@ export default async function TeamPage() {
     <div>
       <ChangePasswordCard email={me.email} />
       <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
+      <EmailSettingsCard
+        config={
+          emailSettingsRow
+            ? {
+                from_email: emailSettingsRow.from_email,
+                from_name: emailSettingsRow.from_name,
+                website: emailSettingsRow.website,
+                configured: !!emailSettingsRow.api_key,
+              }
+            : null
+        }
+        isAdmin={me.role === "admin"}
+      />
       <TeamClient
         initialTeammates={teammates}
         seatLimit={company.seat_limit}
