@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 
-const EDITABLE_COLUMNS = ["legal_name", "short_code", "country", "address", "is_active"];
+const EDITABLE_COLUMNS = ["legal_name", "short_code", "country", "address", "email", "cc_email", "is_active"];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();

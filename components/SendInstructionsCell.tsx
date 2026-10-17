@@ -66,6 +66,10 @@ function ComposeModal({
       setSubject(json.subject);
       setHtml(json.html);
       if (json.suggested_to) setTo(json.suggested_to);
+      if (json.suggested_cc) setCc(json.suggested_cc);
+      if (json.forwarder_missing_email) {
+        setError("This forwarder has no email on file yet - add one under Forwarders > Edit, or type a recipient below for this send.");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

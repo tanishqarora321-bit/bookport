@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select(
-      "id, carrier_booking_no, final_destination, commodity, hs_code, consignee_gst_entry_id, booking_parties (role, party_id, parties (legal_name, short_code))"
+      "id, carrier_booking_no, final_destination, commodity, hs_code, consignee_gst_entry_id, booking_parties (role, party_id, parties (legal_name, short_code, email, cc_email))"
     )
     .eq("id", params.id)
     .eq("company_id", me.company_id)
@@ -69,6 +69,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const forwarderParty = (booking.booking_parties ?? []).find((bp: any) => bp.role === "forwarder")?.parties ?? null;
+  if (!forwarderParty) {
+    return NextResponse.json(
+      { error: "This booking has no Forwarder assigned yet -- instructions can only be sent to a forwarder, pick one first." },
+      { status: 400 }
+    );
+  }
+
   const packingItems = ((container as any)?.packing_items ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order);
   const firstPacking = packingItems[0];
   const letterhead = templateRow.template_config as { company_name: string; address_lines: string[]; phone?: string; fax?: string; email?: string };
@@ -102,26 +109,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     sign_off_company: overrides.sign_off_company || letterhead.company_name,
   };
 
-  // Sign-off identity defaults to the company's email settings (From
-  // Name/Website) unless the compose modal overrode them for this send.
-  if (!emailData.sign_off_email || !emailData.sign_off_website) {
+  // Sign-off name/email default to whoever is actually logged in and
+  // sending this, not a single shared company-wide field - a shared
+  // "reply-to" doesn't make sense once more than one teammate sends
+  // instructions under their own name (Kajol's vs Tanishq's). Website
+  // stays company-wide since that's genuinely shared. The compose modal
+  // can still override any of this per-send.
+  if (!emailData.sign_off_name) emailData.sign_off_name = me.full_name || me.email;
+  if (!emailData.sign_off_email) emailData.sign_off_email = me.email;
+  if (!emailData.sign_off_website) {
     const { data: emailSettings } = await supabase
       .from("company_email_settings")
-      .select("from_name, reply_to, website")
+      .select("website")
       .eq("company_id", me.company_id)
       .maybeSingle();
-    emailData.sign_off_name = emailData.sign_off_name || emailSettings?.from_name || "";
-    emailData.sign_off_email = emailData.sign_off_email || emailSettings?.reply_to || "";
-    emailData.sign_off_website = emailData.sign_off_website || emailSettings?.website || "";
+    emailData.sign_off_website = emailSettings?.website || "";
   }
 
   const { subject, html } = generateInstructionsEmail(emailData);
 
   if (body.preview) {
-    // Not a hard default (forwarder ops inboxes are usually a shared
-    // alias, not the buyer's own email) - just a convenience starting
-    // point the compose modal can prefill and the user can change.
-    return NextResponse.json({ subject, html, suggested_to: gstEntry.email || "" });
+    // Instructions only ever go to the forwarder handling this booking -
+    // pulled from the email/cc email stored on their Forwarders record
+    // (Edit > Email / Cc Email), not typed by hand each time.
+    return NextResponse.json({
+      subject,
+      html,
+      suggested_to: forwarderParty.email || "",
+      suggested_cc: forwarderParty.cc_email || "",
+      forwarder_missing_email: !forwarderParty.email,
+    });
   }
 
   const to: string[] = Array.isArray(body.to) ? body.to.filter(Boolean) : [];
@@ -138,6 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     html,
     bookingId: params.id,
     emailType: "booking_instruction",
+    replyTo: me.email,
   });
 
   if (!result.ok) {

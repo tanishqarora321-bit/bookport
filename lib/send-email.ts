@@ -25,6 +25,11 @@ export type SendEmailInput = {
   // that has no letterhead/branding of its own yet) should read as coming
   // from Ship-Sphere itself, not from company_email_settings/companies.name.
   fromNameOverride?: string;
+  // Per-send reply-to (e.g. the actual logged-in sender's own email, for
+  // Instructions) - takes priority over company_email_settings.reply_to,
+  // since a single shared company-wide reply-to doesn't make sense once
+  // more than one teammate is sending under their own name.
+  replyTo?: string;
 };
 
 export type SendEmailResult = { ok: true; id: string | null } | { ok: false; error: string };
@@ -57,7 +62,7 @@ export async function sendEmail(supabase: any, input: SendEmailInput): Promise<S
         from,
         to: input.to,
         cc: input.cc && input.cc.length > 0 ? input.cc : undefined,
-        reply_to: settings?.reply_to || undefined,
+        reply_to: input.replyTo || settings?.reply_to || undefined,
         subject: input.subject,
         html: input.html,
       }),

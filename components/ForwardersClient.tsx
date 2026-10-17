@@ -12,6 +12,8 @@ type Forwarder = {
   short_code: string | null;
   country: string | null;
   address: string | null;
+  email: string | null;
+  cc_email: string | null;
   is_active: boolean;
 };
 
@@ -254,6 +256,8 @@ function EditForwarderModal({
     short_code: forwarder.short_code ?? "",
     country: forwarder.country ?? "",
     address: forwarder.address ?? "",
+    email: forwarder.email ?? "",
+    cc_email: forwarder.cc_email ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -323,6 +327,24 @@ function EditForwarderModal({
               rows={2}
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-ink/40 mb-0.5">Email (for Send Instructions)</div>
+            <input
+              type="email"
+              className="border rounded px-2 py-1.5 text-sm w-full"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div>
+            <div className="text-xs text-ink/40 mb-0.5">Cc Email</div>
+            <input
+              type="email"
+              className="border rounded px-2 py-1.5 text-sm w-full"
+              value={form.cc_email}
+              onChange={(e) => setForm({ ...form, cc_email: e.target.value })}
             />
           </div>
         </div>

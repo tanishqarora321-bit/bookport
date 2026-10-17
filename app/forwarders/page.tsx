@@ -18,7 +18,7 @@ export default async function ForwardersPage() {
 
   const { data: forwarders, error } = await supabase
     .from("parties")
-    .select("id, legal_name, short_code, country, address, is_active, created_at")
+    .select("id, legal_name, short_code, country, address, email, cc_email, is_active, created_at")
     .eq("company_id", companyId)
     .contains("roles", ["forwarder"])
     .order("legal_name");
