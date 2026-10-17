@@ -1,68 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
-// Adds one row of raw inputs to a sheet. Only keys that are actually
-// text/number/date columns on this sheet's type get stored -- a
-// "computed" key sent by mistake (or a stray extra field) is silently
-// dropped rather than stored as junk that would never be recalculated.
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+// Creates a new offer sheet under an existing section (offer_sheet_type).
+//
+// NOTE: this file previously contained the "add one row" logic that
+// belongs in app/api/offer-sheets/[id]/rows/route.ts (a copy/paste mistake
+// from the original "Add Freight Comparison/Offer Sheet" commit - both
+// files had identical content, and POST /api/offer-sheets, the endpoint
+// NewSheetPanel in OfferSheetsListClient.tsx actually calls to create a
+// sheet, never worked). Restored to match its route and the client's
+// actual request shape ({ offer_sheet_type_id, title, period }) while
+// adding the auth/company-scoping this security pass is for.
+export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
+  const { offer_sheet_type_id, title, period } = body;
+
+  if (!offer_sheet_type_id) {
+    return NextResponse.json({ error: "offer_sheet_type_id is required" }, { status: 400 });
+  }
+  if (!title || !title.trim()) {
+    return NextResponse.json({ error: "Title is required" }, { status: 400 });
+  }
+
   const supabase = createServiceClient();
 
-  const { data: sheet, error: sheetError } = await supabase
-    .from("offer_sheets")
-    .select("id, settings, offer_sheet_type_id, offer_sheet_types (columns)")
-    .eq("id", params.id)
+  // The type id comes from the client - confirm it's actually one of this
+  // company's sections before using it, so a guessed/leaked id from
+  // another company can't be used to create a sheet under their section.
+  const { data: type, error: typeError } = await supabase
+    .from("offer_sheet_types")
+    .select("id")
+    .eq("id", offer_sheet_type_id)
+    .eq("company_id", me.company_id)
     .single();
-
-  if (sheetError || !sheet) {
-    return NextResponse.json({ error: sheetError?.message || "Sheet not found" }, { status: 404 });
+  if (typeError || !type) {
+    return NextResponse.json({ error: "Section not found" }, { status: 404 });
   }
 
-  const columns: ColumnDef[] = (sheet as any).offer_sheet_types?.columns ?? [];
-  const inputKeys = new Set(columns.filter((c) => c.kind !== "computed").map((c) => c.key));
-
-  const rowData: Record<string, any> = {};
-  for (const [key, value] of Object.entries(body.row_data || {})) {
-    if (inputKeys.has(key)) rowData[key] = value;
-  }
-
-  const { data: existing } = await supabase
-    .from("offer_sheet_rows")
-    .select("sort_order")
-    .eq("offer_sheet_id", params.id)
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: newRow, error: insertError } = await supabase
-    .from("offer_sheet_rows")
+  const { data, error } = await supabase
+    .from("offer_sheets")
     .insert({
-      offer_sheet_id: params.id,
-      group_key: body.group_key || null,
-      row_data: rowData,
-      sort_order: (existing?.sort_order ?? -1) + 1,
+      company_id: me.company_id,
+      offer_sheet_type_id,
+      title: title.trim(),
+      period: period || null,
+      settings: {},
     })
     .select()
     .single();
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
-
-  // Return this row (and its group siblings, if any) fully computed --
-  // matches the pattern in items/[itemId] routes: the client updates from
-  // whatever comes back rather than recomputing formulas itself.
-  let siblingRows = [newRow];
-  if (newRow.group_key) {
-    const { data: groupRows } = await supabase
-      .from("offer_sheet_rows")
-      .select("id, group_key, row_data")
-      .eq("offer_sheet_id", params.id)
-      .eq("group_key", newRow.group_key);
-    siblingRows = groupRows ?? [newRow];
-  }
-
-  const computed = computeAllRows(columns, siblingRows as any, sheet.settings || {});
-
-  return NextResponse.json({ row: newRow, computed_rows: computed });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ offer_sheet: data });
 }

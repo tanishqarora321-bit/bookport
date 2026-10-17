@@ -1,4 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
 import OfferSheetGridClient from "@/components/OfferSheetGridClient";
 import Link from "next/link";
@@ -7,12 +9,16 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function OfferSheetGridPage({ params }: { params: { sheetId: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+
   const supabase = createServiceClient();
 
   const { data: sheet, error: sheetError } = await supabase
     .from("offer_sheets")
     .select("id, title, period, settings, notes, offer_sheet_type_id, offer_sheet_types (id, name, columns)")
     .eq("id", params.sheetId)
+    .eq("company_id", me.company_id)
     .single();
 
   if (sheetError || !sheet) {

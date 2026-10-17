@@ -1,16 +1,20 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import FreightComparisonClient from "@/components/FreightComparisonClient";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// TEMPORARY: service-role client, no login screen built yet - see README.
 export default async function FreightComparisonPage({
   searchParams,
 }: {
   searchParams: { month?: string; destination?: string };
 }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   // Every distinct (rate_month, destination) pair that has at least one
@@ -19,7 +23,7 @@ export default async function FreightComparisonPage({
   const { data: allSheetsMeta, error: metaError } = await supabase
     .from("rate_sheets")
     .select("rate_month, destination")
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .order("rate_month", { ascending: false });
 
   if (metaError) return <p className="text-red-600 p-6">{metaError.message}</p>;
@@ -35,7 +39,7 @@ export default async function FreightComparisonPage({
     .select(
       "id, forwarder_name, destination, rate_month, currency, source_type, source_file_name, notes, created_at, entries:rate_sheet_entries (id, origin, shipping_line, rate, free_days, sort_order)"
     )
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .eq("rate_month", selectedMonth)
     .eq("destination", selectedDestination)
     .order("created_at", { ascending: true });

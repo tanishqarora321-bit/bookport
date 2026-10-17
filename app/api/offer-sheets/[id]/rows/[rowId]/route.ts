@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
 
 // Edits one raw input field on one row (an EditableCell save). Because a
@@ -12,13 +13,20 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; rowId: string } }
 ) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
+  // A row's own table (offer_sheet_rows) has no company_id column - the
+  // only way to know this row belongs to this company is to confirm its
+  // PARENT sheet does, before touching anything.
   const { data: sheet, error: sheetError } = await supabase
     .from("offer_sheets")
     .select("id, settings, offer_sheet_types (columns)")
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (sheetError || !sheet) {
@@ -78,7 +86,23 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; rowId: string } }
 ) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
+
+  // Same "verify the parent" requirement as PATCH above - offer_sheet_rows
+  // has no company_id of its own.
+  const { data: sheet, error: sheetError } = await supabase
+    .from("offer_sheets")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (sheetError || !sheet) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { error } = await supabase
     .from("offer_sheet_rows")
     .delete()

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Creates a new "section" (Mixed Rags / Bed Sheet / Wiper / whatever comes
 // next as the company grows). `columns` is the same jsonb shape the 3
@@ -10,6 +10,9 @@ import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 // "Duplicate" action in the UI) rather than hand-writing JSON from
 // scratch -- a friendlier column builder can come later.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase
     .from("offer_sheet_types")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       name: body.name.trim(),
       columns: body.columns,
     })

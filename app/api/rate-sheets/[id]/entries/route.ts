@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -15,11 +16,28 @@ function intOrNull(v: any) {
 // for a lane the AI extraction missed, or a manual sheet being built up
 // one row at a time.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
   if (!body.origin || !body.shipping_line) {
     return NextResponse.json({ error: "origin and shipping_line are required" }, { status: 400 });
+  }
+
+  // rate_sheet_entries has no company_id of its own - confirm the PARENT
+  // sheet belongs to this company before inserting a row under it. Before
+  // this check, any signed-in user could add an entry to any other
+  // company's rate sheet just by guessing/leaking its id.
+  const { data: sheet, error: sheetError } = await supabase
+    .from("rate_sheets")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (sheetError || !sheet) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { data: existing } = await supabase

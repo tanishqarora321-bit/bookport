@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
 
 // Adds one row of raw inputs to a sheet. Only keys that are actually
@@ -7,6 +8,9 @@ import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
 // "computed" key sent by mistake (or a stray extra field) is silently
 // dropped rather than stored as junk that would never be recalculated.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -14,6 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("offer_sheets")
     .select("id, settings, offer_sheet_type_id, offer_sheet_types (columns)")
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (sheetError || !sheet) {
