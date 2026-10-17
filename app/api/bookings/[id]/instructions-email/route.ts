@@ -29,6 +29,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
+  // Checked first, before letterhead/GST-entry - instructions only ever
+  // go to a forwarder, so nothing else about this booking matters until
+  // one is actually assigned.
+  const forwarderParty = (booking.booking_parties ?? []).find((bp: any) => bp.role === "forwarder")?.parties ?? null;
+  if (!forwarderParty) {
+    return NextResponse.json(
+      { error: "This booking has no Forwarder assigned yet -- instructions can only be sent to a forwarder, pick one first." },
+      { status: 400 }
+    );
+  }
+
   const containerId: string | null = body.container_id ?? null;
   const [{ data: container }, { data: gstEntry }, { data: templateRow }] = await Promise.all([
     containerId
@@ -64,14 +75,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!gstEntry) {
     return NextResponse.json(
       { error: "This booking has no \"Consignee as per BL\" GST entry picked yet -- pick one first." },
-      { status: 400 }
-    );
-  }
-
-  const forwarderParty = (booking.booking_parties ?? []).find((bp: any) => bp.role === "forwarder")?.parties ?? null;
-  if (!forwarderParty) {
-    return NextResponse.json(
-      { error: "This booking has no Forwarder assigned yet -- instructions can only be sent to a forwarder, pick one first." },
       { status: 400 }
     );
   }
