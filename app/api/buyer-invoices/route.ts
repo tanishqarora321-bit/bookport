@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -26,15 +26,27 @@ const INVOICE_SELECT =
 // buyer already IS the consignee here) and plus the buyer-specific header
 // fields (location/bl_date/due_date/weight/weight_unit).
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   if (!body.buyer_id) return NextResponse.json({ error: "buyer_id is required" }, { status: 400 });
 
   const supabase = createServiceClient();
 
+  const { data: buyerParty, error: buyerLookupError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", body.buyer_id)
+    .eq("company_id", me.company_id)
+    .maybeSingle();
+  if (buyerLookupError) return NextResponse.json({ error: buyerLookupError.message }, { status: 500 });
+  if (!buyerParty) return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+
   const { data: invoice, error: invoiceError } = await supabase
     .from("buyer_invoices")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       buyer_id: body.buyer_id,
       tracking_id: body.tracking_id || null,
       booking_number: body.booking_number || null,

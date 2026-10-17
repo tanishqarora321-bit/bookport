@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import BuyerInvoiceLedgerClient from "@/components/BuyerInvoiceLedgerClient";
 import Link from "next/link";
 
@@ -7,13 +8,17 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function BuyerInvoicesPage({ params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const { data: buyer, error: buyerError } = await supabase
     .from("parties")
     .select("id, legal_name")
     .eq("id", params.id)
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .single();
 
   if (buyerError || !buyer) {
@@ -33,7 +38,7 @@ export default async function BuyerInvoicesPage({ params }: { params: { id: stri
     .select(
       "id, booking_number, container_number, location, month_of_loading, bl_date, due_date, forwarder_name, invoice_number, invoice_date, weight, weight_unit, total, total_usd, currency, fx_rate, paid_status, notes, tracking_id, tracking:tracking_id (eta, release_status), items:buyer_invoice_items (id, description, weight_kg, unit_price, amount, sort_order)"
     )
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .eq("buyer_id", params.id)
     .order("invoice_date", { ascending: false, nullsFirst: false });
 

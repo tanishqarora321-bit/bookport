@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { parseDateish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
@@ -20,6 +20,10 @@ type Skip = { row: number; reason: string };
 // separate numeric columns on that same row, each becoming one
 // buyer_invoice_items row.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const buyerId: string = body.buyerId;
   const headers: string[] = body.headers ?? [];
@@ -46,10 +50,21 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  // buyerId comes straight from the request body - verify it's actually
+  // this company's buyer before importing anything onto it.
+  const { data: buyerParty, error: buyerLookupError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", buyerId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (buyerLookupError) return NextResponse.json({ error: buyerLookupError.message }, { status: 500 });
+  if (!buyerParty) return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
+
   const { data: existingInvoices } = await supabase
     .from("buyer_invoices")
     .select("invoice_number")
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .eq("buyer_id", buyerId);
   const existingKeys = new Set(
     (existingInvoices ?? [])
@@ -94,7 +109,7 @@ export async function POST(req: NextRequest) {
         const { data } = await supabase
           .from("tracking")
           .select(SELECT)
-          .eq("company_id", DEFAULT_COMPANY_ID)
+          .eq("company_id", companyId)
           .eq("booking_number", bookingNumber)
           .maybeSingle();
         tracking = data;
@@ -103,7 +118,7 @@ export async function POST(req: NextRequest) {
         const { data } = await supabase
           .from("tracking")
           .select(SELECT)
-          .eq("company_id", DEFAULT_COMPANY_ID)
+          .eq("company_id", companyId)
           .eq("container_number", containerNumber)
           .maybeSingle();
         tracking = data;
@@ -134,7 +149,7 @@ export async function POST(req: NextRequest) {
     const { data: invoice, error: invoiceError } = await supabase
       .from("buyer_invoices")
       .insert({
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: companyId,
         buyer_id: buyerId,
         tracking_id: trackingId,
         booking_number: bookingNumber || null,

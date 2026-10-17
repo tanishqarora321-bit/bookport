@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
 
 // Deliberately excludes: id, company_id, buyer_id, tracking_id, total,
@@ -44,8 +45,24 @@ function defaultAmount(weight_kg: any, unit_price: any, amount: any) {
 // draft and only writes once reviewed) replaces the whole cost section in
 // one call rather than diffing row by row.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const supabase = createServiceClient();
+
+  // buyer_invoice_items has no company_id of its own - verify the parent
+  // invoice belongs to this company before touching anything, same as the
+  // header update below.
+  const { data: existingInvoice, error: ownError } = await supabase
+    .from("buyer_invoices")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (ownError) return NextResponse.json({ error: ownError.message }, { status: 500 });
+  if (!existingInvoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const updates: Record<string, any> = {};
   for (const [key, value] of Object.entries(body)) {
@@ -79,7 +96,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (Object.keys(updates).length > 0) {
     updates.updated_at = new Date().toISOString();
-    const { error: updateError } = await supabase.from("buyer_invoices").update(updates).eq("id", params.id);
+    const { error: updateError } = await supabase.from("buyer_invoices").update(updates).eq("id", params.id).eq("company_id", companyId);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
@@ -87,9 +104,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("buyer_invoices")
     .select("*, tracking:tracking_id (eta, release_status), items:buyer_invoice_items (id, description, weight_kg, unit_price, amount, sort_order)")
     .eq("id", params.id)
+    .eq("company_id", companyId)
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ invoice: data });
 }
 
@@ -99,11 +120,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // container's invoice still needs this buyer) - same logic as the
 // Forwarders/Suppliers/Truckers equivalent.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
 
-  const { data: invoice } = await supabase.from("buyer_invoices").select("tracking_id, buyer_id").eq("id", params.id).single();
+  const { data: invoice, error: fetchError } = await supabase
+    .from("buyer_invoices")
+    .select("tracking_id, buyer_id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .maybeSingle();
+  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { error } = await supabase.from("buyer_invoices").delete().eq("id", params.id);
+  const { error } = await supabase.from("buyer_invoices").delete().eq("id", params.id).eq("company_id", me.company_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (invoice) {

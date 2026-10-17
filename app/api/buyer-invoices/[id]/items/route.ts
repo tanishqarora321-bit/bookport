@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -20,8 +21,22 @@ function defaultAmount(weight_kg: any, unit_price: any, amount: any) {
 // button in the invoice detail view). Mirrors
 // app/api/supplier-invoices/[id]/items/route.ts exactly.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
+
+  // buyer_invoice_items has no company_id of its own - verify the parent
+  // invoice belongs to this company before adding a line to it.
+  const { data: invoiceOwner, error: ownError } = await supabase
+    .from("buyer_invoices")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .maybeSingle();
+  if (ownError) return NextResponse.json({ error: ownError.message }, { status: 500 });
+  if (!invoiceOwner) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { data: existing } = await supabase
     .from("buyer_invoice_items")

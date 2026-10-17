@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { BUYER_ADDRESS_LINE_KEYS } from "@/lib/buyer-import-fields";
 
 export const maxDuration = 60;
@@ -14,6 +14,10 @@ type Skip = { row: number; reason: string };
 // Name of its own falls back to using its GST/company name as the folder,
 // matching the common case of a standalone buyer with no group.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const headers: string[] = body.headers ?? [];
   const rows: string[][] = body.rows ?? [];
@@ -77,7 +81,7 @@ export async function POST(req: NextRequest) {
   const { data: existingParties } = await supabase
     .from("parties")
     .select("id, legal_name, roles")
-    .eq("company_id", DEFAULT_COMPANY_ID);
+    .eq("company_id", companyId);
   const partyByName = new Map<string, { id: string; roles: string[] }>((existingParties ?? []).map((p: any) => [p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] }]));
 
   const folderNamesSeen = new Map<string, string>(); // lowercase -> original casing (first seen)
@@ -89,7 +93,7 @@ export async function POST(req: NextRequest) {
   const toCreate: { company_id: string; legal_name: string; roles: string[] }[] = [];
   for (const [key, original] of folderNamesSeen) {
     if (!partyByName.has(key)) {
-      toCreate.push({ company_id: DEFAULT_COMPANY_ID, legal_name: original, roles: ["buyer"] });
+      toCreate.push({ company_id: companyId, legal_name: original, roles: ["buyer"] });
     }
   }
   if (toCreate.length > 0) {

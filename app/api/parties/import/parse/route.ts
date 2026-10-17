@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { suggestMapping } from "@/lib/gemini";
 import { PARTY_IMPORT_FIELDS } from "@/lib/party-import-fields";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 export const maxDuration = 60;
 
@@ -25,6 +26,9 @@ function cellToValue(cell: ExcelJS.Cell): string {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const form = await req.formData();
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });

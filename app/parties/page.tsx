@@ -1,12 +1,16 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import PartiesClient from "@/components/PartiesClient";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// TEMPORARY: service-role client, no login screen built yet - see README.
 export default async function PartiesPage() {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const [{ data: parties, error: partiesError }, { data: items, error: itemsError }] = await Promise.all([
@@ -17,13 +21,13 @@ export default async function PartiesPage() {
     supabase
       .from("parties")
       .select("id, legal_name, short_code, country, address, is_active, created_at, gst_entries:buyer_gst_entries(id, legal_name, gst_no, iec_code, pan_no, address, mobile, email, description_of_goods, hs_code, transit_destination, sort_order)")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .contains("roles", ["buyer"])
       .order("legal_name"),
     supabase
       .from("items")
       .select("id, name, is_active, created_at")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .order("name"),
   ]);
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 export const maxDuration = 60;
 
@@ -16,6 +16,10 @@ type Skip = { row: number; reason: string };
 // app/api/bookings/import/commit/route.ts already uses for the
 // Forwarder/Trucker/Supplier/Buyer columns on a booking import.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const headers: string[] = body.headers ?? [];
   const rows: string[][] = body.rows ?? [];
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await supabase
     .from("parties")
     .select("id, legal_name, roles, short_code, country, address")
-    .eq("company_id", DEFAULT_COMPANY_ID);
+    .eq("company_id", companyId);
   const existingByName = new Map<string, any>((existing ?? []).map((p: any) => [p.legal_name.toLowerCase(), p]));
 
   const toCreate: any[] = [];
@@ -90,7 +94,7 @@ export async function POST(req: NextRequest) {
       imported++;
     } else {
       toCreate.push({
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: companyId,
         legal_name: c.name,
         short_code: c.short_code || null,
         country: c.country || null,
