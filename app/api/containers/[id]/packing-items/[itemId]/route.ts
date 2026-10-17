@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 const EDITABLE_COLUMNS = ["seal_no", "weight", "weight_unit", "bales", "description"];
 
@@ -9,9 +10,25 @@ function numOrNull(v: any) {
   return Number.isFinite(n) ? n : null;
 }
 
+async function verifyContainerOwnership(supabase: any, containerId: string, companyId: string) {
+  const { data: container, error } = await supabase
+    .from("containers")
+    .select("id, bookings!inner(company_id)")
+    .eq("id", containerId)
+    .single();
+  return !error && container && (container as any).bookings?.company_id === companyId;
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string; itemId: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
+
+  if (!(await verifyContainerOwnership(supabase, params.id, me.company_id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const updates: Record<string, any> = {};
   for (const [key, value] of Object.entries(body)) {
@@ -38,7 +55,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string; itemId: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
+
+  if (!(await verifyContainerOwnership(supabase, params.id, me.company_id))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { error } = await supabase.from("container_packing_items").delete().eq("id", params.itemId).eq("container_id", params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

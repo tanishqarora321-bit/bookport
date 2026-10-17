@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -16,16 +19,27 @@ export async function POST(req: NextRequest) {
     .from("bookings")
     .select("carrier_booking_no, forwarder_name, carrier")
     .eq("id", body.booking_id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (bookingError || !booking) {
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
+  const { data: party, error: partyError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", body.party_id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (partyError || !party) {
+    return NextResponse.json({ error: "Party not found" }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from("tracking")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       booking_id: body.booking_id,
       party_id: body.party_id,
       item_id: body.item_id || null,

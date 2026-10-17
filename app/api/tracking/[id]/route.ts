@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Deliberately excludes: id, company_id, booking_id, party_id, booking_number
 // (that last one is denormalized FROM the booking on creation, not hand-edited
@@ -22,6 +23,9 @@ const EDITABLE_COLUMNS = [
 ];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -42,9 +46,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("tracking")
     .update(updates)
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .select("*, forwarder:forwarder_id (legal_name)")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "PGRST116") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ tracking: data });
 }

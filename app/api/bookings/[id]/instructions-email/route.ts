@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { generateInstructionsEmail, InstructionsEmailData } from "@/lib/email/generateInstructionsEmail";
 import { sendEmail } from "@/lib/send-email";
 
@@ -10,6 +10,9 @@ import { sendEmail } from "@/lib/send-email";
 // modal to show before the user commits); omit it (or false) to actually
 // send via the company's configured Resend account and log the result.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json().catch(() => ({}));
   const supabase = createServiceClient();
 
@@ -19,6 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       "id, carrier_booking_no, final_destination, commodity, hs_code, consignee_gst_entry_id, booking_parties (role, party_id, parties (legal_name, short_code))"
     )
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (bookingError || !booking) {
@@ -32,6 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           .from("containers")
           .select("container_no, seal_no, packing_items:container_packing_items (seal_no, weight, weight_unit, bales, sort_order)")
           .eq("id", containerId)
+          .eq("booking_id", params.id)
           .single()
       : Promise.resolve({ data: null }),
     booking.consignee_gst_entry_id
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase
       .from("document_templates")
       .select("template_config")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", me.company_id)
       .eq("doc_type", "booking_instruction")
       .eq("is_default", true)
       .single(),
@@ -103,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { data: emailSettings } = await supabase
       .from("company_email_settings")
       .select("from_name, reply_to, website")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", me.company_id)
       .maybeSingle();
     emailData.sign_off_name = emailData.sign_off_name || emailSettings?.from_name || "";
     emailData.sign_off_email = emailData.sign_off_email || emailSettings?.reply_to || "";
@@ -126,7 +131,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const cc: string[] = Array.isArray(body.cc) ? body.cc.filter(Boolean) : [];
 
   const result = await sendEmail(supabase, {
-    companyId: DEFAULT_COMPANY_ID,
+    companyId: me.company_id,
     to,
     cc,
     subject,

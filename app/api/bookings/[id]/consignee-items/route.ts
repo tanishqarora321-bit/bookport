@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Adds one more description line under this booking's buyer/consignee --
 // the "+" from Tanishq's screenshot. Kept as its own row (not a jsonb
@@ -7,11 +8,24 @@ import { createServiceClient } from "@/lib/supabase/server";
 // later, per his note -- a real table joins into that cleanly, an array
 // column doesn't.
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
   if (!body.description || !body.description.toString().trim()) {
     return NextResponse.json({ error: "Description is required" }, { status: 400 });
+  }
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { data: existing } = await supabase

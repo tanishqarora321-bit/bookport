@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import DocumentsClient from "@/components/DocumentsClient";
 import Link from "next/link";
 
@@ -7,6 +8,9 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function TrackingDocumentsPage({ params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+
   const supabase = createServiceClient();
 
   const { data: tracking, error } = await supabase
@@ -15,7 +19,7 @@ export default async function TrackingDocumentsPage({ params }: { params: { id: 
       "id, booking_number, container_number, shipping_line, seal_number, invoice_no, party_id, item_id"
     )
     .eq("id", params.id)
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", me.company_id)
     .single();
 
   if (error || !tracking) {

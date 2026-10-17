@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; itemId: string } }
 ) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
   if (typeof body.description !== "string" || !body.description.trim()) {
     return NextResponse.json({ error: "Description is required" }, { status: 400 });
+  }
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { data, error } = await supabase
@@ -28,7 +42,21 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; itemId: string } }
 ) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const { error } = await supabase
     .from("booking_consignee_items")
     .delete()

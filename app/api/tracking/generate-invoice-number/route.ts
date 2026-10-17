@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Pattern confirmed from the real NAM/Tracking sheets: YYYY-{party_short_code}/{seq}
 // e.g. "2026-LR/09", next one is "2026-LR/10". Year = year of generation
 // (not shipment date) - matches "the Year they issue" from the spec.
 // Sequence resets per party per year, padded to at least 2 digits.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -18,6 +21,7 @@ export async function POST(req: NextRequest) {
     .from("parties")
     .select("short_code, legal_name")
     .eq("id", body.party_id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (partyError || !party) {
@@ -37,7 +41,7 @@ export async function POST(req: NextRequest) {
   const { data: existing, error: existingError } = await supabase
     .from("tracking")
     .select("invoice_no")
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", me.company_id)
     .eq("party_id", body.party_id)
     .like("invoice_no", `${prefix}%`);
 

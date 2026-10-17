@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 const VALID_ROLES = ["forwarder", "trucker", "supplier", "buyer"];
 
@@ -13,6 +14,9 @@ const VALID_ROLES = ["forwarder", "trucker", "supplier", "buyer"];
 // so setting a new party for a role replaces whatever was there before
 // rather than adding a second row.
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -21,6 +25,28 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
   if (!VALID_ROLES.includes(role)) {
     return NextResponse.json({ error: `role must be one of ${VALID_ROLES.join(", ")}` }, { status: 400 });
+  }
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (partyId) {
+    const { data: party, error: partyCheckError } = await supabase
+      .from("parties")
+      .select("id")
+      .eq("id", partyId)
+      .eq("company_id", me.company_id)
+      .single();
+    if (partyCheckError || !party) {
+      return NextResponse.json({ error: "Party not found" }, { status: 404 });
+    }
   }
 
   // Needed below to clean up that party's invoices when this clears the

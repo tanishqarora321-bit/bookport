@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -13,8 +14,20 @@ function numOrNull(v: any) {
 // a jsonb array), since a container can have more than one line (e.g.
 // mixed cargo needing separate seal/weight breakdowns).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
+
+  const { data: container, error: containerError } = await supabase
+    .from("containers")
+    .select("id, booking_id, bookings!inner(company_id)")
+    .eq("id", params.id)
+    .single();
+  if (containerError || !container || (container as any).bookings?.company_id !== me.company_id) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   const { data: existing } = await supabase
     .from("container_packing_items")

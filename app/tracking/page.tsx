@@ -1,12 +1,16 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import TrackingClient from "@/components/TrackingClient";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// TEMPORARY: service-role client, no login screen built yet - see README.
 export default async function TrackingPage() {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const [{ data: tracking, error: trackingError }, { data: bookings }, { data: parties }, { data: items }, { data: forwarders }] =
@@ -16,25 +20,25 @@ export default async function TrackingPage() {
         .select(
           "id, booking_id, party_id, item_id, forwarder_id, consignee_as_per_bl, invoice_no, booking_number, container_number, eta, forwarder_name, forwarder:forwarder_id (legal_name), release_status, shipping_line, invoice_sent, documents_sent, remarks, bl_number, bl_status, ocean_freight, ocean_freight_currency, last_tracking_check_at"
         )
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false }),
       // Bookings not yet linked to a tracking row - these are what's
       // available to assign in the "+ Assign Booking" flow.
       supabase
         .from("bookings")
         .select("id, booking_no, carrier_booking_no, carrier, forwarder_name")
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false }),
       supabase
         .from("parties")
         .select("id, legal_name, short_code")
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("is_active", true)
         .order("legal_name"),
       supabase
         .from("items")
         .select("id, name")
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("is_active", true)
         .order("name"),
       // Forwarders are `parties` rows with 'forwarder' in roles -- same
@@ -42,7 +46,7 @@ export default async function TrackingPage() {
       supabase
         .from("parties")
         .select("id, legal_name")
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("is_active", true)
         .contains("roles", ["forwarder"])
         .order("legal_name"),

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Per spec: match on booking_number first, container_number as fallback.
 // Returns everything needed to auto-fill a forwarder/trucker/supplier
@@ -8,6 +8,9 @@ import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 // too, because the invoice UI reads them live via tracking_id at render
 // time, never copies them into form state that could go stale.
 export async function GET(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const query = req.nextUrl.searchParams.get("query")?.trim();
   if (!query) {
     return NextResponse.json({ error: "query param is required" }, { status: 400 });
@@ -21,7 +24,7 @@ export async function GET(req: NextRequest) {
   let { data: tracking } = await supabase
     .from("tracking")
     .select(SELECT)
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", me.company_id)
     .eq("booking_number", query)
     .maybeSingle();
 
@@ -32,7 +35,7 @@ export async function GET(req: NextRequest) {
     const { data: byContainer } = await supabase
       .from("tracking")
       .select(SELECT)
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", me.company_id)
       .eq("container_number", query)
       .maybeSingle();
     tracking = byContainer;

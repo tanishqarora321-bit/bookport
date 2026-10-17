@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Every column EditableCell.tsx is allowed to PATCH from the Booking &
 // Instructions grid (components/BookingsClient.tsx) - kept as an
@@ -39,6 +40,9 @@ const EDITABLE_COLUMNS = [
 // cell edit in the grid fail with "Unexpected end of JSON input" -
 // EditableCell.tsx always calls res.json() on the response).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -55,10 +59,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("bookings")
     .update(updates)
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .select()
     .single();
 
   if (error) {
+    if (error.code === "PGRST116") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     if (error.code === "23505" && error.message.includes("carrier_booking_no")) {
       return NextResponse.json(
         { error: `Booking Number "${updates.carrier_booking_no}" already exists.` },
@@ -111,7 +119,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // "none" (see lib/unassign-party-if-no-invoices.ts and the booking
 // parties PUT route), not silently leave an orphaned invoice behind.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
+
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (bookingError || !booking) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   for (const table of ["invoices", "offers", "rate_quotes"]) {
     await supabase.from(table).update({ booking_id: null }).eq("booking_id", params.id);

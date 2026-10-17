@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
+
+  const { data: tracking, error: trackingError } = await supabase
+    .from("tracking")
+    .select("id")
+    .eq("id", params.id)
+    .eq("company_id", me.company_id)
+    .single();
+  if (trackingError || !tracking) {
+    return NextResponse.json({ error: "Tracking entry not found" }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from("generated_documents")
     .select("id, doc_type, field_data, pdf_path, version, created_at")
@@ -16,6 +30,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -28,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       "id, company_id, booking_number, container_number, shipping_line, seal_number, party_id, item_id, invoice_no"
     )
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .single();
 
   if (trackingError || !tracking) {
@@ -42,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase
       .from("document_templates")
       .select("template_config")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", me.company_id)
       .eq("doc_type", "final_invoice")
       .eq("is_default", true)
       .single(),
@@ -96,7 +114,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq("tracking_id", params.id);
   const version = (count ?? 0) + 1;
 
-  const filePath = `${DEFAULT_COMPANY_ID}/${params.id}/final_invoice_v${version}.pdf`;
+  const filePath = `${me.company_id}/${params.id}/final_invoice_v${version}.pdf`;
   const { error: uploadError } = await supabase.storage
     .from("documents")
     .upload(filePath, pdfBytes, { contentType: "application/pdf", upsert: false });
@@ -111,7 +129,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: doc, error: insertError } = await supabase
     .from("generated_documents")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       tracking_id: params.id,
       doc_type: "final_invoice",
       field_data: finalData,
