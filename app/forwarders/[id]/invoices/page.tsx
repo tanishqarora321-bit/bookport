@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import InvoiceLedgerClient from "@/components/InvoiceLedgerClient";
 import Link from "next/link";
 
@@ -7,13 +8,17 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function ForwarderInvoicesPage({ params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired message="Forwarder invoices" />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const { data: forwarder, error: forwarderError } = await supabase
     .from("parties")
     .select("id, legal_name")
     .eq("id", params.id)
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .single();
 
   if (forwarderError || !forwarder) {
@@ -35,7 +40,7 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
       .select(
         "id, booking_number, container_number, month_of_loading, shipping_line, consignee_name, pol, pod, invoice_number, invoice_date, invoice_due_date, freight_charges, bl_fees, aes_fees, extra_charges, correction_charges, demurrage, custom_charges, total, currency, fx_rate, total_usd, paid_status, tracking_id, tracking:tracking_id (eta, release_status)"
       )
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .eq("forwarder_id", params.id)
       .order("month_of_loading", { ascending: false, nullsFirst: false }),
     // Shared across every forwarder's ledger, not just this one - see
@@ -43,7 +48,7 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
     supabase
       .from("forwarder_invoice_custom_columns")
       .select("id, key, label")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .order("created_at"),
   ]);
 

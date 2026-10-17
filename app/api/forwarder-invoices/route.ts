@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -10,12 +14,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "forwarder_id is required" }, { status: 400 });
   }
 
+  // A cross-company forwarder_id must never be attachable to this
+  // company's invoice - same reasoning as the parties/[id] fix: verify
+  // the related resource is actually ours before using its id.
+  const { data: forwarder, error: forwarderError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", body.forwarder_id)
+    .eq("company_id", companyId)
+    .single();
+  if (forwarderError || !forwarder) {
+    return NextResponse.json({ error: "Forwarder not found" }, { status: 404 });
+  }
+
   const numeric = (v: any) => (v === "" || v === null || v === undefined ? 0 : Number(v));
 
   const { data, error } = await supabase
     .from("forwarder_invoices")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: companyId,
       forwarder_id: body.forwarder_id,
       tracking_id: body.tracking_id || null,
       booking_number: body.booking_number || null,

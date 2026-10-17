@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
 
 // Deliberately excludes: id, company_id, forwarder_id, tracking_id, total
@@ -29,6 +30,10 @@ const EDITABLE_COLUMNS = [
 ];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -44,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // and PostgREST has no partial-jsonb-update operator to do this in
   // one round trip, so read-merge-write here instead.
   if (body.custom_charges && typeof body.custom_charges === "object") {
-    const { data: existing } = await supabase.from("forwarder_invoices").select("custom_charges").eq("id", params.id).single();
+    const { data: existing } = await supabase.from("forwarder_invoices").select("custom_charges").eq("id", params.id).eq("company_id", companyId).single();
     updates.custom_charges = { ...(existing?.custom_charges ?? {}), ...body.custom_charges };
   }
 
@@ -58,10 +63,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("forwarder_invoices")
     .update(updates)
     .eq("id", params.id)
+    .eq("company_id", companyId)
     .select("*, tracking:tracking_id (eta, release_status)")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ invoice: data });
 }
 
@@ -75,11 +84,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // handled below (only once no other container's invoice still needs
 // this forwarder on this same booking).
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
-  const { data: invoice } = await supabase.from("forwarder_invoices").select("tracking_id, forwarder_id").eq("id", params.id).single();
+  const { data: invoice, error: fetchError } = await supabase
+    .from("forwarder_invoices")
+    .select("tracking_id, forwarder_id")
+    .eq("id", params.id)
+    .eq("company_id", companyId)
+    .single();
+  if (fetchError || !invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { error } = await supabase.from("forwarder_invoices").delete().eq("id", params.id);
+  const { error } = await supabase.from("forwarder_invoices").delete().eq("id", params.id).eq("company_id", companyId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (invoice) {

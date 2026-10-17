@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 const EDITABLE_COLUMNS = ["legal_name", "short_code", "country", "address", "is_active"];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -16,9 +21,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
   }
 
-  const { data, error } = await supabase.from("parties").update(updates).eq("id", params.id).select().single();
+  const { data, error } = await supabase.from("parties").update(updates).eq("id", params.id).eq("company_id", companyId).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ forwarder: data });
 }
 
@@ -31,19 +39,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // party_contacts has no ON DELETE clause, by design - see migration
 // 0003's notes on why parties are soft-deleted, not hard-deleted).
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const { data: party, error: fetchError } = await supabase
     .from("parties")
     .select("is_active")
     .eq("id", params.id)
+    .eq("company_id", companyId)
     .single();
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (fetchError) {
+    if (fetchError.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  }
   if (party.is_active) {
     return NextResponse.json({ error: "Remove this forwarder first before deleting it permanently." }, { status: 400 });
   }
 
-  const { error } = await supabase.from("parties").delete().eq("id", params.id);
+  const { error } = await supabase.from("parties").delete().eq("id", params.id).eq("company_id", companyId);
   if (error) {
     if (error.code === "23503") {
       return NextResponse.json(
