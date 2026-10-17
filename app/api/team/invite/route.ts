@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { generateTeamInviteEmail } from "@/lib/email/generateInviteEmail";
+import { sendEmail } from "@/lib/send-email";
 
 const ROLES = ["admin", "operations", "finance", "readonly"];
 
@@ -8,11 +10,12 @@ const ROLES = ["admin", "operations", "finance", "readonly"];
 // that company's seat_limit is reached. Only an admin of that company can
 // invite - the endpoint has no way to invite into a company other than
 // the caller's own, by construction, so there's no need for a separate
-// "which company" input to trust or validate. Uses inviteUserByEmail
-// rather than admin.createUser with a generated password - Supabase
-// emails the invitee a link where THEY set their own password, so there's
-// never a password sitting in a request body, a log line, or a chat
-// message.
+// "which company" input to trust or validate. Uses generateLink({type:
+// 'invite'}) + our own Resend send rather than inviteUserByEmail -
+// Supabase's own built-in email sending is rate-limited/unreliable on
+// the free tier (confirmed: a real invite never arrived) and we already
+// have working email infrastructure. Still never puts a password in a
+// request body/log/chat - the invitee sets their own via the link.
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
-    .select("seat_limit")
+    .select("name, seat_limit")
     .eq("id", me.company_id)
     .single();
   if (companyError) return NextResponse.json({ error: companyError.message }, { status: 500 });
@@ -59,27 +62,40 @@ export async function POST(req: NextRequest) {
   // passed here.
   const redirectTo = `${req.nextUrl.origin}/auth/callback`;
 
-  const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-    data: { full_name },
-    redirectTo,
+  const { data: linkData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { data: { full_name }, redirectTo },
   });
 
   if (inviteError) {
     // If this email already has a pending (unconfirmed) account from an
     // earlier attempt, the reliable fix is deleting it first: Supabase
     // Dashboard -> Authentication -> Users -> delete that row -> invite
-    // again. A generateLink-based auto-retry was tried here and dropped -
-    // it's not confirmed to actually trigger Supabase's email delivery in
-    // this project's configuration, and produced a silent no-email failure
-    // that was harder to diagnose than this plain error message is.
+    // again.
     return NextResponse.json({ error: inviteError.message }, { status: 500 });
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert(
-    { id: invited.user.id, full_name: full_name || null, role, company_id: me.company_id },
+    { id: linkData.user.id, full_name: full_name || null, role, company_id: me.company_id },
     { onConflict: "id" }
   );
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+
+  const { subject, html } = generateTeamInviteEmail({ companyName: company.name, actionLink: linkData.properties.action_link });
+  const sendResult = await sendEmail(supabase, {
+    companyId: me.company_id,
+    to: [email],
+    subject,
+    html,
+    emailType: "team_invite",
+  });
+  if (!sendResult.ok) {
+    return NextResponse.json(
+      { error: `Account created, but the invite email failed to send: ${sendResult.error}` },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true, email, role });
 }

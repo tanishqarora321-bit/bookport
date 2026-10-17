@@ -21,6 +21,10 @@ export type SendEmailInput = {
   html: string;
   bookingId?: string | null;
   emailType?: string;
+  // Platform-level emails (e.g. inviting the admin of a brand-new company
+  // that has no letterhead/branding of its own yet) should read as coming
+  // from Ship-Sphere itself, not from company_email_settings/companies.name.
+  fromNameOverride?: string;
 };
 
 export type SendEmailResult = { ok: true; id: string | null } | { ok: false; error: string };
@@ -39,7 +43,7 @@ export async function sendEmail(supabase: any, input: SendEmailInput): Promise<S
   ]);
 
   const fromAddress = process.env.PLATFORM_EMAIL_FROM_ADDRESS || DEFAULT_FROM_ADDRESS;
-  const displayName = settings?.from_name || company?.name || "Ship-Sphere";
+  const displayName = input.fromNameOverride || settings?.from_name || company?.name || "Ship-Sphere";
   const from = `${displayName} <${fromAddress}>`;
 
   try {

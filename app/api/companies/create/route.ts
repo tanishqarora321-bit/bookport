@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { generateCompanyOnboardingEmail } from "@/lib/email/generateInviteEmail";
+import { sendEmail } from "@/lib/send-email";
 
 function slugify(name: string) {
   return name
@@ -53,9 +55,13 @@ export async function POST(req: NextRequest) {
 
   const redirectTo = `${req.nextUrl.origin}/auth/callback`;
 
-  const { data: invited, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(adminEmail, {
-    data: { full_name: adminName },
-    redirectTo,
+  // generateLink + our own Resend send, not inviteUserByEmail - Supabase's
+  // built-in email sending is rate-limited/unreliable on the free tier
+  // (confirmed live: a real onboarding invite never arrived).
+  const { data: linkData, error: inviteError } = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email: adminEmail,
+    options: { data: { full_name: adminName }, redirectTo },
   });
   if (inviteError) {
     // The company row now exists with no admin - not ideal, but better
@@ -72,10 +78,30 @@ export async function POST(req: NextRequest) {
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert(
-    { id: invited.user.id, full_name: adminName || null, role: "admin", company_id: company.id },
+    { id: linkData.user.id, full_name: adminName || null, role: "admin", company_id: company.id },
     { onConflict: "id" }
   );
   if (profileError) return NextResponse.json({ error: profileError.message }, { status: 500 });
+
+  // Sent as "Ship-Sphere" itself (fromNameOverride), not under the brand-
+  // new company's own name - it has no letterhead/identity set up yet,
+  // and this is the platform inviting someone, not that company emailing
+  // its own team.
+  const { subject, html } = generateCompanyOnboardingEmail({ companyName, actionLink: linkData.properties.action_link });
+  const sendResult = await sendEmail(supabase, {
+    companyId: company.id,
+    to: [adminEmail],
+    subject,
+    html,
+    emailType: "company_onboarding",
+    fromNameOverride: "Ship-Sphere",
+  });
+  if (!sendResult.ok) {
+    return NextResponse.json(
+      { error: `Company "${companyName}" was created, but the invite email failed to send: ${sendResult.error}` },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true, companyId: company.id, adminEmail });
 }

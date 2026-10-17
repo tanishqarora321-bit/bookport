@@ -16,6 +16,7 @@ import {
   TrendingUp,
   LayoutDashboard,
   Settings,
+  ShieldCheck,
   ChevronsLeft,
   ChevronsRight,
   type LucideIcon,
@@ -49,6 +50,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [isPlatformOwner, setIsPlatformOwner] = useState(false);
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
@@ -74,6 +76,7 @@ export default function Sidebar() {
         .then(({ user }) => {
           setUserEmail(user?.email ?? null);
           setCompanyName(user?.company_name ?? null);
+          setIsPlatformOwner(!!user?.is_platform_owner);
         })
         .catch(() => {});
     }
@@ -137,6 +140,18 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {isPlatformOwner && (
+          <Link
+            href="/admin"
+            title={collapsed ? "Platform Admin" : undefined}
+            className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
+              pathname === "/admin" ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" size={16} />
+            {!collapsed && <span className="truncate">Platform Admin</span>}
+          </Link>
+        )}
       </nav>
 
       <button

@@ -31,11 +31,22 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
   const service = createServiceClient();
   const { data: profile } = await service
     .from("profiles")
-    .select("id, full_name, role, company_id, is_active, companies(name)")
+    .select("id, full_name, role, company_id, is_active, companies(name, subscription_status)")
     .eq("id", user.id)
     .single();
 
   if (!profile || !profile.is_active) return null;
+
+  const isPlatformOwner = profile.company_id === DEFAULT_COMPANY_ID && profile.role === "admin";
+
+  // A cancelled/suspended company's users are blocked from signing in at
+  // all (same "null = not signed in" path every page/route already
+  // handles) - manually set from /admin by the platform owner, who is
+  // exempt so a status mistake can never lock them out of fixing it.
+  const subscriptionStatus = (profile as any).companies?.subscription_status ?? "active";
+  if (!isPlatformOwner && (subscriptionStatus === "cancelled" || subscriptionStatus === "suspended")) {
+    return null;
+  }
 
   return {
     id: profile.id,
@@ -44,6 +55,6 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     role: profile.role,
     company_id: profile.company_id,
     company_name: (profile as any).companies?.name ?? "—",
-    is_platform_owner: profile.company_id === DEFAULT_COMPANY_ID && profile.role === "admin",
+    is_platform_owner: isPlatformOwner,
   };
 }
