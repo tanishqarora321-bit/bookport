@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import {
   SUPPLIER_INVOICE_DATE_KEYS,
   SUPPLIER_INVOICE_NUMERIC_KEYS,
@@ -34,6 +34,10 @@ type Group = { startRow: number; rowIndices: number[] };
 // Consignee, Container, Invoice Number/Date) are usually only present
 // on a group's first row, but any row in the group can supply them.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const supplierId: string = body.supplierId;
   const headers: string[] = body.headers ?? [];
@@ -46,6 +50,21 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: "No rows to import" }, { status: 400 });
   }
+
+  const supabase = createServiceClient();
+
+  // The supplierId posted from the client must actually belong to this
+  // company before any row is processed - otherwise a crafted supplierId
+  // could get invoices imported against a party that isn't actually this
+  // company's supplier.
+  const { data: supplierCheck, error: supplierCheckError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", supplierId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (supplierCheckError) return NextResponse.json({ error: supplierCheckError.message }, { status: 500 });
+  if (!supplierCheck) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
 
   const colIndex: Record<string, number> = {};
   for (const [key, headerName] of Object.entries(mapping)) {
@@ -81,12 +100,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ imported: 0, total: 0, skipped });
   }
 
-  const supabase = createServiceClient();
-
   const { data: existingInvoices } = await supabase
     .from("supplier_invoices")
     .select("booking_number, container_number")
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .eq("supplier_id", supplierId);
   const existingKeys = new Set(
     (existingInvoices ?? []).map((inv: { booking_number: string | null; container_number: string | null }) => `${(inv.booking_number ?? "").toLowerCase()}::${(inv.container_number ?? "").toLowerCase()}`)
@@ -128,14 +145,14 @@ export async function POST(req: NextRequest) {
       let { data: tracking } = await supabase
         .from("tracking")
         .select(SELECT)
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .eq("booking_number", bookingNumber)
         .maybeSingle();
       if (!tracking && containerNumber) {
         const { data: byContainer } = await supabase
           .from("tracking")
           .select(SELECT)
-          .eq("company_id", DEFAULT_COMPANY_ID)
+          .eq("company_id", companyId)
           .eq("container_number", containerNumber)
           .maybeSingle();
         tracking = byContainer;
@@ -158,7 +175,7 @@ export async function POST(req: NextRequest) {
     const { data: invoice, error: invoiceError } = await supabase
       .from("supplier_invoices")
       .insert({
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: companyId,
         supplier_id: supplierId,
         tracking_id: trackingId,
         booking_number: bookingNumber,

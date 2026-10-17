@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -27,15 +27,32 @@ const INVOICE_SELECT =
 // mistake - nothing here ever actually created an invoice, which is
 // why the ledger showed "No invoices yet" with no error.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   if (!body.supplier_id) return NextResponse.json({ error: "supplier_id is required" }, { status: 400 });
 
   const supabase = createServiceClient();
 
+  // The supplier picked on the client must actually belong to this
+  // company - otherwise a crafted supplier_id from another company's
+  // picker could get an invoice created against a party that isn't
+  // actually this company's supplier.
+  const { data: supplier, error: supplierError } = await supabase
+    .from("parties")
+    .select("id")
+    .eq("id", body.supplier_id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (supplierError) return NextResponse.json({ error: supplierError.message }, { status: 500 });
+  if (!supplier) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });
+
   const { data: invoice, error: invoiceError } = await supabase
     .from("supplier_invoices")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: companyId,
       supplier_id: body.supplier_id,
       tracking_id: body.tracking_id || null,
       booking_number: body.booking_number || null,
