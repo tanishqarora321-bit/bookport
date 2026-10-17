@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import TruckerInvoiceLedgerClient from "@/components/TruckerInvoiceLedgerClient";
 import Link from "next/link";
 
@@ -7,13 +8,17 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function TruckerInvoicesPage({ params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const { data: trucker, error: truckerError } = await supabase
     .from("parties")
     .select("id, legal_name")
     .eq("id", params.id)
-    .eq("company_id", DEFAULT_COMPANY_ID)
+    .eq("company_id", companyId)
     .single();
 
   if (truckerError || !trucker) {
@@ -34,7 +39,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
       .select(
         "id, booking_number, container_number, month_of_loading, location, invoice_number, invoice_date, invoice_due_date, trucking, fuel_surcharge, chassis_rental, stop_off, chassis_split, misc_charges, custom_charges, total, currency, fx_rate, total_usd, paid_status, tracking_id, tracking:tracking_id (eta, release_status)"
       )
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .eq("trucker_id", params.id)
       .order("month_of_loading", { ascending: false, nullsFirst: false }),
     // Shared across every trucker's ledger, not just this one - see
@@ -42,7 +47,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
     supabase
       .from("trucker_invoice_custom_columns")
       .select("id, key, label")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .order("created_at"),
   ]);
 

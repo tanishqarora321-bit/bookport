@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Custom charge columns are shared across every trucker's ledger
 // (migration 0022), so deleting one isn't scoped to "this trucker" -
@@ -8,19 +8,24 @@ import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 // unset). Checked company-wide here, not just for whichever ledger the
 // delete was clicked from.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const { data: column, error: colError } = await supabase
     .from("trucker_invoice_custom_columns")
     .select("key, label")
     .eq("id", params.id)
+    .eq("company_id", companyId)
     .single();
   if (colError || !column) return NextResponse.json({ error: "Column not found" }, { status: 404 });
 
   const { data: invoices, error: invError } = await supabase
     .from("trucker_invoices")
     .select("id, custom_charges")
-    .eq("company_id", DEFAULT_COMPANY_ID);
+    .eq("company_id", companyId);
   if (invError) return NextResponse.json({ error: invError.message }, { status: 500 });
 
   const rowsWithKey = (invoices ?? []).filter((inv: { id: string; custom_charges: Record<string, number> | null }) => column.key in (inv.custom_charges ?? {}));
@@ -39,7 +44,11 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     await supabase.from("trucker_invoices").update({ custom_charges: rest }).eq("id", inv.id);
   }
 
-  const { error: deleteError } = await supabase.from("trucker_invoice_custom_columns").delete().eq("id", params.id);
+  const { error: deleteError } = await supabase
+    .from("trucker_invoice_custom_columns")
+    .delete()
+    .eq("id", params.id)
+    .eq("company_id", companyId);
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

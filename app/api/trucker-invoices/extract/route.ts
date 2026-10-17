@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractTruckerInvoiceFromPdf } from "@/lib/trucker-invoice-gemini";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Extraction only - never writes to trucker_invoices itself. The invoice
 // row already exists (auto-created from tracking); the client shows this
 // result in the same manual-entry form for review before PATCHing it in,
 // exactly like the Forwarders invoice PDF flow.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const form = await req.formData();
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { suggestMapping } from "@/lib/gemini";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { TRUCKER_INVOICE_IMPORT_FIELDS } from "@/lib/trucker-invoice-import-fields";
 
 export const maxDuration = 60;
@@ -25,6 +25,9 @@ function cellToValue(cell: ExcelJS.Cell): string {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const form = await req.formData();
   const file = form.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -85,7 +88,7 @@ export async function POST(req: NextRequest) {
   const { data: customColumns } = await supabase
     .from("trucker_invoice_custom_columns")
     .select("key, label")
-    .eq("company_id", DEFAULT_COMPANY_ID);
+    .eq("company_id", me.company_id);
 
   const fields = [...TRUCKER_INVOICE_IMPORT_FIELDS, ...(customColumns ?? [])];
 

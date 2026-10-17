@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -15,6 +15,9 @@ const INVOICE_SELECT = "*, tracking:tracking_id (eta, release_status)";
 // pasted into this file by mistake - nothing here ever actually created
 // an invoice (same bug class already found/fixed on Supplier invoices).
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   if (!body.trucker_id) return NextResponse.json({ error: "trucker_id is required" }, { status: 400 });
 
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
   const { data: invoice, error } = await supabase
     .from("trucker_invoices")
     .insert({
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       trucker_id: body.trucker_id,
       tracking_id: body.tracking_id || null,
       booking_number: body.booking_number || null,
