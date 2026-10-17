@@ -1,12 +1,16 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import BookingsClient from "@/components/BookingsClient";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// TEMPORARY: service-role client, no login screen built yet - see README.
 export default async function BookingsPage() {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
+  const companyId = me.company_id;
+
   const supabase = createServiceClient();
 
   const [{ data: bookings, error }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }, { data: buyerGstEntries }] =
@@ -19,15 +23,15 @@ export default async function BookingsPage() {
             "booking_parties (role, party_id, parties (legal_name)), " +
             "consignee_items:booking_consignee_items (id, description, sort_order)"
         )
-        .eq("company_id", DEFAULT_COMPANY_ID)
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false }),
       // Forwarders/Truckers/Suppliers/Buyers are all `parties` rows,
       // filtered by role -- same table, same reasoning as every other
       // module that reuses it.
-      supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["forwarder"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["trucker"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["supplier"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", DEFAULT_COMPANY_ID).eq("is_active", true).contains("roles", ["buyer"]).order("legal_name"),
+      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["forwarder"]).order("legal_name"),
+      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["trucker"]).order("legal_name"),
+      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["supplier"]).order("legal_name"),
+      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["buyer"]).order("legal_name"),
       // Every buyer's GST entries, for the "Consignee as per BL" picker -
       // filtered client-side by whichever buyer is picked on each row,
       // since one buyer can have several (see migration 0023).
@@ -37,7 +41,7 @@ export default async function BookingsPage() {
         .in(
           "buyer_party_id",
           (
-            await supabase.from("parties").select("id").eq("company_id", DEFAULT_COMPANY_ID).contains("roles", ["buyer"])
+            await supabase.from("parties").select("id").eq("company_id", companyId).contains("roles", ["buyer"])
           ).data?.map((p: { id: string }) => p.id) ?? []
         ),
     ]);

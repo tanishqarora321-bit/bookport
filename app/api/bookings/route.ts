@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { nextBookingNo } from "@/lib/booking-number";
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
 
   // Pull out anything that isn't a real bookings column BEFORE inserting -
@@ -25,10 +28,10 @@ export async function POST(req: NextRequest) {
   let data: any = null;
   let lastError: any = null;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const booking_no = await nextBookingNo(supabase);
+    const booking_no = await nextBookingNo(supabase, me.company_id);
     const { data: inserted, error } = await supabase
       .from("bookings")
-      .insert({ ...bookingFields, booking_no, company_id: DEFAULT_COMPANY_ID })
+      .insert({ ...bookingFields, booking_no, company_id: me.company_id })
       .select()
       .single();
 

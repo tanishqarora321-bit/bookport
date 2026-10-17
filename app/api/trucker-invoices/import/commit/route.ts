@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import {
   TRUCKER_INVOICE_DATE_KEYS,
   TRUCKER_INVOICE_NUMERIC_KEYS,
@@ -37,6 +37,10 @@ type Skip = { row: number; reason: string };
 // SAME booking still run in strict order) and the container-number
 // exact-match fix for multi-container bookings.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const truckerId: string = body.truckerId;
   const headers: string[] = body.headers ?? [];
@@ -62,13 +66,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  const { data: truckerParty } = await supabase.from("parties").select("id").eq("id", truckerId).eq("company_id", companyId).maybeSingle();
+  if (!truckerParty) return NextResponse.json({ error: "Trucker not found" }, { status: 404 });
+
   const [{ data: existingInvoices, error: fetchError }, { data: allBookings, error: bookingsError }] = await Promise.all([
     supabase
       .from("trucker_invoices")
       .select("id, booking_number, container_number")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .eq("trucker_id", truckerId),
-    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", DEFAULT_COMPANY_ID)
+    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", companyId)
   ]);
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (bookingsError) return NextResponse.json({ error: bookingsError.message }, { status: 500 });
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
   // leave a gap - only actually-inserted bookings consume one. Safe to
   // hand out from concurrent rows below: a plain array index increment
   // can't interleave with another one mid-statement in JS.
-  const reservedNos = await reserveBookingNos(supabase, rows.length);
+  const reservedNos = await reserveBookingNos(supabase, rows.length, companyId);
   let reservedIdx = 0;
 
   const skipped: Skip[] = [];
@@ -149,7 +156,7 @@ export async function POST(req: NextRequest) {
         : null;
 
       if (containerNumber && !matchingContainer) {
-        const { error: containerError } = await supabase.from("containers").insert({ booking_id: existingBookingId, container_no: containerNumber });
+        const { error: containerError } = await supabase.from("containers").insert({ company_id: companyId, booking_id: existingBookingId, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Trucker linked to "${bookingNumber}", but adding the container failed: ${containerError.message}` });
           return;
@@ -162,7 +169,7 @@ export async function POST(req: NextRequest) {
         const { error: invError } = await supabase
           .from("trucker_invoices")
           .insert({
-            company_id: DEFAULT_COMPANY_ID,
+            company_id: companyId,
             trucker_id: truckerId,
             booking_number: bookingNumber,
             location: get("location") || null,
@@ -200,7 +207,7 @@ export async function POST(req: NextRequest) {
       const bookingFields: Record<string, any> = {
         carrier_booking_no: bookingNumber,
         booking_no: reservedNos[reservedIdx++],
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: companyId,
         status: "confirmed"
       };
       for (const key of TRUCKER_INVOICE_BOOKING_CREATE_KEYS) {
@@ -222,7 +229,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (containerNumber) {
-        const { error: containerError } = await supabase.from("containers").insert({ booking_id: newBooking.id, container_no: containerNumber });
+        const { error: containerError } = await supabase.from("containers").insert({ company_id: companyId, booking_id: newBooking.id, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but adding the container failed: ${containerError.message}` });
           return;
@@ -241,7 +248,7 @@ export async function POST(req: NextRequest) {
         const { data: createdInvoice, error: invError } = await supabase
           .from("trucker_invoices")
           .insert({
-            company_id: DEFAULT_COMPANY_ID,
+            company_id: companyId,
             trucker_id: truckerId,
             booking_number: bookingNumber,
             location: get("location") || null,

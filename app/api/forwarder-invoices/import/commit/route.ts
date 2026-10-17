@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import {
   FORWARDER_INVOICE_DATE_KEYS,
   FORWARDER_INVOICE_NUMERIC_KEYS,
@@ -33,6 +33,10 @@ type Skip = { row: number; reason: string };
 // skipping the row (migration 0018 reattaches that booking's existing
 // invoice/charge history onto this forwarder instead of orphaning it).
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const companyId = me.company_id;
+
   const body = await req.json();
   const forwarderId: string = body.forwarderId;
   const headers: string[] = body.headers ?? [];
@@ -58,13 +62,16 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  const { data: forwarderParty } = await supabase.from("parties").select("id").eq("id", forwarderId).eq("company_id", companyId).maybeSingle();
+  if (!forwarderParty) return NextResponse.json({ error: "Forwarder not found" }, { status: 404 });
+
   const [{ data: existingInvoices, error: fetchError }, { data: allBookings, error: bookingsError }] = await Promise.all([
     supabase
       .from("forwarder_invoices")
       .select("id, booking_number, container_number")
-      .eq("company_id", DEFAULT_COMPANY_ID)
+      .eq("company_id", companyId)
       .eq("forwarder_id", forwarderId),
-    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", DEFAULT_COMPANY_ID)
+    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", companyId)
   ]);
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (bookingsError) return NextResponse.json({ error: bookingsError.message }, { status: 500 });
@@ -89,7 +96,7 @@ export async function POST(req: NextRequest) {
   // hand out from concurrent rows below: a plain array index increment
   // can't interleave with another one mid-statement in JS, so each row
   // still gets a unique slot regardless of completion order.
-  const reservedNos = await reserveBookingNos(supabase, rows.length);
+  const reservedNos = await reserveBookingNos(supabase, rows.length, companyId);
   let reservedIdx = 0;
 
   const skipped: Skip[] = [];
@@ -158,7 +165,7 @@ export async function POST(req: NextRequest) {
       if (containerNumber && !matchingContainer) {
         // A container this booking doesn't have yet - add it (fires the
         // sync trigger with the forwarder link already in place).
-        const { error: containerError } = await supabase.from("containers").insert({ booking_id: existingBookingId, container_no: containerNumber });
+        const { error: containerError } = await supabase.from("containers").insert({ company_id: companyId, booking_id: existingBookingId, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but adding the container failed: ${containerError.message}` });
           return;
@@ -178,7 +185,7 @@ export async function POST(req: NextRequest) {
         const { error: invError } = await supabase
           .from("forwarder_invoices")
           .insert({
-            company_id: DEFAULT_COMPANY_ID,
+            company_id: companyId,
             forwarder_id: forwarderId,
             booking_number: bookingNumber,
             pol: get("pol") || null,
@@ -225,7 +232,7 @@ export async function POST(req: NextRequest) {
       const bookingFields: Record<string, any> = {
         carrier_booking_no: bookingNumber,
         booking_no: reservedNos[reservedIdx++],
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: companyId,
         status: "confirmed"
       };
       for (const key of FORWARDER_INVOICE_BOOKING_CREATE_KEYS) {
@@ -250,7 +257,7 @@ export async function POST(req: NextRequest) {
         // Fires sync_container_to_tracking() - with booking_parties
         // already in place, this auto-creates the tracking row AND a
         // pending forwarder_invoices shell for it (migrations 0015/0018).
-        const { error: containerError } = await supabase.from("containers").insert({ booking_id: newBooking.id, container_no: containerNumber });
+        const { error: containerError } = await supabase.from("containers").insert({ company_id: companyId, booking_id: newBooking.id, container_no: containerNumber });
         if (containerError) {
           skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" created, but adding the container failed: ${containerError.message}` });
           return;
@@ -271,7 +278,7 @@ export async function POST(req: NextRequest) {
         const { data: createdInvoice, error: invError } = await supabase
           .from("forwarder_invoices")
           .insert({
-            company_id: DEFAULT_COMPANY_ID,
+            company_id: companyId,
             forwarder_id: forwarderId,
             booking_number: bookingNumber,
             pol: get("pol") || null,

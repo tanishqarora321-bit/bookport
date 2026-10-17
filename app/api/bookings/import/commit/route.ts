@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { getCurrentProfile } from "@/lib/supabase/session";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
 import { parseDateish } from "@/lib/parse-date";
@@ -23,6 +23,9 @@ type Skip = { row: number; reason: string };
 // column), so duplicate detection has to happen here, not via a 23505
 // conflict from Postgres.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const headers: string[] = body.headers ?? [];
   const rows: string[][] = body.rows ?? [];
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const fields: Record<string, any> = {
       carrier_booking_no: carrierBookingNo,
-      company_id: DEFAULT_COMPANY_ID,
+      company_id: me.company_id,
       status: "confirmed"
     };
     for (const f of IMPORT_FIELDS) {
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
   const { data: existingBookings } = await supabase
     .from("bookings")
     .select("carrier_booking_no")
+    .eq("company_id", me.company_id)
     .in("carrier_booking_no", candidates.map((c) => c.carrierBookingNo));
   const existingSet = new Set((existingBookings ?? []).map((b: any) => (b.carrier_booking_no ?? "").toLowerCase()));
 
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 1 round trip: bulk-insert every booking in the file at once.
-  const bookingNos = await reserveBookingNos(supabase, toInsert.length);
+  const bookingNos = await reserveBookingNos(supabase, toInsert.length, me.company_id);
   const insertPayload = toInsert.map((c, idx) => ({ ...c.fields, booking_no: bookingNos[idx] }));
   const { data: insertedBookings, error: insertError } = await supabase
     .from("bookings")
@@ -151,7 +155,7 @@ export async function POST(req: NextRequest) {
     const { data: allParties } = await supabase
       .from("parties")
       .select("id, legal_name, roles")
-      .eq("company_id", DEFAULT_COMPANY_ID);
+      .eq("company_id", me.company_id);
 
     const partyByName = new Map<string, { id: string; roles: string[] }>();
     for (const p of allParties ?? []) partyByName.set(p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] });
@@ -170,7 +174,7 @@ export async function POST(req: NextRequest) {
     const toCreate = Array.from(rolesNeededByName.entries())
       .filter(([key]) => !partyByName.has(key))
       .map(([key, roles]) => ({
-        company_id: DEFAULT_COMPANY_ID,
+        company_id: me.company_id,
         legal_name: nameOriginal.get(key)!,
         roles: Array.from(roles)
       }));
@@ -218,7 +222,7 @@ export async function POST(req: NextRequest) {
   // itself" re-sync trick in app/api/bookings/[id]/parties/route.ts.
   const containerRows = toInsert
     .filter((c) => c.containerNo)
-    .map((c) => ({ booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
+    .map((c) => ({ company_id: me.company_id, booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
   if (containerRows.length > 0) {
     await supabase.from("containers").insert(containerRows);
   }

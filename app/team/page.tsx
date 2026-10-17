@@ -4,28 +4,14 @@ import TeamClient from "@/components/TeamClient";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
 import LetterheadSettingsCard from "@/components/LetterheadSettingsCard";
 import EmailSettingsCard from "@/components/EmailSettingsCard";
+import SignInRequired from "@/components/SignInRequired";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// Unlike every other module (still on DEFAULT_COMPANY_ID/service-role
-// until the rest of Stage 2 happens - see lib/constants.ts), this page
-// requires a real signed-in session: managing who can log in only makes
-// sense per-company, and there's more than one company as of the first
-// client onboarding built here.
 export default async function TeamPage() {
   const me = await getCurrentProfile();
-  if (!me) {
-    return (
-      <div className="h-[70vh] flex flex-col items-center justify-center text-center">
-        <h1 className="text-lg font-semibold text-ink">Sign in required</h1>
-        <p className="text-sm text-ink/50 mt-1">Manage Users needs to know which company you belong to.</p>
-        <a href="/login" className="mt-4 text-sm bg-accent text-white px-4 py-2 rounded-lg">
-          Go to sign in
-        </a>
-      </div>
-    );
-  }
+  if (!me) return <SignInRequired message="Manage Users needs to know which company you belong to." />;
 
   const supabase = createServiceClient();
 

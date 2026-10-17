@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/session";
 
 // Allow-list, same pattern as bookings' PATCH route - keeps a stray/bad
 // request from touching columns like company_id or id.
 const EDITABLE_COLUMNS = ["legal_name", "short_code", "country", "address", "is_active"];
 
+// This had NO auth check and NO company scoping at all - any request,
+// signed in or not, from any company, could edit or delete any party by
+// ID. Every mutation here now re-checks company_id on the row itself
+// (not just on the initial list query), so a guessed/leaked ID from
+// another company 404s instead of succeeding.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const body = await req.json();
   const supabase = createServiceClient();
 
@@ -24,10 +33,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("parties")
     .update(updates)
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ party: data });
 }
 
@@ -36,19 +49,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 // friendly message instead of a raw FK error if it still has bookings/
 // tracking/invoices referencing it. buyer_gst_entries cascades on delete.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+
   const supabase = createServiceClient();
 
   const { data: party, error: fetchError } = await supabase
     .from("parties")
     .select("is_active")
     .eq("id", params.id)
+    .eq("company_id", me.company_id)
     .single();
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (fetchError) {
+    if (fetchError.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  }
   if (party.is_active) {
     return NextResponse.json({ error: "Remove this account first before deleting it permanently." }, { status: 400 });
   }
 
-  const { error } = await supabase.from("parties").delete().eq("id", params.id);
+  const { error } = await supabase.from("parties").delete().eq("id", params.id).eq("company_id", me.company_id);
   if (error) {
     if (error.code === "23503") {
       return NextResponse.json(
