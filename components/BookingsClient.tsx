@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search } from "lucide-react";
+import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail } from "lucide-react";
 import EditableCell from "@/components/EditableCell";
 import PartyPickerCell from "@/components/PartyPickerCell";
 import ConsigneeCell from "@/components/ConsigneeCell";
@@ -158,6 +158,7 @@ export default function BookingsClient({
   const confirmedCount = new Set(rows.filter((r) => r.status === "confirmed").map((r) => r.booking_id)).size;
   const inTransitCount = new Set(rows.filter((r) => r.status === "in_transit").map((r) => r.booking_id)).size;
   const deliveredCount = new Set(rows.filter((r) => r.status === "delivered").map((r) => r.booking_id)).size;
+  const instructionsSentCount = new Set(rows.filter((r) => r.instruction_status === "sent").map((r) => r.booking_id)).size;
 
   function updateRowsForBooking(bookingId: string, patch: Partial<Row>) {
     setRows((prev) => prev.map((r) => (r.booking_id === bookingId ? { ...r, ...patch } : r)));
@@ -236,6 +237,7 @@ export default function BookingsClient({
         <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
         <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
         <StatCard icon={PackageCheck} label="Delivered" value={deliveredCount} tone="success" />
+        <StatCard icon={Mail} label="Instructions Sent" value={instructionsSentCount} tone="success" />
       </div>
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
@@ -386,7 +388,12 @@ export default function BookingsClient({
                     value={r.status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
                   />
-                  <SendInstructionsCell bookingId={r.booking_id} containerId={r.container_id} />
+                  <SendInstructionsCell
+                    bookingId={r.booking_id}
+                    containerId={r.container_id}
+                    instructionStatus={r.instruction_status}
+                    onSent={() => updateRowsForBooking(r.booking_id, { instruction_status: "sent" })}
+                  />
                   <InstructionStatusCell
                     bookingId={r.booking_id}
                     value={r.instruction_status}

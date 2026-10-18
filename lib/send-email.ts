@@ -42,13 +42,16 @@ export async function sendEmail(supabase: any, input: SendEmailInput): Promise<S
     return { ok: false, error };
   }
 
-  const [{ data: settings }, { data: company }] = await Promise.all([
-    supabase.from("company_email_settings").select("from_name, reply_to").eq("company_id", input.companyId).maybeSingle(),
-    supabase.from("companies").select("name").eq("id", input.companyId).single(),
-  ]);
+  // No more shared company-wide from_name/reply_to row - every caller
+  // passes its own sender identity (fromNameOverride/replyTo), derived
+  // from whoever is actually logged in and sending, since a single
+  // shared value breaks the moment a company has more than one teammate
+  // sending mail. company.name is just the final fallback if a caller
+  // somehow passes neither.
+  const { data: company } = await supabase.from("companies").select("name").eq("id", input.companyId).single();
 
   const fromAddress = process.env.PLATFORM_EMAIL_FROM_ADDRESS || DEFAULT_FROM_ADDRESS;
-  const displayName = input.fromNameOverride || settings?.from_name || company?.name || "Ship-Sphere";
+  const displayName = input.fromNameOverride || company?.name || "Ship-Sphere";
   const from = `${displayName} <${fromAddress}>`;
 
   try {
@@ -62,7 +65,7 @@ export async function sendEmail(supabase: any, input: SendEmailInput): Promise<S
         from,
         to: input.to,
         cc: input.cc && input.cc.length > 0 ? input.cc : undefined,
-        reply_to: input.replyTo || settings?.reply_to || undefined,
+        reply_to: input.replyTo || undefined,
         subject: input.subject,
         html: input.html,
       }),

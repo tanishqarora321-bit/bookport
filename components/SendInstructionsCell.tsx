@@ -10,21 +10,37 @@ import { useEffect, useState } from "react";
 export default function SendInstructionsCell({
   bookingId,
   containerId,
+  instructionStatus,
+  onSent,
 }: {
   bookingId: string;
   containerId: string | null;
+  instructionStatus: string | null;
+  onSent: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const sent = instructionStatus === "sent";
 
   return (
     <td className="px-3 py-2 whitespace-nowrap relative">
       <button
         onClick={() => setOpen(true)}
-        className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
+        className={
+          sent
+            ? "text-xs border border-emerald-600 bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700"
+            : "text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
+        }
       >
-        Send Instructions
+        {sent ? "Resend Instructions" : "Send Instructions"}
       </button>
-      {open && <ComposeModal bookingId={bookingId} containerId={containerId} onClose={() => setOpen(false)} />}
+      {open && (
+        <ComposeModal
+          bookingId={bookingId}
+          containerId={containerId}
+          onClose={() => setOpen(false)}
+          onSent={onSent}
+        />
+      )}
     </td>
   );
 }
@@ -33,10 +49,12 @@ function ComposeModal({
   bookingId,
   containerId,
   onClose,
+  onSent,
 }: {
   bookingId: string;
   containerId: string | null;
   onClose: () => void;
+  onSent: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +113,7 @@ function ComposeModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to send");
       setSent(true);
+      onSent();
     } catch (err: any) {
       setError(err.message);
     } finally {

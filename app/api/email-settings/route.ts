@@ -13,7 +13,7 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("company_email_settings")
-    .select("from_name, reply_to, website")
+    .select("website")
     .eq("company_id", me.company_id)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -21,14 +21,18 @@ export async function GET() {
   return NextResponse.json({ settings: data });
 }
 
+// from_name/reply_to used to live here too, as one shared row per company -
+// dropped because every sender (Send Instructions, Team Invite) now derives
+// its own name/reply-to from whoever is actually logged in and sending
+// (getCurrentProfile()), which is the only correct behavior once a company
+// has more than one teammate sending mail. Website is genuinely
+// company-wide, so it stays.
 export async function PATCH(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   if (me.role !== "admin") return NextResponse.json({ error: "Only an admin can edit email settings" }, { status: 403 });
 
   const body = await req.json();
-  const fromName = (body.from_name ?? "").trim();
-  const replyTo = (body.reply_to ?? "").trim();
   const website = (body.website ?? "").trim();
 
   const supabase = createServiceClient();
@@ -36,8 +40,6 @@ export async function PATCH(req: NextRequest) {
   const { error } = await supabase.from("company_email_settings").upsert(
     {
       company_id: me.company_id,
-      from_name: fromName || null,
-      reply_to: replyTo || null,
       website: website || null,
       updated_at: new Date().toISOString(),
     },

@@ -165,5 +165,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: result.error }, { status: 502 });
   }
 
+  // A real send is the strongest signal instructions have gone out -
+  // flip the same instruction_status column the manual Sent/Not Sent
+  // dropdown (InstructionStatusCell) already uses, so both stay consistent
+  // and the KPI/button state reflect it immediately.
+  await supabase.from("bookings").update({ instruction_status: "sent" }).eq("id", params.id);
+
   return NextResponse.json({ ok: true, id: result.id, subject, html });
 }

@@ -4,20 +4,18 @@ import { useState } from "react";
 import { Mail } from "lucide-react";
 
 type Config = {
-  from_name?: string | null;
-  reply_to?: string | null;
   website?: string | null;
 };
 
-// Sending runs on one platform-wide Resend account (lib/send-email.ts) -
-// this card is just optional personalization (display name shown to
-// recipients + the address their replies actually land at), not a
-// setup gate. Works with zero input from the moment RESEND_API_KEY is
-// configured on the deployment.
+// Sending runs on one platform-wide Resend account (lib/send-email.ts).
+// Display name/reply-to used to live here as one shared row per company,
+// but that broke the moment a company had more than one teammate sending
+// mail (everyone showed up as whoever last saved this card) - each sender
+// now gets their own name/reply-to automatically from who's logged in
+// (see Send Instructions, Team Invite). Website is genuinely company-wide,
+// so it's the only thing left to configure here.
 export default function EmailSettingsCard({ config, isAdmin }: { config: Config | null; isAdmin: boolean }) {
   const [open, setOpen] = useState(false);
-  const [fromName, setFromName] = useState(config?.from_name ?? "");
-  const [replyTo, setReplyTo] = useState(config?.reply_to ?? "");
   const [website, setWebsite] = useState(config?.website ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +29,7 @@ export default function EmailSettingsCard({ config, isAdmin }: { config: Config 
       const res = await fetch("/api/email-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from_name: fromName, reply_to: replyTo, website }),
+        body: JSON.stringify({ website }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to save");
@@ -52,9 +50,8 @@ export default function EmailSettingsCard({ config, isAdmin }: { config: Config 
             <Mail className="w-4 h-4" size={16} /> Email Sending
           </h2>
           <p className="text-xs text-ink/40 mt-0.5">
-            {config?.from_name
-              ? `Emails show as "${config.from_name}"${config.reply_to ? `, replies go to ${config.reply_to}` : ""}`
-              : "Sending already works - this just sets the display name/reply-to shown to recipients."}
+            Each teammate's emails already show their own name and reply-to automatically.
+            {config?.website ? ` Website: ${config.website}` : " Set a company website to show on outgoing emails."}
           </p>
         </div>
         {isAdmin && !open && (
@@ -68,8 +65,6 @@ export default function EmailSettingsCard({ config, isAdmin }: { config: Config 
 
       {open && (
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <input placeholder="Display name (e.g. CN International USA Inc.)" className="border rounded px-2 py-1.5 text-sm col-span-2" value={fromName} onChange={(e) => setFromName(e.target.value)} />
-          <input placeholder="Reply-to address (where replies should land)" className="border rounded px-2 py-1.5 text-sm" value={replyTo} onChange={(e) => setReplyTo(e.target.value)} />
           <input placeholder="Website (e.g. www.cninternationalusa.com)" className="border rounded px-2 py-1.5 text-sm" value={website} onChange={(e) => setWebsite(e.target.value)} />
           {error && <div className="col-span-2 text-xs text-cutoff">{error}</div>}
           <div className="col-span-2 flex gap-2">

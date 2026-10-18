@@ -89,6 +89,11 @@ export async function POST(req: NextRequest) {
     subject,
     html,
     emailType: "team_invite",
+    // The inviting admin's own identity, not a shared company-wide field -
+    // multiple admins at the same company each invite under their own name
+    // (see Send Instructions' sign-off for the same reasoning).
+    fromNameOverride: me.full_name || me.email,
+    replyTo: me.email,
   });
   if (!sendResult.ok) {
     return NextResponse.json(

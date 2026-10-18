@@ -41,7 +41,7 @@ export default async function TeamPage() {
 
   const { data: emailSettingsRow } = await supabase
     .from("company_email_settings")
-    .select("from_name, reply_to, website")
+    .select("website")
     .eq("company_id", me.company_id)
     .maybeSingle();
 
