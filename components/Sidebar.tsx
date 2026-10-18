@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Settings,
   ShieldCheck,
+  Copy,
   ChevronsLeft,
   ChevronsRight,
   type LucideIcon,
@@ -30,6 +31,7 @@ import { LogOut } from "lucide-react";
 // route as each module gets built (P1-P4 in the README).
 const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
+  { label: "Multiple Bookings & Instructions", href: "/bookings/multiple", icon: Copy },
   { label: "Forwarders", href: "/forwarders", icon: Building2 },
   { label: "Suppliers", href: "/suppliers", icon: Factory },
   { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
@@ -124,7 +126,9 @@ export default function Sidebar() {
 
       <nav className="flex-1 py-2">
         {MODULES.map((m) => {
-          const active = pathname === m.href || (m.href === "/bookings" && pathname?.startsWith("/bookings"));
+          const active =
+            pathname === m.href ||
+            (m.href === "/bookings" && pathname?.startsWith("/bookings") && !pathname?.startsWith("/bookings/multiple"));
           const Icon = m.icon;
           return (
             <Link

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { fetchBookingsSplitByDuplicates } from "@/lib/bookings-data";
 import SignInRequired from "@/components/SignInRequired";
 import BookingsClient from "@/components/BookingsClient";
 
@@ -13,18 +14,9 @@ export default async function BookingsPage() {
 
   const supabase = createServiceClient();
 
-  const [{ data: bookings, error }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }, { data: buyerGstEntries }] =
+  const [{ error, singleRows, duplicateGroupCount }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }, { data: buyerGstEntries }] =
     await Promise.all([
-      supabase
-        .from("bookings")
-        .select(
-          "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, consignee_gst_entry_id, " +
-            "containers (id, container_no, seal_no, size_type, packing_items:container_packing_items (id, seal_no, weight, weight_unit, bales, description, sort_order)), " +
-            "booking_parties (role, party_id, parties (legal_name)), " +
-            "consignee_items:booking_consignee_items (id, description, sort_order)"
-        )
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false }),
+      fetchBookingsSplitByDuplicates(supabase, companyId),
       // Forwarders/Truckers/Suppliers/Buyers are all `parties` rows,
       // filtered by role -- same table, same reasoning as every other
       // module that reuses it.
@@ -48,56 +40,15 @@ export default async function BookingsPage() {
 
   if (error) return <p className="text-red-600 p-6">{error.message}</p>;
 
-  // Flatten: one row per (booking, container). A booking with zero
-  // containers still shows once, with container fields null -- see
-  // migration 0011's note on why "same booking number + null container"
-  // is a valid, expected state (a container slot whose number isn't known
-  // yet), not a bug.
-  type BookingRow = any;
-  const flattened: BookingRow[] = [];
-  for (const b of (bookings ?? []) as any[]) {
-    const containers = b.containers?.length ? b.containers : [{ id: null, container_no: null, seal_no: null, size_type: null, packing_items: [] }];
-    const partyByRole: Record<string, { id: string; name: string }> = {};
-    for (const bp of b.booking_parties ?? []) {
-      if (bp.parties) partyByRole[bp.role] = { id: bp.party_id, name: bp.parties.legal_name };
-    }
-    for (const c of containers) {
-      flattened.push({
-        booking_id: b.id,
-        container_id: c.id,
-        carrier_booking_no: b.carrier_booking_no,
-        erd: b.erd,
-        si_cutoff: b.si_cutoff,
-        cargo_cutoff: b.cargo_cutoff,
-        pol: b.pol,
-        pod: b.pod,
-        final_destination: b.final_destination,
-        bl_issued_at: b.bl_issued_at,
-        carrier: b.carrier,
-        vessel: b.vessel,
-        container_size: b.container_size,
-        status: b.status,
-        instruction_status: b.instruction_status,
-        container_no: c.container_no,
-        forwarder: partyByRole["forwarder"] ?? null,
-        trucker: partyByRole["trucker"] ?? null,
-        supplier: partyByRole["supplier"] ?? null,
-        buyer: partyByRole["buyer"] ?? null,
-        consignee_items: (b.consignee_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
-        consignee_gst_entry_id: b.consignee_gst_entry_id,
-        packing_items: (c.packing_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
-      });
-    }
-  }
-
   return (
     <BookingsClient
-      rows={flattened}
+      rows={singleRows}
       forwarders={forwarders ?? []}
       truckers={truckers ?? []}
       suppliers={suppliers ?? []}
       buyers={buyers ?? []}
       buyerGstEntries={buyerGstEntries ?? []}
+      duplicateGroupCount={duplicateGroupCount}
     />
   );
 }

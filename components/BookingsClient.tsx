@@ -91,6 +91,8 @@ export default function BookingsClient({
   suppliers,
   buyers,
   buyerGstEntries,
+  variant = "single",
+  duplicateGroupCount = 0,
 }: {
   rows: Row[];
   forwarders: PartyOption[];
@@ -98,6 +100,17 @@ export default function BookingsClient({
   suppliers: PartyOption[];
   buyers: PartyOption[];
   buyerGstEntries: BuyerGstEntry[];
+  // "single": the normal Booking & Instructions page - every row here has
+  // a carrier_booking_no that's unique for this company right now (or no
+  // number yet). "multiple": the Multiple Bookings & Instructions page -
+  // every row here shares its carrier_booking_no with at least one other
+  // booking. Which page a booking shows on is computed live off current
+  // data (lib/bookings-data.ts), not a stored flag - delete down to one
+  // entry for a number and it's back on this page next load, automatically.
+  variant?: "single" | "multiple";
+  // "single" only: how many distinct booking numbers currently have 2+
+  // entries, for the banner linking over to the Multiple page.
+  duplicateGroupCount?: number;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [forwarderOptions, setForwarderOptions] = useState(forwarders);
@@ -223,22 +236,43 @@ export default function BookingsClient({
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-6 shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Booking & Instructions</h1>
-          <p className="text-sm text-ink/40">Source of truth — click the pencil icon on any cell to edit</p>
+          <h1 className="text-2xl font-semibold text-ink">
+            {variant === "multiple" ? "Multiple Bookings & Instructions" : "Booking & Instructions"}
+          </h1>
+          <p className="text-sm text-ink/40">
+            {variant === "multiple"
+              ? "Booking numbers with more than one entry — delete the ones that don't belong here, or edit them directly. Once only one entry is left for a number, it moves back to Booking & Instructions on its own."
+              : "Source of truth — click the pencil icon on any cell to edit"}
+          </p>
         </div>
-        <Link href="/bookings/new" className="bg-accent text-white px-4 py-2.5 rounded-lg text-sm font-medium shrink-0">
+        <Link
+          href={variant === "multiple" ? "/bookings/new?forMultiple=1" : "/bookings/new"}
+          className="bg-accent text-white px-4 py-2.5 rounded-lg text-sm font-medium shrink-0"
+        >
           + New Booking
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 shrink-0">
-        <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
-        <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
-        <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
-        <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
-        <StatCard icon={PackageCheck} label="Delivered" value={deliveredCount} tone="success" />
-        <StatCard icon={Mail} label="Instructions Sent" value={instructionsSentCount} tone="success" />
-      </div>
+      {variant === "single" && duplicateGroupCount > 0 && (
+        <Link
+          href="/bookings/multiple"
+          className="flex items-center gap-2 mb-4 shrink-0 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5 hover:bg-amber-100"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" size={16} />
+          {duplicateGroupCount} booking number{duplicateGroupCount === 1 ? "" : "s"} {duplicateGroupCount === 1 ? "has" : "have"} more than one entry — review in Multiple Bookings & Instructions →
+        </Link>
+      )}
+
+      {variant === "single" && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 shrink-0">
+          <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
+          <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
+          <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
+          <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
+          <StatCard icon={PackageCheck} label="Delivered" value={deliveredCount} tone="success" />
+          <StatCard icon={Mail} label="Instructions Sent" value={instructionsSentCount} tone="success" />
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
         <div className="relative">

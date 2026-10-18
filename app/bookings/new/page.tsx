@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type FieldVal = { value: string | null; confidence: number; source_quote: string };
@@ -37,12 +37,32 @@ const FIELD_MAP: { key: string; column: string; label: string; extractKey: strin
 ];
 
 export default function NewBookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewBookingPageInner />
+    </Suspense>
+  );
+}
+
+function NewBookingPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Reached via the "+ New Booking" link on the Multiple Bookings &
+  // Instructions page - that page is only for booking numbers already
+  // used elsewhere, so this entry is required to match an existing one
+  // (enforced server-side too, see app/api/bookings/route.ts).
+  const forMultiple = searchParams.get("forMultiple") === "1";
   const [mode, setMode] = useState<"choose" | "manual" | "review">("choose");
   const [uploading, setUploading] = useState(false);
   const [extracted, setExtracted] = useState<Extracted | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Set when the server reports this Booking Number already exists and
+  // this isn't the Multiple Bookings entry form (where a match is
+  // expected/required) - asks the user to confirm before creating a
+  // second, intentional entry that'll show up on Multiple Bookings.
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{ existing: { status: string; created_at: string } } | null>(null);
 
   const [form, setForm] = useState<Record<string, string>>(
     Object.fromEntries(FIELD_MAP.map((f) => [f.column, ""]))
@@ -77,33 +97,57 @@ export default function NewBookingPage() {
     }
   }
 
-  async function handleSave() {
+  async function handleSave(force = false) {
     setError(null);
+    setDuplicateConfirm(null);
 
     if (!form["carrier_booking_no"]) {
       setError("Booking Number is required — this field can't be left blank.");
       return;
     }
 
-    const res = await fetch("/api/bookings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, status: "confirmed", _source_document_id: documentId })
-    });
-    const json = await res.json();
-    if (res.ok) window.location.href = `/bookings/${json.booking.id}`;
-    else setError(json.error);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          status: "confirmed",
+          _source_document_id: documentId,
+          ...(forMultiple ? { requireDuplicateOf: true } : {}),
+          ...(force ? { force: true } : {}),
+        })
+      });
+      const json = await res.json();
+      if (res.ok) {
+        window.location.href = `/bookings/${json.booking.id}`;
+        return;
+      }
+      if (json.duplicate && json.existing) {
+        setDuplicateConfirm({ existing: json.existing });
+        return;
+      }
+      setError(json.error);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (mode === "choose") {
     return (
       <div className="h-full flex flex-col">
-        <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-          ← Back to Bookings
+        <Link href={forMultiple ? "/bookings/multiple" : "/bookings"} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
+          ← Back to {forMultiple ? "Multiple Bookings & Instructions" : "Bookings"}
         </Link>
         <div className="max-w-2xl mx-auto mt-12 space-y-4 w-full">
-          <h1 className="text-xl font-semibold text-center">New Booking</h1>
-          <div className="grid grid-cols-3 gap-4">
+          <h1 className="text-xl font-semibold text-center">{forMultiple ? "New Entry in Multiple Bookings" : "New Booking"}</h1>
+          {forMultiple && (
+            <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2">
+              Only for an intentional second entry under a Booking Number already in Booking & Instructions — Excel import isn't available here.
+            </p>
+          )}
+          <div className={forMultiple ? "grid grid-cols-2 gap-4" : "grid grid-cols-3 gap-4"}>
             <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
               <div className="font-medium">Type it in</div>
               <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
@@ -115,10 +159,12 @@ export default function NewBookingPage() {
               </div>
               <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
-            <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
-              <div className="font-medium">Import Excel</div>
-              <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
-            </Link>
+            {!forMultiple && (
+              <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
+                <div className="font-medium">Import Excel</div>
+                <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
+              </Link>
+            )}
           </div>
           {error && <p className="text-red-600 text-sm">{error}</p>}
         </div>
@@ -128,15 +174,20 @@ export default function NewBookingPage() {
 
   return (
     <div className="h-full flex flex-col max-w-2xl space-y-1">
-      <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-        ← Back to Bookings
+      <Link href={forMultiple ? "/bookings/multiple" : "/bookings"} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
+        ← Back to {forMultiple ? "Multiple Bookings & Instructions" : "Bookings"}
       </Link>
       <h1 className="text-xl font-semibold mb-4">
-        {mode === "review" ? "Review extracted fields" : "New Booking"}
+        {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry in Multiple Bookings" : "New Booking"}
       </h1>
       {mode === "review" && (
         <p className="text-sm text-slate-500 mb-4">
           AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.
+        </p>
+      )}
+      {forMultiple && (
+        <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2 mb-4">
+          This entry only saves if its Booking Number already exists in Booking & Instructions — it's meant for an intentional second entry under a number already in use, not a new one.
         </p>
       )}
 
@@ -183,11 +234,35 @@ export default function NewBookingPage() {
         <button onClick={() => setMode("choose")} className="px-4 py-2 text-sm rounded border">
           Back
         </button>
-        <button onClick={handleSave} className="px-4 py-2 text-sm rounded bg-ink text-white">
-          Save Booking
+        <button onClick={() => handleSave()} disabled={saving} className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-50">
+          {saving ? "Saving…" : "Save Booking"}
         </button>
       </div>
       {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      {duplicateConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setDuplicateConfirm(null)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-semibold text-ink mb-2">Booking Number already exists</h2>
+            <p className="text-sm text-slate-600 mb-1">
+              "{form["carrier_booking_no"]}" is already used by a booking created{" "}
+              {new Date(duplicateConfirm.existing.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              {" "}(status: {duplicateConfirm.existing.status}).
+            </p>
+            <p className="text-sm text-slate-600 mb-4">
+              Save this as a second, separate entry anyway? Both will move to Multiple Bookings & Instructions for review.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDuplicateConfirm(null)} className="px-4 py-2 text-sm rounded border">
+                Cancel
+              </button>
+              <button onClick={() => handleSave(true)} disabled={saving} className="px-4 py-2 text-sm rounded bg-accent text-white disabled:opacity-50">
+                {saving ? "Saving…" : "Save Anyway"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
