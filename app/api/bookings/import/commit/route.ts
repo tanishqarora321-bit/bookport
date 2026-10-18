@@ -9,6 +9,14 @@ export const maxDuration = 60;
 
 type Skip = { row: number; reason: string };
 
+type Group = {
+  carrierBookingNo: string;
+  sheetRows: number[];
+  fields: Record<string, any>;
+  containerNos: string[];
+  parties: { role: string; name: string }[];
+};
+
 // Rewritten from a one-row-at-a-time loop (10+ sequential DB round trips
 // PER ROW - forwarder/trucker/supplier/buyer lookups, creates, booking
 // insert, container insert) to a handful of bulk operations for the
@@ -18,10 +26,20 @@ type Skip = { row: number; reason: string };
 // time limit - the request never gets to send a JSON error, so the
 // browser sees an HTML/plaintext timeout page and throws "Unexpected
 // token 'A', An error o... is not valid JSON" trying to parse it as JSON.
-// carrier_booking_no has no DB-level unique constraint (checked
-// supabase/migrations/0002_extraction_fields.sql - it's a plain text
-// column), so duplicate detection has to happen here, not via a 23505
-// conflict from Postgres.
+//
+// Two different "same Booking Number" cases, handled differently:
+// 1. The SAME number appears more than once WITHIN this file - almost
+//    always just multiple containers of one shipment (one row per
+//    container is the natural Excel shape). These get merged into ONE
+//    booking with multiple containers, not multiple bookings - silently,
+//    no prompt needed. (This used to silently DROP every row after the
+//    first with the same number - a real bug, fixed here.)
+// 2. The number already exists on an ALREADY-SAVED booking (from a
+//    previous import or manual entry) - this is a genuine "does this
+//    belong on Multiple Bookings & Instructions, or should it be
+//    ignored" decision, which only the user can make. `dryRun: true`
+//    reports these without saving anything, so the review screen can
+//    ask; the real commit then honors `duplicateResolutions`.
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -30,6 +48,11 @@ export async function POST(req: NextRequest) {
   const headers: string[] = body.headers ?? [];
   const rows: string[][] = body.rows ?? [];
   const mapping: Record<string, string | null> = body.mapping ?? {};
+  const dryRun: boolean = body.dryRun === true;
+  // Keyed by carrier_booking_no.toLowerCase() -> "add" (create it anyway,
+  // it'll show on Multiple Bookings) or "ignore" (skip it, same as not
+  // resolving it at all).
+  const duplicateResolutions: Record<string, "add" | "ignore"> = body.duplicateResolutions ?? {};
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: "No rows to import" }, { status: 400 });
@@ -46,17 +69,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Booking Number must be mapped to a column before importing." }, { status: 400 });
   }
 
-  type Candidate = {
-    sheetRow: number;
-    carrierBookingNo: string;
-    fields: Record<string, any>;
-    containerNo: string;
-    parties: { role: string; name: string }[];
-  };
-
   const skipped: Skip[] = [];
-  const seenInFile = new Set<string>();
-  const candidates: Candidate[] = [];
+  const groupByKey = new Map<string, Group>();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -68,53 +82,72 @@ export async function POST(req: NextRequest) {
       skipped.push({ row: sheetRow, reason: "Booking Number is blank" });
       continue;
     }
-    if (seenInFile.has(carrierBookingNo.toLowerCase())) {
-      skipped.push({ row: sheetRow, reason: `Duplicate Booking Number "${carrierBookingNo}" earlier in this file` });
-      continue;
-    }
-    seenInFile.add(carrierBookingNo.toLowerCase());
 
-    const fields: Record<string, any> = {
-      carrier_booking_no: carrierBookingNo,
-      company_id: me.company_id,
-      status: "confirmed"
-    };
-    for (const f of IMPORT_FIELDS) {
-      if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
-      const raw = get(f.key);
-      if (!raw) continue;
-      fields[f.key] = f.kind === "date" ? (parseDateish(raw)?.toISOString() ?? null) : raw;
-    }
-
+    const containerNo = get("container_no");
     const parties = IMPORT_FIELDS.filter((f) => f.kind === "party")
       .map((f) => ({ role: f.role!, name: get(f.key) }))
       .filter((p) => p.name);
 
-    candidates.push({ sheetRow, carrierBookingNo, fields, containerNo: get("container_no"), parties });
+    const key = carrierBookingNo.toLowerCase();
+    let group = groupByKey.get(key);
+    if (!group) {
+      const fields: Record<string, any> = {
+        carrier_booking_no: carrierBookingNo,
+        company_id: me.company_id,
+        status: "confirmed",
+      };
+      for (const f of IMPORT_FIELDS) {
+        if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
+        const raw = get(f.key);
+        if (!raw) continue;
+        fields[f.key] = f.kind === "date" ? (parseDateish(raw)?.toISOString() ?? null) : raw;
+      }
+      group = { carrierBookingNo, sheetRows: [], fields, containerNos: [], parties: [] };
+      groupByKey.set(key, group);
+    }
+    group.sheetRows.push(sheetRow);
+    if (containerNo && !group.containerNos.includes(containerNo)) group.containerNos.push(containerNo);
+    for (const p of parties) {
+      if (!group.parties.some((existing) => existing.role === p.role)) group.parties.push(p);
+    }
   }
 
-  if (candidates.length === 0) {
+  const groups = Array.from(groupByKey.values());
+  if (groups.length === 0) {
     return NextResponse.json({ imported: 0, total: rows.length, skipped });
   }
 
   const supabase = createServiceClient();
 
-  // Business-level duplicate check against already-imported bookings -
-  // carrier_booking_no has no DB uniqueness constraint, so this is the
-  // only thing that catches it.
+  // Business-level duplicate check against already-saved bookings -
+  // carrier_booking_no has no uniqueness constraint (migration 0031
+  // deliberately removed it), so this is the only thing that catches it.
   const { data: existingBookings } = await supabase
     .from("bookings")
     .select("carrier_booking_no")
     .eq("company_id", me.company_id)
-    .in("carrier_booking_no", candidates.map((c) => c.carrierBookingNo));
+    .in("carrier_booking_no", groups.map((g) => g.carrierBookingNo));
   const existingSet = new Set((existingBookings ?? []).map((b: any) => (b.carrier_booking_no ?? "").toLowerCase()));
 
-  const toInsert = candidates.filter((c) => {
-    if (existingSet.has(c.carrierBookingNo.toLowerCase())) {
-      skipped.push({ row: c.sheetRow, reason: `Booking Number "${c.carrierBookingNo}" already exists` });
-      return false;
+  if (dryRun) {
+    const duplicateGroups = groups
+      .filter((g) => existingSet.has(g.carrierBookingNo.toLowerCase()))
+      .map((g) => ({
+        carrierBookingNo: g.carrierBookingNo,
+        containerCount: g.containerNos.length || 1,
+        sheetRows: g.sheetRows,
+      }));
+    return NextResponse.json({ dryRun: true, duplicateGroups });
+  }
+
+  const toInsert = groups.filter((g) => {
+    const key = g.carrierBookingNo.toLowerCase();
+    if (!existingSet.has(key)) return true;
+    if (duplicateResolutions[key] === "add") return true;
+    for (const sheetRow of g.sheetRows) {
+      skipped.push({ row: sheetRow, reason: `Booking Number "${g.carrierBookingNo}" already exists` });
     }
-    return true;
+    return false;
   });
 
   if (toInsert.length === 0) {
@@ -123,7 +156,7 @@ export async function POST(req: NextRequest) {
 
   // 1 round trip: bulk-insert every booking in the file at once.
   const bookingNos = await reserveBookingNos(supabase, toInsert.length, me.company_id);
-  const insertPayload = toInsert.map((c, idx) => ({ ...c.fields, booking_no: bookingNos[idx] }));
+  const insertPayload = toInsert.map((g, idx) => ({ ...g.fields, booking_no: bookingNos[idx] }));
   const { data: insertedBookings, error: insertError } = await supabase
     .from("bookings")
     .insert(insertPayload)
@@ -131,26 +164,21 @@ export async function POST(req: NextRequest) {
 
   if (insertError) {
     // The app-level dedupe check above already filters out anything that
-    // collides with an existing or in-file booking number - this 23505
-    // would only fire from a genuine race (another import/manual entry
-    // landing between that check and this insert), which is rare enough
-    // not to warrant re-running the whole batch row-by-row to isolate it.
-    const reason =
-      insertError.code === "23505"
-        ? "A Booking Number in this batch was just created elsewhere - re-upload the file to retry."
-        : insertError.message;
-    for (const c of toInsert) skipped.push({ row: c.sheetRow, reason });
+    // collides with an existing booking (unless the user explicitly chose
+    // "add" for it) - this would only fire from a genuine race (another
+    // import/manual entry landing between that check and this insert),
+    // rare enough not to warrant re-running the whole batch row-by-row to
+    // isolate it.
+    const reason = insertError.message;
+    for (const g of toInsert) for (const sheetRow of g.sheetRows) skipped.push({ row: sheetRow, reason });
     return NextResponse.json({ imported: 0, total: rows.length, skipped });
   }
 
-  // Booking-number uniqueness is enforced per company (migration 0014),
-  // but map by array position here regardless, since it's simpler and
-  // avoids relying on that constraint for correctness of this mapping.
-  const bookingIdByRow = new Map(toInsert.map((c, idx) => [c.sheetRow, insertedBookings[idx].id]));
+  const bookingIdByKey = new Map(toInsert.map((g, idx) => [g.carrierBookingNo.toLowerCase(), insertedBookings[idx].id]));
 
   // Parties: fetch this company's whole party list once (typically dozens,
   // not thousands) instead of one lookup per row per role.
-  const anyParties = toInsert.some((c) => c.parties.length > 0);
+  const anyParties = toInsert.some((g) => g.parties.length > 0);
   if (anyParties) {
     const { data: allParties } = await supabase
       .from("parties")
@@ -162,8 +190,8 @@ export async function POST(req: NextRequest) {
 
     const nameOriginal = new Map<string, string>();
     const rolesNeededByName = new Map<string, Set<string>>();
-    for (const c of toInsert) {
-      for (const p of c.parties) {
+    for (const g of toInsert) {
+      for (const p of g.parties) {
         const key = p.name.toLowerCase();
         nameOriginal.set(key, p.name);
         if (!rolesNeededByName.has(key)) rolesNeededByName.set(key, new Set());
@@ -198,9 +226,9 @@ export async function POST(req: NextRequest) {
 
     // 1 round trip: bulk-insert every booking_parties link at once.
     const bookingPartyRows: { booking_id: string; party_id: string; role: string }[] = [];
-    for (const c of toInsert) {
-      const bookingId = bookingIdByRow.get(c.sheetRow)!;
-      for (const p of c.parties) {
+    for (const g of toInsert) {
+      const bookingId = bookingIdByKey.get(g.carrierBookingNo.toLowerCase())!;
+      for (const p of g.parties) {
         const party = partyByName.get(p.name.toLowerCase());
         if (party) bookingPartyRows.push({ booking_id: bookingId, party_id: party.id, role: p.role });
       }
@@ -220,12 +248,19 @@ export async function POST(req: NextRequest) {
   // re-fire it - so no forwarder invoice ever got auto-created for an
   // imported booking. Same reasoning as the "touch container_no to
   // itself" re-sync trick in app/api/bookings/[id]/parties/route.ts.
-  const containerRows = toInsert
-    .filter((c) => c.containerNo)
-    .map((c) => ({ company_id: me.company_id, booking_id: bookingIdByRow.get(c.sheetRow), container_no: c.containerNo }));
+  //
+  // One row per distinct container number in the group, not one row
+  // for the whole booking - a group with 3 container numbers in the
+  // file (same Booking Number, 3 rows) becomes 1 booking with 3
+  // containers, matching the real shipment.
+  const containerRows = toInsert.flatMap((g) => {
+    const bookingId = bookingIdByKey.get(g.carrierBookingNo.toLowerCase());
+    return g.containerNos.map((container_no) => ({ company_id: me.company_id, booking_id: bookingId, container_no }));
+  });
   if (containerRows.length > 0) {
     await supabase.from("containers").insert(containerRows);
   }
 
-  return NextResponse.json({ imported: toInsert.length, total: rows.length, skipped });
+  const imported = toInsert.reduce((sum, g) => sum + g.sheetRows.length, 0);
+  return NextResponse.json({ imported, total: rows.length, skipped });
 }

@@ -8,11 +8,13 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 type CustomColumn = { key: string; label: string };
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; customColumns: CustomColumn[] };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
+type DuplicateGroup = { carrierBookingNo: string; currentForwarderName: string | null; sheetRows: number[] };
+type Resolution = "add" | "ignore";
 
 const MAX_CUSTOM_COLUMNS = 10;
 
 export default function ForwarderInvoiceImportClient({ forwarderId, forwarderName }: { forwarderId: string; forwarderName: string }) {
-  const [step, setStep] = useState<"upload" | "mapping" | "result">("upload");
+  const [step, setStep] = useState<"upload" | "mapping" | "duplicates" | "result">("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -21,6 +23,8 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
   const [addingColumnFor, setAddingColumnFor] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<CommitResult | null>(null);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
 
   const allFields = [...FORWARDER_INVOICE_IMPORT_FIELDS, ...customColumns.map((c) => ({ key: c.key, label: c.label }))];
   const mappedHeaders = new Set(Object.values(mapping).filter(Boolean));
@@ -81,7 +85,13 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
     }
   }
 
-  async function handleImport() {
+  // Checks whether any row would reassign an already-booked shipment away
+  // from a different forwarder before committing anything - that only
+  // happens when a Booking Number is reused across two genuinely
+  // different shipments, and only the user can say whether this sheet's
+  // version is an intentional second entry (-> Multiple Bookings &
+  // Instructions) or should be ignored.
+  async function handleReview() {
     if (!parsed) return;
     if (!mapping["booking_number"]) {
       setError("Booking Number must be mapped to a column before importing.");
@@ -99,6 +109,41 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           rows: parsed.rows,
           mapping,
           customKeys: customColumns.map((c) => c.key),
+          dryRun: true,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Import failed");
+
+      if (!json.duplicateGroups || json.duplicateGroups.length === 0) {
+        await commitFinal({});
+        return;
+      }
+      setDuplicateGroups(json.duplicateGroups);
+      setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
+      setStep("duplicates");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function commitFinal(finalResolutions: Record<string, Resolution>) {
+    if (!parsed) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/forwarder-invoices/import/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          forwarderId,
+          headers: parsed.headers,
+          rows: parsed.rows,
+          mapping,
+          customKeys: customColumns.map((c) => c.key),
+          duplicateResolutions: finalResolutions,
         }),
       });
       const json = await res.json();
@@ -219,11 +264,70 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
         <div className="flex justify-end gap-3 pt-2 pb-8">
           <button onClick={() => setStep("upload")} className="px-4 py-2 text-sm rounded border">Back</button>
           <button
-            onClick={handleImport}
+            onClick={handleReview}
             disabled={importing}
             className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
           >
-            {importing ? "Importing…" : `Import ${parsed.rows.length} Row${parsed.rows.length === 1 ? "" : "s"}`}
+            {importing ? "Checking…" : `Import ${parsed.rows.length} Row${parsed.rows.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "duplicates") {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Some bookings are assigned to a different forwarder</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Reassigning these to {forwarderName} would move them away from whoever's currently on them. For each
+            one, choose whether this is really the same booking (reassign it) or a different shipment that
+            happens to reuse the number (add it as a separate entry — it'll show up on Multiple Bookings &
+            Instructions).
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm divide-y">
+          {duplicateGroups.map((g) => {
+            const key = g.carrierBookingNo.toLowerCase();
+            return (
+              <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-ink">{g.carrierBookingNo}</div>
+                  <div className="text-xs text-slate-500">
+                    Currently assigned to {g.currentForwarderName ?? "another forwarder"} — {g.sheetRows.length} row{g.sheetRows.length === 1 ? "" : "s"} in this file
+                  </div>
+                </div>
+                <select
+                  className="border rounded px-2 py-1.5 text-sm"
+                  value={resolutions[key] ?? "ignore"}
+                  onChange={(e) => setResolutions({ ...resolutions, [key]: e.target.value as Resolution })}
+                >
+                  <option value="ignore">Reassign to {forwarderName}</option>
+                  <option value="add">Add as separate booking</option>
+                </select>
+              </div>
+            );
+          })}
+        </div>
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+
+        <div className="flex justify-end gap-3 pt-2 pb-8">
+          <button
+            onClick={() => commitFinal(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
+            disabled={importing}
+            className="px-4 py-2 text-sm rounded border disabled:opacity-60"
+          >
+            Reassign All
+          </button>
+          <button
+            onClick={() => commitFinal(resolutions)}
+            disabled={importing}
+            className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
+          >
+            {importing ? "Importing…" : "Continue"}
           </button>
         </div>
       </div>

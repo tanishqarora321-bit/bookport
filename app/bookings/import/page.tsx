@@ -7,15 +7,19 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
+type DuplicateGroup = { carrierBookingNo: string; containerCount: number; sheetRows: number[] };
+type Resolution = "add" | "ignore";
 
 export default function ImportBookingsPage() {
-  const [step, setStep] = useState<"upload" | "mapping" | "result">("upload");
+  const [step, setStep] = useState<"upload" | "mapping" | "duplicates" | "result">("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<CommitResult | null>(null);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -44,7 +48,13 @@ export default function ImportBookingsPage() {
     }
   }
 
-  async function handleImport() {
+  // Checks for Booking Numbers that already exist on a saved booking
+  // before committing anything - those need the user to say whether this
+  // is an intentional second entry (-> Multiple Bookings & Instructions)
+  // or should just be ignored. A number repeated only within this file
+  // (multiple containers of one shipment) isn't a conflict and never
+  // shows here - the commit route merges those into one booking on its own.
+  async function handleReview() {
     if (!parsed) return;
     const bookingNoField = IMPORT_FIELDS.find((f) => f.required)!;
     if (!mapping[bookingNoField.key]) {
@@ -57,7 +67,34 @@ export default function ImportBookingsPage() {
       const res = await fetch("/api/bookings/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping })
+        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, dryRun: true })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Import failed");
+
+      if (!json.duplicateGroups || json.duplicateGroups.length === 0) {
+        await commitFinal({});
+        return;
+      }
+      setDuplicateGroups(json.duplicateGroups);
+      setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
+      setStep("duplicates");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function commitFinal(finalResolutions: Record<string, Resolution>) {
+    if (!parsed) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/bookings/import/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, duplicateResolutions: finalResolutions })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Import failed");
@@ -168,11 +205,70 @@ export default function ImportBookingsPage() {
             Back
           </button>
           <button
-            onClick={handleImport}
+            onClick={handleReview}
             disabled={importing}
             className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
           >
-            {importing ? "Importing…" : `Import ${parsed.rows.length} Row${parsed.rows.length === 1 ? "" : "s"}`}
+            {importing ? "Checking…" : `Import ${parsed.rows.length} Row${parsed.rows.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "duplicates") {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div>
+          <h1 className="text-xl font-semibold">Some Booking Numbers already exist</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            These are already saved in Booking & Instructions. For each one, choose whether this is an
+            intentional second entry (it'll show up on Multiple Bookings & Instructions) or should be
+            ignored — you can always add it there yourself later.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm divide-y">
+          {duplicateGroups.map((g) => {
+            const key = g.carrierBookingNo.toLowerCase();
+            return (
+              <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-ink">{g.carrierBookingNo}</div>
+                  <div className="text-xs text-slate-500">
+                    {g.sheetRows.length} row{g.sheetRows.length === 1 ? "" : "s"} in this file
+                    {g.containerCount > 1 ? ` (${g.containerCount} containers)` : ""}
+                  </div>
+                </div>
+                <select
+                  className="border rounded px-2 py-1.5 text-sm"
+                  value={resolutions[key] ?? "ignore"}
+                  onChange={(e) => setResolutions({ ...resolutions, [key]: e.target.value as Resolution })}
+                >
+                  <option value="ignore">Ignore</option>
+                  <option value="add">Add to Multiple Bookings</option>
+                </select>
+              </div>
+            );
+          })}
+        </div>
+
+        {error && <p className="text-red-600 text-sm">{error}</p>}
+
+        <div className="flex justify-end gap-3 pt-2 pb-8">
+          <button
+            onClick={() => commitFinal(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
+            disabled={importing}
+            className="px-4 py-2 text-sm rounded border disabled:opacity-60"
+          >
+            Ignore All
+          </button>
+          <button
+            onClick={() => commitFinal(resolutions)}
+            disabled={importing}
+            className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
+          >
+            {importing ? "Importing…" : "Continue"}
           </button>
         </div>
       </div>

@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
   const rows: string[][] = body.rows ?? [];
   const mapping: Record<string, string | null> = body.mapping ?? {};
   const customKeys: string[] = body.customKeys ?? [];
+  const dryRun: boolean = body.dryRun === true;
+  // Keyed by booking_number.toLowerCase() -> "add" (create a genuinely
+  // separate booking for this trucker instead of reassigning the
+  // existing one) or "ignore" (keep today's behavior: reassign).
+  const duplicateResolutions: Record<string, "add" | "ignore"> = body.duplicateResolutions ?? {};
 
   if (!truckerId) return NextResponse.json({ error: "truckerId is required" }, { status: 400 });
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -92,6 +97,60 @@ export async function POST(req: NextRequest) {
     if (b.carrier_booking_no) bookingIdByNumber.set(b.carrier_booking_no.toLowerCase(), b.id);
   }
 
+  // Which trucker (if any) is currently assigned to each of this
+  // company's bookings - used below to tell "reassigning is safe, nothing
+  // was there before" apart from "this would silently steal the booking
+  // from whoever's actually handling it", which only matters when a
+  // booking number gets reused across two genuinely different shipments.
+  const bookingIds = (allBookings ?? []).map((b: any) => b.id);
+  const currentTruckerByBookingId = new Map<string, { id: string; name: string | null }>();
+  if (bookingIds.length > 0) {
+    const { data: assignments } = await supabase
+      .from("booking_parties")
+      .select("booking_id, party_id, parties (legal_name)")
+      .in("booking_id", bookingIds)
+      .eq("role", "trucker");
+    for (const a of (assignments ?? []) as any[]) {
+      currentTruckerByBookingId.set(a.booking_id, { id: a.party_id, name: a.parties?.legal_name ?? null });
+    }
+  }
+
+  // A row only risks "stealing" a booking when (a) this trucker has no
+  // invoice for that booking number yet (otherwise it's the normal
+  // fill-in-charges path, never reaches the reassignment branch at all)
+  // and (b) the booking is currently assigned to a DIFFERENT trucker -
+  // no assignment yet means nothing to lose, so that's not flagged.
+  const conflictedGroups = new Map<string, { sheetRows: number[]; currentTruckerName: string | null }>();
+  {
+    const seenRows = new Map<string, number[]>();
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const bookingNumber = (colIndex["booking_number"] !== undefined ? (row[colIndex["booking_number"]] ?? "").trim() : "");
+      if (!bookingNumber) continue;
+      const key = bookingNumber.toLowerCase();
+      if (!seenRows.has(key)) seenRows.set(key, []);
+      seenRows.get(key)!.push(i + 2);
+    }
+    for (const [key, sheetRows] of seenRows) {
+      if (byBooking.has(key)) continue;
+      const bookingId = bookingIdByNumber.get(key);
+      if (!bookingId) continue;
+      const current = currentTruckerByBookingId.get(bookingId);
+      if (current && current.id !== truckerId) {
+        conflictedGroups.set(key, { sheetRows, currentTruckerName: current.name });
+      }
+    }
+  }
+
+  if (dryRun) {
+    const duplicateGroups = Array.from(conflictedGroups.entries()).map(([key, g]) => ({
+      carrierBookingNo: rows[g.sheetRows[0] - 2][colIndex["booking_number"]].trim(),
+      currentTruckerName: g.currentTruckerName,
+      sheetRows: g.sheetRows,
+    }));
+    return NextResponse.json({ dryRun: true, duplicateGroups });
+  }
+
   // Upper bound: every row could turn out to need a new booking. Unused
   // reserved numbers are simply never written anywhere, so this can't
   // leave a gap - only actually-inserted bookings consume one. Safe to
@@ -129,10 +188,16 @@ export async function POST(req: NextRequest) {
     } else if (!containerNumber && candidates.length > 1) {
       skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
       return;
-    } else if (bookingIdByNumber.has(bookingNumber.toLowerCase())) {
+    } else if (
+      bookingIdByNumber.has(bookingNumber.toLowerCase()) &&
+      !(conflictedGroups.has(bookingNumber.toLowerCase()) && duplicateResolutions[bookingNumber.toLowerCase()] === "add")
+    ) {
       // The booking exists but this trucker isn't the one assigned to it
       // (or none is) - this invoice sheet is treated as authoritative for
-      // who the real trucker is, so link it.
+      // who the real trucker is, so link it. (Unless the user explicitly
+      // chose "add" after seeing this would reassign a booking away from
+      // a different trucker - that falls through to the "doesn't exist"
+      // branch below instead, creating a genuinely separate booking.)
       const existingBookingId = bookingIdByNumber.get(bookingNumber.toLowerCase())!;
 
       const { error: unassignError } = await supabase.from("booking_parties").delete().eq("booking_id", existingBookingId).eq("role", "trucker");
@@ -202,7 +267,9 @@ export async function POST(req: NextRequest) {
       if (!byBooking.has(key)) byBooking.set(key, []);
       byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null });
     } else {
-      // Booking Number doesn't exist anywhere - create it.
+      // Booking Number doesn't exist anywhere, OR it does but the user
+      // explicitly chose "add" rather than let this reassign it away from
+      // a different trucker - either way, create a (new) booking here.
       wasCreated = true;
       const bookingFields: Record<string, any> = {
         carrier_booking_no: bookingNumber,
