@@ -9,7 +9,7 @@ export const fetchCache = "force-no-store";
 export default async function FreightComparisonPage({
   searchParams,
 }: {
-  searchParams: { month?: string; destination?: string };
+  searchParams: { year?: string; month?: string; destination?: string };
 }) {
   const me = await getCurrentProfile();
   if (!me) return <SignInRequired />;
@@ -18,7 +18,7 @@ export default async function FreightComparisonPage({
   const supabase = createServiceClient();
 
   // Every distinct (rate_month, destination) pair that has at least one
-  // sheet -- powers the month/destination pickers. Supabase-js has no
+  // sheet -- powers the year/month/destination pickers. Supabase-js has no
   // DISTINCT, so this pulls the (small) header rows and dedupes in JS.
   const { data: allSheetsMeta, error: metaError } = await supabase
     .from("rate_sheets")
@@ -28,8 +28,16 @@ export default async function FreightComparisonPage({
 
   if (metaError) return <p className="text-red-600 p-6">{metaError.message}</p>;
 
-  const monthOptions = (Array.from(new Set((allSheetsMeta ?? []).map((s: { rate_month: string }) => s.rate_month))) as string[]).sort().reverse();
+  const allMonths = (Array.from(new Set((allSheetsMeta ?? []).map((s: { rate_month: string }) => s.rate_month))) as string[]).sort().reverse();
+  const yearOptions = Array.from(new Set(allMonths.map((m) => m.slice(0, 4)))).sort().reverse();
   const destinationOptions = Array.from(new Set((allSheetsMeta ?? []).map((s: { destination: string }) => s.destination))) as string[];
+
+  // "all" shows the archive across every year (the pre-existing behavior);
+  // any other value is a 4-digit year that narrows the month picker to
+  // that year's rate sheets, which is the "yearly" half of the monthly/
+  // yearly rate-sheet archive.
+  const selectedYear: string = searchParams.year || yearOptions[0] || String(new Date().getFullYear());
+  const monthOptions = selectedYear === "all" ? allMonths : allMonths.filter((m) => m.slice(0, 4) === selectedYear);
 
   const selectedMonth: string = searchParams.month || monthOptions[0] || new Date().toISOString().slice(0, 7) + "-01";
   const selectedDestination: string = searchParams.destination || destinationOptions[0] || "Mundra, IN";
@@ -53,6 +61,8 @@ export default async function FreightComparisonPage({
 
   return (
     <FreightComparisonClient
+      yearOptions={yearOptions}
+      selectedYear={selectedYear}
       monthOptions={monthOptions}
       destinationOptions={destinationOptions}
       selectedMonth={selectedMonth}

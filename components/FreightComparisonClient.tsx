@@ -35,12 +35,16 @@ function monthToInputValue(m: string) {
 }
 
 export default function FreightComparisonClient({
+  yearOptions,
+  selectedYear,
   monthOptions,
   destinationOptions,
   selectedMonth,
   selectedDestination,
   initialSheets,
 }: {
+  yearOptions: string[];
+  selectedYear: string;
   monthOptions: string[];
   destinationOptions: string[];
   selectedMonth: string;
@@ -52,8 +56,14 @@ export default function FreightComparisonClient({
   const [uploading, setUploading] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
 
-  function navigate(month: string, destination: string) {
-    router.push(`/freight-comparison?month=${encodeURIComponent(month)}&destination=${encodeURIComponent(destination)}`);
+  function navigate(month: string, destination: string, year: string = selectedYear) {
+    router.push(`/freight-comparison?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}&destination=${encodeURIComponent(destination)}`);
+  }
+
+  function navigateYear(year: string) {
+    // Dropping the month param lets the server pick that year's own
+    // default month instead of carrying over a month from a different year.
+    router.push(`/freight-comparison?year=${encodeURIComponent(year)}&destination=${encodeURIComponent(selectedDestination)}`);
   }
 
   // ---------------- Pivot: origins x (forwarder + shipping_line) columns ----------------
@@ -137,6 +147,19 @@ export default function FreightComparisonClient({
           <p className="text-xs text-ink/50">{fmtMonth(selectedMonth)} — {selectedDestination}</p>
         </div>
         <div className="flex items-center gap-2">
+          <select
+            className="border rounded px-2 py-1.5 text-sm"
+            value={selectedYear}
+            onChange={(e) => navigateYear(e.target.value)}
+          >
+            <option value="all">All Years</option>
+            {!yearOptions.includes(selectedYear) && selectedYear !== "all" && <option value={selectedYear}>{selectedYear}</option>}
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
           <select
             className="border rounded px-2 py-1.5 text-sm"
             value={selectedMonth}
