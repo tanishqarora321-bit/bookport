@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Logo from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
+import { useYear } from "@/lib/year-context";
 import { LogOut } from "lucide-react";
 
 // Only Booking & Instructions is real right now. Everything else routes to
@@ -124,6 +125,8 @@ export default function Sidebar() {
         )}
       </div>
 
+      <YearSelector collapsed={collapsed} />
+
       <nav className="flex-1 py-2">
         {MODULES.map((m) => {
           const active =
@@ -197,5 +200,39 @@ export default function Sidebar() {
         )}
       </div>
     </aside>
+  );
+}
+
+// App-wide "which year am I working in" toggle - defaults which year's
+// data pages show and pre-fills the year on new entries (e.g. Payment
+// History's "Applies to Year"), never retroactively relabels anything.
+// A record's own year always comes from its own date (a booking's Month
+// of Loading, an invoice's invoice_date, a payment's own applies_to_year).
+function YearSelector({ collapsed }: { collapsed: boolean }) {
+  const { year, setYear } = useYear();
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
+
+  if (collapsed) {
+    return (
+      <div className="px-2 py-2 border-b border-white/10 text-center text-[11px] text-white/50" title={`Year: ${year}`}>
+        {year}
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-5 py-2.5 border-b border-white/10">
+      <label className="text-[10px] uppercase tracking-wide text-white/40 block mb-1">Year</label>
+      <select
+        value={year}
+        onChange={(e) => setYear(Number(e.target.value))}
+        className="w-full bg-navyhover text-white text-sm rounded px-2 py-1 border border-white/10"
+      >
+        {years.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </div>
   );
 }

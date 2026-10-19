@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 
 type Item = {
   id: string;
@@ -152,6 +153,8 @@ export default function SupplierInvoiceLedgerClient({
         <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
+
+      <PartyPaymentHistory partyId={supplierId} totalInvoicedUsd={totalUsd} />
 
       <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">

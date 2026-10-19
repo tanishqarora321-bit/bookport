@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import StatusPill from "@/components/ui/StatusPill";
+import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 
 type CustomColumn = { id: string; key: string; label: string };
 
@@ -232,6 +233,8 @@ export default function InvoiceLedgerClient({
         <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
+
+      <PartyPaymentHistory partyId={forwarderId} totalInvoicedUsd={totalUsd} />
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">

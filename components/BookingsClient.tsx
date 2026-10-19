@@ -11,6 +11,7 @@ import StatusCell from "@/components/StatusCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
 import UploadBlCell from "@/components/UploadBlCell";
+import { useYear } from "@/lib/year-context";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -113,6 +114,15 @@ export default function BookingsClient({
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
 
+  // The sidebar's Year selector - off by default here (a booking with no
+  // ERD yet has no determinable year, and defaulting this ON could
+  // silently hide a grid full of real bookings the moment someone picks
+  // a year), opt in with the checkbox below. A booking's year always
+  // comes from its own Month of Loading (ERD), never a separately
+  // entered field.
+  const { year } = useYear();
+  const [filterByYear, setFilterByYear] = useState(false);
+
   // The duplicate-numbers banner is a one-time heads-up, not a permanent
   // fixture - once dismissed for the current count, it stays hidden until
   // a NEW duplicate shows up (duplicateGroupCount goes higher than
@@ -167,6 +177,7 @@ export default function BookingsClient({
       if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
       if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
+      if (filterByYear && r.erd && new Date(r.erd).getFullYear() !== year) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -185,7 +196,7 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, year, cutoffSoonOnly, overdueOnly, search]);
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -347,6 +358,10 @@ export default function BookingsClient({
             <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
           ))}
         </select>
+        <label className="flex items-center gap-1.5 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer">
+          <input type="checkbox" checked={filterByYear} onChange={(e) => setFilterByYear(e.target.checked)} />
+          Only {year} (by Month of Loading)
+        </label>
         <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
