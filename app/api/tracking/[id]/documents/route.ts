@@ -142,6 +142,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
+  // A real generated invoice is the strongest signal the invoice has
+  // actually been made (and, in practice, handed to the buyer) - flips
+  // Shipment Tracking's "Invoice Sent" toggle automatically, same
+  // auto-flip-on-real-action pattern as Send Instructions' status.
+  await supabase.from("tracking").update({ invoice_sent: true }).eq("id", params.id);
+
   const { data: signedUrl } = await supabase.storage.from("documents").createSignedUrl(filePath, 60 * 60);
 
   return NextResponse.json({ document: doc, url: signedUrl?.signedUrl });

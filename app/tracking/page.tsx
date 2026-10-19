@@ -18,7 +18,7 @@ export default async function TrackingPage() {
       supabase
         .from("tracking")
         .select(
-          "id, booking_id, party_id, item_id, forwarder_id, consignee_as_per_bl, invoice_no, booking_number, container_number, eta, forwarder_name, forwarder:forwarder_id (legal_name), release_status, shipping_line, invoice_sent, documents_sent, remarks, bl_number, bl_status, ocean_freight, ocean_freight_currency, last_tracking_check_at"
+          "id, booking_id, party_id, item_id, forwarder_id, consignee_as_per_bl, invoice_no, booking_number, container_number, eta, forwarder_name, forwarder:forwarder_id (legal_name), release_status, shipping_line, invoice_sent, documents_sent, remarks, bl_number, bl_status, last_tracking_check_at"
         )
         .eq("company_id", companyId)
         .order("created_at", { ascending: false }),

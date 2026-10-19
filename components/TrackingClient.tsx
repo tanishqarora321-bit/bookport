@@ -27,8 +27,6 @@ type TrackingRow = {
   remarks: string | null;
   bl_number: string | null;
   bl_status: "Y" | "N";
-  ocean_freight: number | null;
-  ocean_freight_currency: string | null;
   last_tracking_check_at: string | null;
 };
 
@@ -36,8 +34,6 @@ type Booking = { id: string; booking_no: string; carrier_booking_no: string | nu
 type Forwarder = { id: string; legal_name: string };
 type Party = { id: string; legal_name: string; short_code: string | null };
 type Item = { id: string; name: string };
-
-const CURRENCIES = ["USD", "INR", "EUR", "GBP", "AED"];
 
 async function patchRow(id: string, updates: Record<string, any>) {
   const res = await fetch(`/api/tracking/${id}`, {
@@ -115,6 +111,7 @@ export default function TrackingClient({
         <table className="text-sm border-collapse min-w-[2000px]">
           <thead className="sticky top-0 bg-slate-50 z-10">
             <tr className="text-left text-ink/50 border-b">
+              <Th>Sr. No.</Th>
               <Th>Party</Th>
               <Th>Consignee as per BL</Th>
               <Th>Invoice No.</Th>
@@ -129,15 +126,15 @@ export default function TrackingClient({
               <Th>Remarks</Th>
               <Th>BL Number</Th>
               <Th>BL Status</Th>
-              <Th>Ocean Freight</Th>
               <Th>Last Checked</Th>
               <Th>Docs</Th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, idx) => (
               <TrackingRowView
                 key={row.id}
+                sr={idx + 1}
                 row={row}
                 parties={parties}
                 onChange={(patch) => updateRowLocal(row.id, patch)}
@@ -272,59 +269,36 @@ function AssignPanel({
 // ---------------- One row ----------------
 
 function TrackingRowView({
+  sr,
   row,
   parties,
   onChange,
 }: {
+  sr: number;
   row: TrackingRow;
   parties: Party[];
   onChange: (patch: Partial<TrackingRow>) => void;
 }) {
   const party = parties.find((p) => p.id === row.party_id);
-  const [genLoading, setGenLoading] = useState(false);
-  const [rowError, setRowError] = useState<string | null>(null);
-
-  async function generateInvoiceNumber() {
-    if (!row.party_id) return;
-    setGenLoading(true);
-    setRowError(null);
-    try {
-      const res = await fetch("/api/tracking/generate-invoice-number", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ party_id: row.party_id }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not generate invoice number");
-      await patchRow(row.id, { invoice_no: json.invoice_no });
-      onChange({ invoice_no: json.invoice_no });
-    } catch (err: any) {
-      setRowError(err.message);
-    } finally {
-      setGenLoading(false);
-    }
-  }
 
   return (
     <tr className="border-b hover:bg-blue-50/30">
+      <Td>{sr}</Td>
       <Td>{party?.legal_name || "—"}</Td>
       <EditableTd
         value={row.consignee_as_per_bl}
         onSave={(v) => patchRow(row.id, { consignee_as_per_bl: v }).then(() => onChange({ consignee_as_per_bl: v }))}
       />
+      {/* Invoice Number is generated from Buyers & Customers' Generate
+          Invoice (which writes it onto this tracking row) - populates
+          here automatically, no separate "Generate" button of its own
+          anymore. Still correctable by hand once set. */}
       <td className="px-3 py-2 whitespace-nowrap">
         {row.invoice_no ? (
           <EditableTd asInline value={row.invoice_no} onSave={(v) => patchRow(row.id, { invoice_no: v }).then(() => onChange({ invoice_no: v }))} />
         ) : (
-          <button
-            onClick={generateInvoiceNumber}
-            disabled={genLoading || !row.party_id}
-            className="text-xs bg-ink text-white px-2 py-1 rounded"
-          >
-            {genLoading ? "…" : "Generate"}
-          </button>
+          <span className="text-ink/30">—</span>
         )}
-        {rowError && <div className="text-xs text-cutoff">{rowError}</div>}
       </td>
       <Td>{row.booking_number || "—"}</Td>
       <EditableTd value={row.container_number} onSave={(v) => patchRow(row.id, { container_number: v }).then(() => onChange({ container_number: v }))} />
@@ -363,9 +337,6 @@ function TrackingRowView({
           {row.bl_status}
         </button>
       </td>
-      <td className="px-3 py-2 whitespace-nowrap">
-        <OceanFreightCell row={row} onChange={onChange} />
-      </td>
       <Td>
         {row.last_tracking_check_at
           ? new Date(row.last_tracking_check_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
@@ -396,57 +367,6 @@ function SentToggleTd({ value, onToggle }: { value: boolean; onToggle: (v: boole
         {value ? "Sent" : "Pending"}
       </button>
     </td>
-  );
-}
-
-function OceanFreightCell({ row, onChange }: { row: TrackingRow; onChange: (patch: Partial<TrackingRow>) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [amount, setAmount] = useState(row.ocean_freight?.toString() ?? "");
-  const [currency, setCurrency] = useState(row.ocean_freight_currency ?? "USD");
-  const [saving, setSaving] = useState(false);
-
-  async function save() {
-    setSaving(true);
-    try {
-      await patchRow(row.id, { ocean_freight: amount ? Number(amount) : null, ocean_freight_currency: currency });
-      onChange({ ocean_freight: amount ? Number(amount) : null, ocean_freight_currency: currency });
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded">
-        {row.ocean_freight ? `${row.ocean_freight_currency ?? ""} ${row.ocean_freight}` : "—"}
-      </span>
-    );
-  }
-
-  return (
-    <div className="flex gap-1 items-center">
-      <input
-        autoFocus
-        type="number"
-        className="w-20 border border-accent rounded px-1 py-0.5 text-sm"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-      />
-      <select className="border rounded px-1 py-0.5 text-sm" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-        {CURRENCIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-      <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
-        {saving ? "…" : "✓"}
-      </button>
-      <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
-        ✕
-      </button>
-    </div>
   );
 }
 
