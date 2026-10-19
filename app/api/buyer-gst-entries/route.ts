@@ -36,17 +36,17 @@ export async function POST(req: NextRequest) {
   if (buyerLookupError) return NextResponse.json({ error: buyerLookupError.message }, { status: 500 });
   if (!buyerParty) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const updates: Record<string, any> = { buyer_party_id: body.buyer_party_id };
+  // legal_name is NOT NULL and always just mirrors the buyer's own party
+  // name (not user-editable here) - it has to be included on every
+  // upsert call, not only when first creating the row: Postgres checks
+  // NOT NULL constraints on the proposed INSERT row before it even gets
+  // to evaluate ON CONFLICT, so omitting it on a later single-field edit
+  // (e.g. just "mobile") would fail with a not-null violation even
+  // though the row already exists and only an UPDATE would actually run.
+  const updates: Record<string, any> = { buyer_party_id: body.buyer_party_id, legal_name: buyerParty.legal_name };
   for (const key of EDITABLE_FIELDS) {
     if (key in body) updates[key] = body[key] === "" ? null : body[key];
   }
-
-  const { data: existing } = await supabase
-    .from("buyer_gst_entries")
-    .select("id")
-    .eq("buyer_party_id", body.buyer_party_id)
-    .maybeSingle();
-  if (!existing) updates.legal_name = buyerParty.legal_name;
 
   const { data, error } = await supabase
     .from("buyer_gst_entries")
