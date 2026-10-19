@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select(
-      "id, carrier_booking_no, final_destination, commodity, hs_code, consignee_gst_entry_id, booking_parties (role, party_id, parties (legal_name, short_code, email, cc_email))"
+      "id, carrier_booking_no, final_destination, commodity, hs_code, booking_parties (role, party_id, parties (legal_name, short_code, address, email, cc_email))"
     )
     .eq("id", params.id)
     .eq("company_id", me.company_id)
@@ -29,13 +29,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
 
-  // Checked first, before letterhead/GST-entry - instructions only ever
-  // go to a forwarder, so nothing else about this booking matters until
+  // Checked first, before letterhead/buyer - instructions only ever go
+  // to a forwarder, so nothing else about this booking matters until
   // one is actually assigned.
   const forwarderParty = (booking.booking_parties ?? []).find((bp: any) => bp.role === "forwarder")?.parties ?? null;
   if (!forwarderParty) {
     return NextResponse.json(
       { error: "This booking has no Forwarder assigned yet -- instructions can only be sent to a forwarder, pick one first." },
+      { status: 400 }
+    );
+  }
+
+  // The Buyer (Consignee) prints directly in the email now - its own
+  // GST/IEC/PAN/shipping details (buyer_gst_entries) are a buyer-level
+  // record, not something picked per booking anymore (migration 0032:
+  // a buyer has at most one). A buyer with no such record yet still
+  // works - the consignee block just shows its name/address, filling in
+  // GST/IEC/etc. as they get added later in Buyers & Customers.
+  const buyerBooking = (booking.booking_parties ?? []).find((bp: any) => bp.role === "buyer");
+  const buyerParty = buyerBooking?.parties ?? null;
+  if (!buyerParty) {
+    return NextResponse.json(
+      { error: "This booking has no Buyer (Consignee) assigned yet -- pick one first." },
       { status: 400 }
     );
   }
@@ -50,13 +65,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           .eq("booking_id", params.id)
           .single()
       : Promise.resolve({ data: null }),
-    booking.consignee_gst_entry_id
-      ? supabase
-          .from("buyer_gst_entries")
-          .select("legal_name, address, gst_no, iec_code, pan_no, mobile, email, description_of_goods, hs_code, transit_destination")
-          .eq("id", booking.consignee_gst_entry_id)
-          .single()
-      : Promise.resolve({ data: null }),
+    supabase
+      .from("buyer_gst_entries")
+      .select("gst_no, iec_code, pan_no, address, mobile, email, description_of_goods, hs_code, transit_destination")
+      .eq("buyer_party_id", buyerBooking.party_id)
+      .maybeSingle(),
     supabase
       .from("document_templates")
       .select("template_config")
@@ -69,12 +82,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!templateRow?.template_config) {
     return NextResponse.json(
       { error: "No company letterhead set up yet -- add one in Settings before sending instructions." },
-      { status: 400 }
-    );
-  }
-  if (!gstEntry) {
-    return NextResponse.json(
-      { error: "This booking has no \"Consignee as per BL\" GST entry picked yet -- pick one first." },
       { status: 400 }
     );
   }
@@ -94,18 +101,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     bales: overrides.bales ?? (firstPacking?.bales != null ? String(firstPacking.bales) : ""),
     shipper: letterhead,
     consignee: {
-      legal_name: gstEntry.legal_name,
-      address: gstEntry.address || "",
-      gst_no: gstEntry.gst_no,
-      iec_code: gstEntry.iec_code,
-      pan_no: gstEntry.pan_no,
-      mobile: gstEntry.mobile,
-      email: gstEntry.email,
+      legal_name: buyerParty.legal_name,
+      address: gstEntry?.address || buyerParty.address || "",
+      gst_no: gstEntry?.gst_no ?? null,
+      iec_code: gstEntry?.iec_code ?? null,
+      pan_no: gstEntry?.pan_no ?? null,
+      mobile: gstEntry?.mobile ?? null,
+      email: gstEntry?.email ?? null,
     },
-    description_of_goods: overrides.description_of_goods ?? (gstEntry.description_of_goods || booking.commodity || ""),
-    hs_code: overrides.hs_code ?? (gstEntry.hs_code || booking.hs_code || ""),
+    description_of_goods: overrides.description_of_goods ?? (gstEntry?.description_of_goods || booking.commodity || ""),
+    hs_code: overrides.hs_code ?? (gstEntry?.hs_code || booking.hs_code || ""),
     value: overrides.value || "",
-    transit_destination: overrides.transit_destination || gstEntry.transit_destination || booking.final_destination || "",
+    transit_destination: overrides.transit_destination || gstEntry?.transit_destination || booking.final_destination || "",
     sign_off_name: overrides.sign_off_name || "",
     sign_off_email: overrides.sign_off_email || "",
     sign_off_website: overrides.sign_off_website || "",

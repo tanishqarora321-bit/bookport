@@ -9,7 +9,6 @@ import InlineEditText from "@/components/ui/InlineEditText";
 
 type GstEntry = {
   id: string;
-  legal_name: string;
   gst_no: string | null;
   iec_code: string | null;
   pan_no: string | null;
@@ -19,7 +18,6 @@ type GstEntry = {
   description_of_goods: string | null;
   hs_code: string | null;
   transit_destination: string | null;
-  sort_order: number;
 };
 
 type Party = {
@@ -29,7 +27,9 @@ type Party = {
   country: string | null;
   address: string | null;
   is_active: boolean;
-  gst_entries: GstEntry[];
+  // A buyer has at most one of these now (migration 0032) - its own
+  // GST/IEC/PAN/shipping details, not a pickable list.
+  gst_entry: GstEntry | null;
 };
 
 type Item = {
@@ -128,7 +128,7 @@ function PartiesTab({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to add account");
-      setParties([...parties, { ...json.party, gst_entries: [] }].sort((a, b) => a.legal_name.localeCompare(b.legal_name)));
+      setParties([...parties, { ...json.party, gst_entry: null }].sort((a, b) => a.legal_name.localeCompare(b.legal_name)));
       setForm({ legal_name: "", short_code: "", country: "", address: "" });
       setAdding(false);
     } catch (err: any) {
@@ -167,8 +167,8 @@ function PartiesTab({
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  function updateGstEntries(partyId: string, entries: GstEntry[]) {
-    setParties(parties.map((p) => (p.id === partyId ? { ...p, gst_entries: entries } : p)));
+  function updateGstEntry(partyId: string, entry: GstEntry) {
+    setParties(parties.map((p) => (p.id === partyId ? { ...p, gst_entry: entry } : p)));
   }
 
   const visible = parties.filter((p) => showInactive || p.is_active);
@@ -272,7 +272,7 @@ function PartiesTab({
                   </td>
                   <td className="px-3 py-2">
                     <button onClick={() => toggleExpanded(p.id)} className="text-xs text-accent underline whitespace-nowrap">
-                      {expanded[p.id] ? "Hide GST entries ▲" : `GST entries (${p.gst_entries.length}) ▼`}
+                      {expanded[p.id] ? "Hide Shipping Details ▲" : "Shipping Details ▼"}
                     </button>
                   </td>
                   <td className="px-3 py-2">
@@ -303,7 +303,7 @@ function PartiesTab({
                 {expanded[p.id] && (
                   <tr className="border-b bg-slate-50/60">
                     <td colSpan={8} className="px-6 py-3">
-                      <GstEntriesSection buyerPartyId={p.id} entries={p.gst_entries} onChange={(entries) => updateGstEntries(p.id, entries)} />
+                      <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
                     </td>
                   </tr>
                 )}
@@ -469,7 +469,7 @@ function MergePartiesModal({
       setError("Name is required.");
       return;
     }
-    if (!confirm(`Merge "${other.legal_name}" into this record as "${form.legal_name.trim()}"? All of "${other.legal_name}"'s bookings, invoices, and GST entries move onto the merged record, and "${other.legal_name}" is permanently removed as a separate entry. This cannot be undone.`)) {
+    if (!confirm(`Merge "${other.legal_name}" into this record as "${form.legal_name.trim()}"? All of "${other.legal_name}"'s bookings and invoices move onto the merged record (its shipping details move over too, unless this record already has its own), and "${other.legal_name}" is permanently removed as a separate entry. This cannot be undone.`)) {
       return;
     }
     setSaving(true);
@@ -503,8 +503,8 @@ function MergePartiesModal({
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
         </div>
         <p className="text-sm text-ink/50 mb-3">
-          Moves all bookings, invoices, and GST entries from the other account onto this one, then permanently
-          removes it as a separate entry.
+          Moves all bookings and invoices from the other account onto this one (its shipping details move over
+          too, unless this one already has its own), then permanently removes it as a separate entry.
         </p>
         <div className="mb-3">
           <div className="text-xs text-ink/40 mb-0.5">Merge which account into "{party.legal_name}"?</div>
@@ -522,7 +522,7 @@ function MergePartiesModal({
                 <div className="text-ink/50">Short code: {party.short_code || "—"}</div>
                 <div className="text-ink/50">Country: {party.country || "—"}</div>
                 <div className="text-ink/50">Address: {party.address || "—"}</div>
-                <div className="text-ink/50">{party.gst_entries.length} GST entries</div>
+                <div className="text-ink/50">{party.gst_entry ? "Has shipping details" : "No shipping details"}</div>
                 <button onClick={useThisDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
               <div>
@@ -530,7 +530,7 @@ function MergePartiesModal({
                 <div className="text-ink/50">Short code: {other.short_code || "—"}</div>
                 <div className="text-ink/50">Country: {other.country || "—"}</div>
                 <div className="text-ink/50">Address: {other.address || "—"}</div>
-                <div className="text-ink/50">{other.gst_entries.length} GST entries</div>
+                <div className="text-ink/50">{other.gst_entry ? "Has shipping details" : "No shipping details"}</div>
                 <button onClick={useOtherDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
             </div>
@@ -568,149 +568,74 @@ function MergePartiesModal({
   );
 }
 
-// ---------------- GST entries sub-table (one buyer's cost-section equivalent) ----------------
+// ---------------- Shipping details (one record per buyer - GST/IEC/PAN/etc.) ----------------
+//
+// This IS the format shipping documents (instructions email, BL,
+// fumigation/COO/commercial invoice generation) read a buyer's consignee
+// details from - the Legal Name shown elsewhere in this table already
+// covers the buyer's own name, so it's not repeated here.
 
-type DraftEntry = {
-  legal_name: string; gst_no: string; iec_code: string; pan_no: string; address: string; mobile: string;
-  email: string; description_of_goods: string; hs_code: string; transit_destination: string;
-};
+const SHIPPING_FIELDS: { key: keyof GstEntry; label: string; wide?: boolean; title?: string }[] = [
+  { key: "gst_no", label: "GST No." },
+  { key: "iec_code", label: "IEC Code" },
+  { key: "pan_no", label: "PAN No." },
+  { key: "mobile", label: "Mobile" },
+  { key: "email", label: "Email" },
+  { key: "description_of_goods", label: "Description of Goods", wide: true },
+  { key: "hs_code", label: "H.S. Code" },
+  { key: "address", label: "Address", wide: true },
+  { key: "transit_destination", label: "Transit Destination", wide: true, title: "For the Instructions email's shipper-declares clause, e.g. KANDLA SPECIAL ECONOMIC ZONE (INKDL6)" },
+];
 
-function blankEntry(): DraftEntry {
-  return { legal_name: "", gst_no: "", iec_code: "", pan_no: "", address: "", mobile: "", email: "", description_of_goods: "", hs_code: "", transit_destination: "" };
-}
-
-function GstEntriesSection({
-  buyerPartyId, entries, onChange,
-}: { buyerPartyId: string; entries: GstEntry[]; onChange: (entries: GstEntry[]) => void }) {
-  const [addingRow, setAddingRow] = useState(false);
-  const [draft, setDraft] = useState<DraftEntry>(blankEntry());
-  const [saving, setSaving] = useState(false);
+function ShippingDetailsSection({
+  buyerPartyId, entry, onChange,
+}: { buyerPartyId: string; entry: GstEntry | null; onChange: (entry: GstEntry) => void }) {
   const [error, setError] = useState<string | null>(null);
 
-  async function saveNewRow() {
-    if (!draft.legal_name.trim()) {
-      setError("Legal name is required.");
-      return;
-    }
-    setSaving(true);
+  async function saveField(field: keyof GstEntry, value: string) {
     setError(null);
     try {
       const res = await fetch("/api/buyer-gst-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ buyer_party_id: buyerPartyId, ...draft }),
+        body: JSON.stringify({ buyer_party_id: buyerPartyId, [field]: value }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to add GST entry");
-      onChange([...entries, json.entry]);
-      setDraft(blankEntry());
-      setAddingRow(false);
+      if (!res.ok) throw new Error(json.error || "Save failed");
+      onChange(json.entry);
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setSaving(false);
+      throw err;
     }
-  }
-
-  async function patchEntry(id: string, field: keyof GstEntry, value: string) {
-    const res = await fetch(`/api/buyer-gst-entries/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Save failed");
-    onChange(entries.map((e) => (e.id === id ? json.entry : e)));
-  }
-
-  async function deleteEntry(id: string) {
-    if (!confirm("Remove this GST entry? If it's used as a booking's \"Consignee as per BL,\" that booking will need a new one picked.")) return;
-    const res = await fetch(`/api/buyer-gst-entries/${id}`, { method: "DELETE" });
-    if (!res.ok) return;
-    onChange(entries.filter((e) => e.id !== id));
   }
 
   return (
     <div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-ink/40">
-            <th className="pb-1 pr-2 font-normal">Legal Name</th>
-            <th className="pb-1 pr-2 font-normal">GST No.</th>
-            <th className="pb-1 pr-2 font-normal">IEC Code</th>
-            <th className="pb-1 pr-2 font-normal">PAN No.</th>
-            <th className="pb-1 pr-2 font-normal">Mobile</th>
-            <th className="pb-1 pr-2 font-normal">Email</th>
-            <th className="pb-1 pr-2 font-normal">Description of Goods</th>
-            <th className="pb-1 pr-2 font-normal">H.S. Code</th>
-            <th className="pb-1 pr-2 font-normal">Address</th>
-            <th className="pb-1 pr-2 font-normal" title="For the Instructions email's shipper-declares clause, e.g. KANDLA SPECIAL ECONOMIC ZONE (INKDL6)">Transit Destination</th>
-            <th className="pb-1 w-8"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <tr key={entry.id} className="border-t">
-              <GstCell value={entry.legal_name} onSave={(v) => patchEntry(entry.id, "legal_name", v)} />
-              <GstCell value={entry.gst_no} onSave={(v) => patchEntry(entry.id, "gst_no", v)} />
-              <GstCell value={entry.iec_code} onSave={(v) => patchEntry(entry.id, "iec_code", v)} />
-              <GstCell value={entry.pan_no} onSave={(v) => patchEntry(entry.id, "pan_no", v)} />
-              <GstCell value={entry.mobile} onSave={(v) => patchEntry(entry.id, "mobile", v)} />
-              <GstCell value={entry.email} onSave={(v) => patchEntry(entry.id, "email", v)} />
-              <GstCell value={entry.description_of_goods} onSave={(v) => patchEntry(entry.id, "description_of_goods", v)} />
-              <GstCell value={entry.hs_code} onSave={(v) => patchEntry(entry.id, "hs_code", v)} />
-              <GstCell value={entry.address} onSave={(v) => patchEntry(entry.id, "address", v)} wide />
-              <GstCell value={entry.transit_destination} onSave={(v) => patchEntry(entry.id, "transit_destination", v)} wide />
-              <td className="py-1 text-center">
-                <button onClick={() => deleteEntry(entry.id)} className="text-cutoff text-xs">✕</button>
-              </td>
-            </tr>
-          ))}
-          {entries.length === 0 && (
-            <tr>
-              <td colSpan={11} className="py-2 text-ink/40 text-xs">No GST entries yet.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {addingRow ? (
-        <div className="flex flex-wrap gap-2 items-center mt-2">
-          <input placeholder="Legal Name *" className="border rounded px-2 py-1 text-sm w-36" value={draft.legal_name} onChange={(e) => setDraft({ ...draft, legal_name: e.target.value })} />
-          <input placeholder="GST No." className="border rounded px-2 py-1 text-sm w-28" value={draft.gst_no} onChange={(e) => setDraft({ ...draft, gst_no: e.target.value })} />
-          <input placeholder="IEC Code" className="border rounded px-2 py-1 text-sm w-28" value={draft.iec_code} onChange={(e) => setDraft({ ...draft, iec_code: e.target.value })} />
-          <input placeholder="PAN No." className="border rounded px-2 py-1 text-sm w-28" value={draft.pan_no} onChange={(e) => setDraft({ ...draft, pan_no: e.target.value })} />
-          <input placeholder="Mobile" className="border rounded px-2 py-1 text-sm w-28" value={draft.mobile} onChange={(e) => setDraft({ ...draft, mobile: e.target.value })} />
-          <input placeholder="Email" className="border rounded px-2 py-1 text-sm w-40" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
-          <input placeholder="Description of Goods" className="border rounded px-2 py-1 text-sm w-40" value={draft.description_of_goods} onChange={(e) => setDraft({ ...draft, description_of_goods: e.target.value })} />
-          <input placeholder="H.S. Code" className="border rounded px-2 py-1 text-sm w-24" value={draft.hs_code} onChange={(e) => setDraft({ ...draft, hs_code: e.target.value })} />
-          <input placeholder="Address" className="border rounded px-2 py-1 text-sm w-48" value={draft.address} onChange={(e) => setDraft({ ...draft, address: e.target.value })} />
-          <input placeholder="Transit Destination (e.g. KANDLA SEZ (INKDL6))" className="border rounded px-2 py-1 text-sm w-56" value={draft.transit_destination} onChange={(e) => setDraft({ ...draft, transit_destination: e.target.value })} />
-          <button onClick={saveNewRow} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded">{saving ? "…" : "✓"}</button>
-          <button onClick={() => { setAddingRow(false); setDraft(blankEntry()); setError(null); }} className="text-xs border px-2 py-1 rounded">✕</button>
-        </div>
-      ) : (
-        <button onClick={() => setAddingRow(true)} className="text-xs text-accent underline mt-2">+ Add GST Entry</button>
-      )}
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      <div className="grid grid-cols-3 gap-x-6 gap-y-2">
+        {SHIPPING_FIELDS.map((f) => (
+          <div key={f.key} className={f.wide ? "col-span-3" : ""} title={f.title}>
+            <div className="text-xs text-ink/40 mb-0.5">{f.label}</div>
+            <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
+          </div>
+        ))}
+      </div>
+      {error && <div className="text-xs text-cutoff mt-2">{error}</div>}
     </div>
   );
 }
 
-function GstCell({ value, onSave, wide = false }: { value: string | null; onSave: (v: string) => Promise<any>; wide?: boolean }) {
+function ShippingFieldInput({ value, onSave }: { value: string | null; onSave: (v: string) => Promise<any> }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function save() {
     setSaving(true);
-    setError(null);
     try {
       await onSave(val);
       setEditing(false);
-    } catch (err: any) {
-      setError(err.message || "Save failed");
+    } catch {
+      /* error already surfaced by the parent */
     } finally {
       setSaving(false);
     }
@@ -718,23 +643,25 @@ function GstCell({ value, onSave, wide = false }: { value: string | null; onSave
 
   if (!editing) {
     return (
-      <td className={`py-1 pr-2 ${wide ? "max-w-[220px] truncate" : ""}`}>
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block" title={value ?? ""}>
-          {value || "—"}
-        </span>
-      </td>
+      <div onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1.5 py-1 rounded text-sm border border-transparent">
+        {value || <span className="text-ink/30">—</span>}
+      </div>
     );
   }
 
   return (
-    <td className="py-1 pr-2">
-      <div className="flex gap-1 items-center">
-        <input autoFocus className={`border border-accent rounded px-1.5 py-0.5 text-sm ${wide ? "w-48" : "w-28"}`} value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} disabled={saving} />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">{saving ? "…" : "✓"}</button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">✕</button>
-        {error && <span className="text-xs text-cutoff">{error}</span>}
-      </div>
-    </td>
+    <div className="flex gap-1 items-center">
+      <input
+        autoFocus
+        className="border border-accent rounded px-1.5 py-1 text-sm flex-1 min-w-0"
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && save()}
+        disabled={saving}
+      />
+      <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-1 rounded shrink-0">{saving ? "…" : "✓"}</button>
+      <button onClick={() => { setEditing(false); setVal(value ?? ""); }} className="text-xs border px-1.5 py-1 rounded shrink-0">✕</button>
+    </div>
   );
 }
 

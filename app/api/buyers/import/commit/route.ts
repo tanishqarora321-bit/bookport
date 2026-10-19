@@ -7,12 +7,13 @@ export const maxDuration = 60;
 
 type Skip = { row: number; reason: string };
 
-// Two-level import: rows sharing the same Folder's Name (case-insensitive)
-// become separate buyer_gst_entries under ONE parties row (find-or-create,
-// same case-insensitive matching every other party import uses), not
-// separate buyers - see lib/buyer-import-fields.ts. A row with no Folder's
-// Name of its own falls back to using its GST/company name as the folder,
-// matching the common case of a standalone buyer with no group.
+// One buyer per row, full stop - find-or-create the party by name (same
+// case-insensitive matching every other party import uses), then upsert
+// its one GST/IEC/shipping-details record (migration 0032: a buyer has
+// at most one, no more "several GST entries under one buyer" grouping).
+// Two rows in the same file naming the same buyer keep the first and
+// skip the rest, same as every other bulk import's same-file-duplicate
+// handling.
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -35,14 +36,15 @@ export async function POST(req: NextRequest) {
   }
 
   if (colIndex["legal_name"] === undefined) {
-    return NextResponse.json({ error: "GST / Company Legal Name must be mapped to a column before importing." }, { status: 400 });
+    return NextResponse.json({ error: "Buyer / Company Name must be mapped to a column before importing." }, { status: 400 });
   }
 
   const supabase = createServiceClient();
   const skipped: Skip[] = [];
 
-  type Candidate = { sheetRow: number; folderName: string; legalName: string; address: string; gstNo: string; iecCode: string; mobile: string; email: string; description: string; hsCode: string };
+  type Candidate = { sheetRow: number; legalName: string; address: string; gstNo: string; iecCode: string; mobile: string; email: string; description: string; hsCode: string };
   const candidates: Candidate[] = [];
+  const seenInFile = new Set<string>();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -51,17 +53,20 @@ export async function POST(req: NextRequest) {
 
     const legalName = get("legal_name");
     if (!legalName) {
-      skipped.push({ row: sheetRow, reason: "GST / Company Legal Name is blank" });
+      skipped.push({ row: sheetRow, reason: "Buyer / Company Name is blank" });
       continue;
     }
-    const folderName = get("folder_name") || legalName;
-    const address = BUYER_ADDRESS_LINE_KEYS.map((k) => get(k)).filter(Boolean).join("\n");
+    const key = legalName.toLowerCase();
+    if (seenInFile.has(key)) {
+      skipped.push({ row: sheetRow, reason: `Duplicate "${legalName}" earlier in this file` });
+      continue;
+    }
+    seenInFile.add(key);
 
     candidates.push({
       sheetRow,
-      folderName,
       legalName,
-      address,
+      address: BUYER_ADDRESS_LINE_KEYS.map((k) => get(k)).filter(Boolean).join("\n"),
       gstNo: get("gst_no"),
       iecCode: get("iec_code"),
       mobile: get("mobile"),
@@ -75,25 +80,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ imported: 0, total: rows.length, skipped });
   }
 
-  // Find-or-create the parent buyer party per unique folder name, same
-  // case-insensitive matching as lib/find-or-create-party.ts, batched
-  // rather than one row at a time.
+  // Find-or-create the buyer party per unique name, same case-insensitive
+  // matching as lib/find-or-create-party.ts, batched rather than one row
+  // at a time.
   const { data: existingParties } = await supabase
     .from("parties")
     .select("id, legal_name, roles")
     .eq("company_id", companyId);
   const partyByName = new Map<string, { id: string; roles: string[] }>((existingParties ?? []).map((p: any) => [p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] }]));
 
-  const folderNamesSeen = new Map<string, string>(); // lowercase -> original casing (first seen)
-  for (const c of candidates) {
-    const key = c.folderName.toLowerCase();
-    if (!folderNamesSeen.has(key)) folderNamesSeen.set(key, c.folderName);
-  }
-
   const toCreate: { company_id: string; legal_name: string; roles: string[] }[] = [];
-  for (const [key, original] of folderNamesSeen) {
-    if (!partyByName.has(key)) {
-      toCreate.push({ company_id: companyId, legal_name: original, roles: ["buyer"] });
+  for (const c of candidates) {
+    const key = c.legalName.toLowerCase();
+    if (!partyByName.has(key) && !toCreate.some((p) => p.legal_name.toLowerCase() === key)) {
+      toCreate.push({ company_id: companyId, legal_name: c.legalName, roles: ["buyer"] });
     }
   }
   if (toCreate.length > 0) {
@@ -102,21 +102,21 @@ export async function POST(req: NextRequest) {
     for (const p of created ?? []) partyByName.set(p.legal_name.toLowerCase(), { id: p.id, roles: p.roles ?? [] });
   }
 
-  // Existing parties matched by folder name that don't have the 'buyer'
-  // role yet (e.g. already a forwarder under the same company name) get
-  // it added, same as every other party import's role-merge behavior.
+  // Existing parties matched by name that don't have the 'buyer' role yet
+  // (e.g. already a forwarder under the same company name) get it added,
+  // same as every other party import's role-merge behavior.
   const toAddRole: string[] = [];
-  for (const [key] of folderNamesSeen) {
-    const existing = partyByName.get(key)!;
-    if (!existing.roles.includes("buyer")) toAddRole.push(existing.id);
+  for (const c of candidates) {
+    const existing = partyByName.get(c.legalName.toLowerCase())!;
+    if (!existing.roles.includes("buyer") && !toAddRole.includes(existing.id)) toAddRole.push(existing.id);
   }
   for (const id of toAddRole) {
     const existing = Array.from(partyByName.values()).find((p) => p.id === id)!;
     await supabase.from("parties").update({ roles: [...existing.roles, "buyer"] }).eq("id", id);
   }
 
-  const entriesToInsert = candidates.map((c) => ({
-    buyer_party_id: partyByName.get(c.folderName.toLowerCase())!.id,
+  const entriesToUpsert = candidates.map((c) => ({
+    buyer_party_id: partyByName.get(c.legalName.toLowerCase())!.id,
     legal_name: c.legalName,
     gst_no: c.gstNo || null,
     iec_code: c.iecCode || null,
@@ -127,8 +127,8 @@ export async function POST(req: NextRequest) {
     hs_code: c.hsCode || null,
   }));
 
-  const { error: insertError } = await supabase.from("buyer_gst_entries").insert(entriesToInsert);
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  const { error: upsertError } = await supabase.from("buyer_gst_entries").upsert(entriesToUpsert, { onConflict: "buyer_party_id" });
+  if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
 
   return NextResponse.json({ imported: candidates.length, total: rows.length, skipped });
 }

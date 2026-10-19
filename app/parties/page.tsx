@@ -34,10 +34,13 @@ export default async function PartiesPage() {
   if (partiesError) return <p className="text-red-600 p-6">{partiesError.message}</p>;
   if (itemsError) return <p className="text-red-600 p-6">{itemsError.message}</p>;
 
-  const sortedParties = (parties ?? []).map((p: any) => ({
-    ...p,
-    gst_entries: (p.gst_entries ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order),
-  }));
+  // A buyer has at most one of these records now (migration 0032) - the
+  // query still comes back as an array (a nested-select artifact), so
+  // just take its one entry.
+  const sortedParties = (parties ?? []).map((p: any) => {
+    const { gst_entries, ...rest } = p;
+    return { ...rest, gst_entry: gst_entries?.[0] ?? null };
+  });
 
   return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} />;
 }

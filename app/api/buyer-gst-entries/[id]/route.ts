@@ -58,10 +58,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ entry: data });
 }
 
-// bookings.consignee_gst_entry_id has no cascade/restrict defined, so a
-// GST entry still referenced by a booking's "Consignee as per BL" stays
-// deletable here but would orphan that reference - acceptable for now
-// since it's a nullable, document-generation-only pointer, not core data.
+// Not used by the UI anymore - a buyer always has exactly one of these
+// records now (migration 0032), so there's nothing left to pick and
+// delete per booking. Left in place for API completeness.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });

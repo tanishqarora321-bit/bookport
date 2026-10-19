@@ -5,17 +5,14 @@ import Link from "next/link";
 import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail } from "lucide-react";
 import EditableCell from "@/components/EditableCell";
 import PartyPickerCell from "@/components/PartyPickerCell";
-import ConsigneeCell from "@/components/ConsigneeCell";
 import ContainerCell from "@/components/ContainerCell";
 import StatCard from "@/components/ui/StatCard";
 import StatusCell from "@/components/StatusCell";
-import ConsigneeAsPerBlCell, { BuyerGstEntry } from "@/components/ConsigneeAsPerBlCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
-type ConsigneeItem = { id: string; description: string; sort_order: number };
 
 type Row = {
   booking_id: string;
@@ -38,8 +35,6 @@ type Row = {
   trucker: PartyRef;
   supplier: PartyRef;
   buyer: PartyRef;
-  consignee_items: ConsigneeItem[];
-  consignee_gst_entry_id: string | null;
   packing_items: PackingItem[];
 };
 
@@ -90,7 +85,6 @@ export default function BookingsClient({
   truckers,
   suppliers,
   buyers,
-  buyerGstEntries,
   variant = "single",
   duplicateGroupCount = 0,
 }: {
@@ -99,7 +93,6 @@ export default function BookingsClient({
   truckers: PartyOption[];
   suppliers: PartyOption[];
   buyers: PartyOption[];
-  buyerGstEntries: BuyerGstEntry[];
   // "single": the normal Booking & Instructions page - every row here has
   // a carrier_booking_no that's unique for this company right now (or no
   // number yet). "multiple": the Multiple Bookings & Instructions page -
@@ -117,7 +110,6 @@ export default function BookingsClient({
   const [truckerOptions, setTruckerOptions] = useState(truckers);
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
-  const [gstEntries, setGstEntries] = useState(buyerGstEntries);
 
   // The duplicate-numbers banner is a one-time heads-up, not a permanent
   // fixture - once dismissed for the current count, it stays hidden until
@@ -145,6 +137,10 @@ export default function BookingsClient({
   const [line, setLine] = useState("all");
   const [destination, setDestination] = useState("all");
   const [status, setStatus] = useState("all");
+  const [forwarderFilter, setForwarderFilter] = useState("all");
+  const [truckerFilter, setTruckerFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [buyerFilter, setBuyerFilter] = useState("all");
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [search, setSearch] = useState("");
@@ -165,6 +161,10 @@ export default function BookingsClient({
       if (line !== "all" && r.carrier !== line) return false;
       if (destination !== "all" && r.final_destination !== destination) return false;
       if (status !== "all" && r.status !== status) return false;
+      if (forwarderFilter !== "all" && r.forwarder?.name !== forwarderFilter) return false;
+      if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
+      if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
+      if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -183,7 +183,7 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, cutoffSoonOnly, overdueOnly, search]);
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -321,6 +321,30 @@ export default function BookingsClient({
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
+        <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Forwarders</option>
+          {forwarderOptions.map((f) => (
+            <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
+          ))}
+        </select>
+        <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Truckers</option>
+          {truckerOptions.map((t) => (
+            <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
+          ))}
+        </select>
+        <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Suppliers</option>
+          {supplierOptions.map((s) => (
+            <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
+          ))}
+        </select>
+        <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="all">All Buyers</option>
+          {buyerOptions.map((b) => (
+            <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
+          ))}
+        </select>
         <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
@@ -354,8 +378,7 @@ export default function BookingsClient({
               {[
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
-                "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)", "",
-                "Consignee as per BL",
+                "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
                 "Container Number", "Vessel", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
                 <th key={i} className="px-3 py-2.5 font-semibold uppercase tracking-wide text-[11px] whitespace-nowrap">
@@ -413,21 +436,16 @@ export default function BookingsClient({
                     onAssigned={(p) => updateRowsForBooking(r.booking_id, { supplier: p })}
                     onCreated={(p) => setSupplierOptions((prev) => [...prev, p].sort((a, b) => a.legal_name.localeCompare(b.legal_name)))}
                   />
-                  <ConsigneeCell
+                  <PartyPickerCell
                     bookingId={r.booking_id}
+                    role="buyer"
+                    roleLabel="Buyer"
+                    createEndpoint="/api/parties"
+                    responseKey="party"
                     current={r.buyer}
                     options={buyerOptions}
-                    items={r.consignee_items}
                     onAssigned={(p) => updateRowsForBooking(r.booking_id, { buyer: p })}
                     onCreated={(p) => setBuyerOptions((prev) => [...prev, p].sort((a, b) => a.legal_name.localeCompare(b.legal_name)))}
-                    onItemsChange={(items) => updateRowsForBooking(r.booking_id, { consignee_items: items })}
-                  />
-                  <ConsigneeAsPerBlCell
-                    bookingId={r.booking_id}
-                    buyerId={r.buyer?.id ?? null}
-                    value={r.consignee_gst_entry_id}
-                    entries={gstEntries}
-                    onChanged={(v) => updateRowsForBooking(r.booking_id, { consignee_gst_entry_id: v })}
                   />
                   <ContainerCell
                     bookingId={r.booking_id}

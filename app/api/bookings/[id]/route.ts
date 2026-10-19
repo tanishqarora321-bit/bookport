@@ -30,9 +30,6 @@ const EDITABLE_COLUMNS = [
   "hs_code",
   "gross_weight",
   "incoterm",
-  // Which specific GST entry (legal entity) under the booking's Buyer
-  // should be named on shipping documents - see migration 0023.
-  "consignee_gst_entry_id",
 ];
 
 // This previously had no PATCH export at all (Next's auto-405 for an

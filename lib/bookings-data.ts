@@ -9,10 +9,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 const BOOKINGS_SELECT =
-  "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, consignee_gst_entry_id, created_at, " +
+  "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, created_at, " +
   "containers (id, container_no, seal_no, size_type, packing_items:container_packing_items (id, seal_no, weight, weight_unit, bales, description, sort_order)), " +
-  "booking_parties (role, party_id, parties (legal_name)), " +
-  "consignee_items:booking_consignee_items (id, description, sort_order)";
+  "booking_parties (role, party_id, parties (legal_name))";
 
 // Flattens one booking (with its nested containers/parties/etc.) into one
 // row per container, matching what BookingsClient expects. A booking with
@@ -49,8 +48,6 @@ function flattenBooking(b: any): any[] {
     trucker: partyByRole["trucker"] ?? null,
     supplier: partyByRole["supplier"] ?? null,
     buyer: partyByRole["buyer"] ?? null,
-    consignee_items: (b.consignee_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
-    consignee_gst_entry_id: b.consignee_gst_entry_id,
     packing_items: (c.packing_items ?? []).sort((x: any, y: any) => x.sort_order - y.sort_order),
   }));
 }

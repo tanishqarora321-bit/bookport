@@ -80,9 +80,7 @@ export default function BuyerImportClient() {
         <div className="max-w-lg mx-auto mt-12 space-y-4 w-full">
           <h1 className="text-xl font-semibold text-center">Import Buyers / Customers from Excel</h1>
           <p className="text-sm text-slate-500 text-center">
-            Rows sharing the same Folder's Name become separate GST entries under ONE buyer account, not separate
-            accounts - matching one real company group that ships under several legal entity names. A row with no
-            Folder's Name of its own just uses its GST/company name as the folder.
+            Each row becomes one buyer account, with its GST/IEC/shipping details filled in directly.
           </p>
           <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
             <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
@@ -172,7 +170,7 @@ export default function BuyerImportClient() {
         <h1 className="text-xl font-semibold text-center">Import complete</h1>
         <div className="bg-white rounded-xl shadow-sm p-6 text-center space-y-1">
           <div className="text-3xl font-semibold text-ink">{result.imported}</div>
-          <div className="text-sm text-slate-500">of {result.total} rows matched and imported as GST entries</div>
+          <div className="text-sm text-slate-500">of {result.total} rows imported as buyer accounts</div>
         </div>
 
         {result.skipped.length > 0 && (

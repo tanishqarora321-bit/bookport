@@ -1,14 +1,10 @@
-// Target fields for importing Buyers/Customers. Unlike every other
-// import in this app, this is two-level: "Folder's Name" is the
-// grouping key used for P&L (one real buyer "group" can ship under
-// several legal entity names), and every other field describes ONE
-// specific GST entry under that group - see
-// supabase/migrations/0023_buyer_gst_entries_and_packing.sql. Rows
-// sharing the same Folder's Name (case-insensitive) become separate
-// buyer_gst_entries under the SAME parties row, not separate buyers.
+// Target fields for importing Buyers/Customers. A buyer now has exactly
+// one set of GST/IEC/shipping details (migration 0032 - the old
+// "Folder's Name groups several GST entries under one buyer" model
+// didn't match how this is actually used in practice), so each row is
+// just one buyer account, full stop.
 export const BUYER_IMPORT_FIELDS: { key: string; label: string; required?: boolean }[] = [
-  { key: "folder_name", label: "Folder's Name (groups entries into one P&L account)", required: true },
-  { key: "legal_name", label: "GST / Company Legal Name", required: true },
+  { key: "legal_name", label: "Buyer / Company Name", required: true },
   { key: "address_line_1", label: "Address Line 1" },
   { key: "address_line_2", label: "Address Line 2" },
   { key: "address_line_3", label: "Address Line 3" },

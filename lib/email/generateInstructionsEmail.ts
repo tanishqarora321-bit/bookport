@@ -60,7 +60,7 @@ const HIGHLIGHT = "background-color:#ffff00;";
 const CYAN_BOX = "background-color:#9ff5f5;border:1px solid #333;padding:8px 10px;max-width:480px;";
 
 export function generateInstructionsEmail(data: InstructionsEmailData): { subject: string; html: string } {
-  const subject = `REQUIRE SHIPPING INSTRUCTIONS // BOOKING ${data.booking_no}`;
+  const subject = `Instruction For Booking - ${data.booking_no}${data.container_no ? ` - ${data.container_no}` : ""}`;
 
   const html = `
 <div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#000;line-height:1.5;">
