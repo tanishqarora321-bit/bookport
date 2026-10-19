@@ -675,6 +675,12 @@ function InvoiceRows({
             rate: "",
             amount: String(inv.total ?? ""),
             currency: inv.currency,
+            items: inv.items.map((it) => ({
+              description: it.description,
+              weight_kg: it.weight_kg,
+              unit_price: it.unit_price,
+              amount: it.amount,
+            })),
           },
         }),
       });

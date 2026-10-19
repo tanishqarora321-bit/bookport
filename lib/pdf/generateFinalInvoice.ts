@@ -9,6 +9,13 @@ export type TemplateConfig = {
   accent_color?: string;
 };
 
+export type InvoiceLineItem = {
+  description: string | null;
+  weight_kg: number | null;
+  unit_price: number | null;
+  amount: number;
+};
+
 export type InvoiceFieldData = {
   invoice_no: string;
   invoice_date: string; // ISO date
@@ -26,6 +33,13 @@ export type InvoiceFieldData = {
   rate: string;
   amount: string;
   currency: string;
+  // The invoice ledger's own per-row cost-section breakdown (Mixed Rags
+  // rate, Trucking, Commission, Ocean Freight, etc., each its own line
+  // and amount) - printed as separate lines below the summary row rather
+  // than collapsed into just the one combined total, per Tanishq's own
+  // real example and explicit ask ("prints the whole amount not the
+  // breaking which is shareable").
+  items?: InvoiceLineItem[];
 };
 
 // Hex like "#0f172a" -> pdf-lib rgb(0-1 scale)
@@ -148,12 +162,26 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   cols2.forEach((c) => draw(c.value, c.x, y, { size: 8 }));
   y -= 20;
 
-  draw(
-    `${data.qty_bales} Bales ${data.description} ${data.weight_lbs} LBS @ ${data.rate}=${data.currency} ${data.amount}`,
-    left,
-    y,
-    { size: 8, color: gray }
-  );
+  // Itemized breakdown (Mixed Rags rate, Trucking, Commission, Ocean
+  // Freight, etc.) - one line per cost-section item, each with its own
+  // amount, rather than only the combined total shown above.
+  const items = data.items ?? [];
+  if (items.length > 0) {
+    items.forEach((item) => {
+      const bits = [item.description || ""];
+      if (item.weight_kg != null) bits.push(`${item.weight_kg} KG`);
+      if (item.unit_price != null) bits.push(`@ ${item.unit_price}`);
+      draw(`${bits.join(" ")} = ${data.currency} ${item.amount}`, left, y, { size: 8, color: gray });
+      y -= 12;
+    });
+  } else {
+    draw(
+      `${data.qty_bales} Bales ${data.description} ${data.weight_lbs} LBS @ ${data.rate}=${data.currency} ${data.amount}`,
+      left,
+      y,
+      { size: 8, color: gray }
+    );
+  }
 
   return doc.save();
 }

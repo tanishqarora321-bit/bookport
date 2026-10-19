@@ -93,6 +93,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     rate: body.overrides?.rate || "",
     amount: body.overrides?.amount || "",
     currency: body.overrides?.currency || "USD",
+    items: body.overrides?.items || [],
   };
   const finalData: InvoiceFieldData = { ...autoFilled, ...(body.overrides ?? {}) };
 
