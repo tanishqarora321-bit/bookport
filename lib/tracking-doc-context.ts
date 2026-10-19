@@ -7,8 +7,8 @@
 // One place to get this join right instead of three slightly different
 // copies drifting apart.
 export type TrackingDocContext = {
-  tracking: { id: string; booking_id: string | null; container_number: string | null; party_id: string | null };
-  booking: { bl_date: string | null; pol: string | null; pod: string | null; commodity: string | null; hs_code: string | null } | null;
+  tracking: { id: string; booking_id: string | null; container_number: string | null; party_id: string | null; invoice_no: string | null };
+  booking: { bl_date: string | null; pol: string | null; pod: string | null; commodity: string | null; hs_code: string | null; container_size: string | null } | null;
   buyerParty: { legal_name: string; address: string | null } | null;
   gstEntry: { address: string | null; description_of_goods: string | null; hs_code: string | null } | null;
   packingItem: { seal_no: string | null; weight: number | null; weight_unit: string | null; bales: number | null } | null;
@@ -17,7 +17,7 @@ export type TrackingDocContext = {
 export async function getTrackingDocContext(supabase: any, trackingId: string, companyId: string): Promise<TrackingDocContext | null> {
   const { data: tracking } = await supabase
     .from("tracking")
-    .select("id, booking_id, container_number, party_id")
+    .select("id, booking_id, container_number, party_id, invoice_no")
     .eq("id", trackingId)
     .eq("company_id", companyId)
     .single();
@@ -25,7 +25,7 @@ export async function getTrackingDocContext(supabase: any, trackingId: string, c
 
   const [{ data: booking }, { data: buyerParty }] = await Promise.all([
     tracking.booking_id
-      ? supabase.from("bookings").select("bl_date, pol, pod, commodity, hs_code").eq("id", tracking.booking_id).maybeSingle()
+      ? supabase.from("bookings").select("bl_date, pol, pod, commodity, hs_code, container_size").eq("id", tracking.booking_id).maybeSingle()
       : Promise.resolve({ data: null }),
     tracking.party_id
       ? supabase.from("parties").select("legal_name, address").eq("id", tracking.party_id).maybeSingle()

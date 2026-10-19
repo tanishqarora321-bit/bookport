@@ -131,7 +131,7 @@ export default function BuyerInvoiceLedgerClient({
     totalsByCurrency[inv.currency] = (totalsByCurrency[inv.currency] ?? 0) + Number(inv.total || 0);
   }
 
-  const COLSPAN = 21;
+  const COLSPAN = 22;
 
   return (
     <div className="h-full flex flex-col">
@@ -222,6 +222,7 @@ export default function BuyerInvoiceLedgerClient({
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
+              <Th></Th>
               <Th></Th>
               <Th></Th>
               <Th></Th>
@@ -618,7 +619,7 @@ function InvoiceRows({
 }) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [generatingDoc, setGeneratingDoc] = useState<"fumigation" | "coo" | null>(null);
+  const [generatingDoc, setGeneratingDoc] = useState<"fumigation" | "coo" | "sod" | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
 
   // "Generate Invoice" reuses the existing Final Invoice PDF pipeline
@@ -693,12 +694,12 @@ function InvoiceRows({
   // Customers first, then generate. Both routes derive everything from
   // the booking's uploaded BL (date/container/POL) and the buyer's own
   // shipping details, so this is just a POST + open the result.
-  async function handleGenerateDoc(kind: "fumigation" | "coo") {
+  async function handleGenerateDoc(kind: "fumigation" | "coo" | "sod") {
     if (!inv.tracking_id) return;
     setGeneratingDoc(kind);
     setDocError(null);
     try {
-      const endpoint = kind === "fumigation" ? "fumigation-certificate" : "certificate-of-origin";
+      const endpoint = kind === "fumigation" ? "fumigation-certificate" : kind === "coo" ? "certificate-of-origin" : "set-of-documents";
       const res = await fetch(`/api/tracking/${inv.tracking_id}/${endpoint}`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to generate");
@@ -790,6 +791,16 @@ function InvoiceRows({
             className="text-xs border px-2 py-1 rounded font-medium disabled:opacity-40"
           >
             {generatingDoc === "coo" ? "Generating…" : "Certificate of Origin"}
+          </button>
+        </td>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <button
+            onClick={() => handleGenerateDoc("sod")}
+            disabled={!inv.tracking_id || generatingDoc !== null}
+            title={!inv.tracking_id ? "This invoice has no linked tracking entry yet" : undefined}
+            className="text-xs border px-2 py-1 rounded font-medium disabled:opacity-40"
+          >
+            {generatingDoc === "sod" ? "Generating…" : "Set of Documents"}
           </button>
           {docError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError}</div>}
         </td>

@@ -46,6 +46,19 @@ export function addDaysIso(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const KG_TO_LB = 2.20462;
+
+// Packing/BL weight is stored as one value + unit (LBS or KG) - the
+// Packing List page of Set of Documents shows BOTH columns, so one of
+// them is always a conversion.
+export function weightInBothUnits(weight: number | null, unit: string | null): { lbs: string; kgs: string } {
+  if (weight == null) return { lbs: "", kgs: "" };
+  if ((unit || "").toUpperCase().startsWith("KG")) {
+    return { kgs: weight.toFixed(2), lbs: (weight * KG_TO_LB).toFixed(0) };
+  }
+  return { lbs: weight.toFixed(0), kgs: (weight / KG_TO_LB).toFixed(2) };
+}
+
 export function makeDrawer(page: PDFPage, defaultFont: PDFFont) {
   return (text: string, x: number, y: number, opts: { font?: PDFFont; size?: number; color?: any } = {}) => {
     page.drawText(text ?? "", {
