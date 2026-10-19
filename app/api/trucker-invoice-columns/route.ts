@@ -19,7 +19,7 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("trucker_invoice_custom_columns")
-    .select("id, key, label")
+    .select("id, key, label, value_type")
     .eq("company_id", me.company_id)
     .order("created_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const label = (body.label ?? "").toString().trim();
   if (!label) return NextResponse.json({ error: "Column name is required" }, { status: 400 });
+  const valueType = body.value_type === "text" ? "text" : "number";
 
   const supabase = createServiceClient();
 
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
   for (const key of [baseKey, `${baseKey}_${Math.random().toString(36).slice(2, 5)}`]) {
     const { data, error } = await supabase
       .from("trucker_invoice_custom_columns")
-      .insert({ company_id: me.company_id, key, label })
+      .insert({ company_id: me.company_id, key, label, value_type: valueType })
       .select()
       .single();
     if (!error) {

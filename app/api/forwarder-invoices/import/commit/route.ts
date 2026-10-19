@@ -67,6 +67,21 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  // A text-type custom column (a reference/note, not a charge amount)
+  // must never go through parseNumeric() - without this, mapping an
+  // import column onto one would silently turn real text into 0.
+  const textCustomKeys = new Set<string>();
+  if (customKeys.length > 0) {
+    const { data: colDefs } = await supabase
+      .from("forwarder_invoice_custom_columns")
+      .select("key, value_type")
+      .eq("company_id", companyId)
+      .in("key", customKeys);
+    for (const c of colDefs ?? []) {
+      if (c.value_type === "text") textCustomKeys.add(c.key);
+    }
+  }
+
   const { data: forwarderParty } = await supabase.from("parties").select("id").eq("id", forwarderId).eq("company_id", companyId).maybeSingle();
   if (!forwarderParty) return NextResponse.json({ error: "Forwarder not found" }, { status: 404 });
 
@@ -391,13 +406,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const customCharges: Record<string, number> = {};
+    const customCharges: Record<string, number | string> = {};
     for (const [key] of Object.entries(mapping)) {
       if (key === "booking_number" || key === "container_number" || FORWARDER_INVOICE_BOOKING_CREATE_KEYS.has(key)) continue;
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
-        customCharges[key] = parseNumeric(raw);
+        customCharges[key] = textCustomKeys.has(key) ? raw : parseNumeric(raw);
       } else if (FORWARDER_INVOICE_DATE_KEYS.has(key)) {
         const parsed = parseDateish(raw);
         updates[key] = parsed ? parsed.toISOString().slice(0, 10) : null;

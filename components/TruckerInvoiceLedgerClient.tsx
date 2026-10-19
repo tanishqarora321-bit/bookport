@@ -7,7 +7,7 @@ import StatCard from "@/components/ui/StatCard";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 
-type CustomColumn = { id: string; key: string; label: string };
+type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" };
 
 type Invoice = {
   id: string;
@@ -60,11 +60,11 @@ async function patchTracking(trackingId: string, updates: Record<string, any>) {
   return json;
 }
 
-async function createCustomColumn(label: string): Promise<CustomColumn> {
+async function createCustomColumn(label: string, valueType: "number" | "text"): Promise<CustomColumn> {
   const res = await fetch("/api/trucker-invoice-columns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ label }),
+    body: JSON.stringify({ label, value_type: valueType }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || "Failed to add column");
@@ -96,7 +96,7 @@ const CHARGE_KEYS = ["trucking", "fuel_surcharge", "chassis_rental", "stop_off",
 // DB once any custom column has a value. Mirrors the identical pattern
 // on the Forwarders ledger.
 function customChargesSum(inv: Invoice, columns: CustomColumn[]) {
-  return columns.reduce((s, c) => s + (Number(inv.custom_charges?.[c.key]) || 0), 0);
+  return columns.filter((c) => c.value_type !== "text").reduce((s, c) => s + (Number(inv.custom_charges?.[c.key]) || 0), 0);
 }
 function invoiceTotal(inv: Invoice, columns: CustomColumn[]) {
   return inv.total + customChargesSum(inv, columns);
@@ -159,12 +159,15 @@ export default function TruckerInvoiceLedgerClient({
       alert(`You already have ${MAX_CUSTOM_COLUMNS} custom columns, the maximum.`);
       return;
     }
-    if (!confirm(`Add "${label}" as a new charge column? It will show up on every trucker's invoice ledger, not just ${truckerName}'s.`)) {
+    const isText = confirm(
+      `Is "${label}" a NUMBER column (a charge amount, included in the invoice total) or a TEXT column (a reference/note, not a dollar amount)?\n\nOK = Text column\nCancel = Number column`
+    );
+    if (!confirm(`Add "${label}" as a new ${isText ? "text" : "number"} column? It will show up on every trucker's invoice ledger, not just ${truckerName}'s.`)) {
       return;
     }
     setAddingColumn(true);
     try {
-      const column = await createCustomColumn(label);
+      const column = await createCustomColumn(label, isText ? "text" : "number");
       setCustomColumns((prev) => [...prev, column]);
     } catch (err: any) {
       alert(err.message);
@@ -317,7 +320,7 @@ export default function TruckerInvoiceLedgerClient({
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
                 ))}
                 {customColumns.map((col) => (
-                  <td key={col.key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(customTotalsUsd[col.key], "USD")}</td>
+                  <td key={col.key} className="px-3 py-2 whitespace-nowrap">{col.value_type === "text" ? "—" : fmtMoney(customTotalsUsd[col.key], "USD")}</td>
                 ))}
                 <td className="px-3 py-2 text-ink/30">—</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
@@ -395,15 +398,24 @@ function InvoiceRow({
       <EditableCell value={String(inv.stop_off ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { stop_off: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.stop_off, inv.currency)} />
       <EditableCell value={String(inv.chassis_split ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { chassis_split: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.chassis_split, inv.currency)} />
       <EditableCell value={String(inv.misc_charges ?? 0)} isNumber onSave={(v) => patchInvoice(inv.id, { misc_charges: Number(v) }).then((r) => onChange(r.invoice))} display={fmtMoney(inv.misc_charges, inv.currency)} />
-      {customColumns.map((col) => (
-        <EditableCell
-          key={col.key}
-          value={String(inv.custom_charges?.[col.key] ?? 0)}
-          isNumber
-          onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: Number(v) || 0 } }).then((r) => onChange(r.invoice))}
-          display={fmtMoney(inv.custom_charges?.[col.key] ?? 0, inv.currency)}
-        />
-      ))}
+      {customColumns.map((col) =>
+        col.value_type === "text" ? (
+          <EditableCell
+            key={col.key}
+            value={String(inv.custom_charges?.[col.key] ?? "")}
+            onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: v } }).then((r) => onChange(r.invoice))}
+            display={String(inv.custom_charges?.[col.key] ?? "—")}
+          />
+        ) : (
+          <EditableCell
+            key={col.key}
+            value={String(inv.custom_charges?.[col.key] ?? 0)}
+            isNumber
+            onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: Number(v) || 0 } }).then((r) => onChange(r.invoice))}
+            display={fmtMoney(inv.custom_charges?.[col.key] ?? 0, inv.currency)}
+          />
+        )
+      )}
       <Td>
         <span className="font-medium">{fmtMoney(invoiceTotal(inv, customColumns), inv.currency)}</span>
       </Td>
@@ -573,7 +585,7 @@ function EnterInvoiceModal({
     fx_rate: String(inv.fx_rate ?? 1),
   });
   const [customValues, setCustomValues] = useState<Record<string, string>>(
-    Object.fromEntries(customColumns.map((c) => [c.key, String(inv.custom_charges?.[c.key] ?? 0)]))
+    Object.fromEntries(customColumns.map((c) => [c.key, String(inv.custom_charges?.[c.key] ?? (c.value_type === "text" ? "" : 0))]))
   );
   const [suggestedCharges, setSuggestedCharges] = useState<{ name: string; amount: number }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -628,7 +640,7 @@ function EnterInvoiceModal({
     }
     if (!confirm(`Add "${s.name}" as a new charge column (value ${s.amount})? It will show up on every trucker's invoice ledger.`)) return;
     try {
-      const column = await createCustomColumn(s.name);
+      const column = await createCustomColumn(s.name, "number");
       onColumnAdded(column);
       setCustomValues((prev) => ({ ...prev, [column.key]: String(s.amount) }));
       setSuggestedCharges((prev) => prev.filter((c) => c !== s));
@@ -674,7 +686,9 @@ function EnterInvoiceModal({
         fx_rate: Number(form.fx_rate) || 1,
       };
       if (customColumns.length > 0) {
-        updates.custom_charges = Object.fromEntries(customColumns.map((c) => [c.key, Number(customValues[c.key]) || 0]));
+        updates.custom_charges = Object.fromEntries(
+          customColumns.map((c) => [c.key, c.value_type === "text" ? customValues[c.key] ?? "" : Number(customValues[c.key]) || 0])
+        );
       }
       const result = await patchInvoice(inv.id, updates);
       onSaved(result.invoice);
@@ -731,8 +745,8 @@ function EnterInvoiceModal({
             <LabeledInput
               key={col.key}
               label={col.label}
-              type="number"
-              value={customValues[col.key] ?? "0"}
+              type={col.value_type === "text" ? "text" : "number"}
+              value={customValues[col.key] ?? (col.value_type === "text" ? "" : "0")}
               onChange={(v) => setCustomValues({ ...customValues, [col.key]: v })}
             />
           ))}
