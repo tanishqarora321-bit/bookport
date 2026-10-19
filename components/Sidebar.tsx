@@ -41,7 +41,7 @@ const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
   { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
   { label: "Invoices & Statement", href: "/soon/invoices-statement", icon: Receipt },
-  { label: "Profit & Loss", href: "/soon/profit-loss", icon: TrendingUp },
+  { label: "Profit & Loss", href: "/profit-loss", icon: TrendingUp },
   { label: "Dashboard & Reports", href: "/soon/dashboard-reports", icon: LayoutDashboard },
   { label: "Settings & Control", href: "/team", icon: Settings },
 ];
