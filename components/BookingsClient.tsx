@@ -10,6 +10,7 @@ import StatCard from "@/components/ui/StatCard";
 import StatusCell from "@/components/StatusCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
+import UploadBlCell from "@/components/UploadBlCell";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -25,6 +26,7 @@ type Row = {
   pod: string | null;
   final_destination: string | null;
   bl_issued_at: string | null;
+  bl_number: string | null;
   carrier: string | null;
   vessel: string | null;
   container_size: string | null;
@@ -377,7 +379,7 @@ export default function BookingsClient({
             <tr>
               {[
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
-                "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
+                "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At", "Upload BL",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
                 "Container Number", "Vessel", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
@@ -402,6 +404,15 @@ export default function BookingsClient({
                   <EditableCell bookingId={r.booking_id} column="pod" value={r.pod} />
                   <EditableCell bookingId={r.booking_id} column="final_destination" value={r.final_destination} />
                   <EditableCell bookingId={r.booking_id} column="bl_issued_at" value={r.bl_issued_at} />
+                  <UploadBlCell
+                    bookingId={r.booking_id}
+                    blNumber={r.bl_number}
+                    // A BL can update fields across every container on this
+                    // booking at once (not just this row's own) - simplest
+                    // to just reload rather than patch N rows' worth of
+                    // scattered state by hand.
+                    onApplied={() => window.location.reload()}
+                  />
                   <EditableCell bookingId={r.booking_id} column="carrier" value={r.carrier} />
                   <PartyPickerCell
                     bookingId={r.booking_id}

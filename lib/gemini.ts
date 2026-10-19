@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { bookingExtractionSchema as schema } from "./booking-schema";
+import { blExtractionSchema } from "./bl-schema";
 import { IMPORT_FIELDS } from "./booking-import-fields";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -83,6 +84,89 @@ match the meaning, not the literal words):
 11. container_size - the container count/type string as shown, e.g.
     "1x40'HI-CUBE", "2x40HC", "1x45GP". Copy the format the document uses
     rather than normalizing it.
+`;
+
+  const result = await model.generateContent([
+    { text: prompt },
+    { inlineData: { mimeType: "application/pdf", data: fileBase64 } }
+  ]);
+
+  return JSON.parse(result.response.text());
+}
+
+/**
+ * Extracts Bill of Lading fields from an uploaded BL PDF (Booking &
+ * Instructions' "Upload BL") - booking_no/BL number, the BL's own issue
+ * date (feeds "3 days after BL issued date" used by Fumigation
+ * Certificate / Certificate of Origin / Commercial Invoice generation),
+ * routing, and one container/seal/weight/bales line per container shown
+ * on the BL. Same never-auto-saved contract as extractBookingFromPdf -
+ * the caller logs this to documents.extracted_json for a human review
+ * screen; nothing here writes to bookings/containers directly.
+ */
+export async function extractBLFromPdf(fileBase64: string) {
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    generationConfig: {
+      responseMimeType: "application/json",
+      // @ts-expect-error - responseSchema accepts a plain JSON-schema object
+      responseSchema: blExtractionSchema,
+      maxOutputTokens: 3072
+    }
+  });
+
+  const prompt = `You are extracting fields from an ocean Bill of Lading (B/L) PDF into the
+given JSON schema. For every scalar field, also return "source_quote" (the
+exact phrase the value came from - 15 words maximum, never a full sentence
+or paragraph, and never the legal/terms-and-conditions boilerplate these
+documents are full of) and "confidence" 0-1.
+
+If a field is genuinely absent, set its value to null rather than guessing -
+except bl_number, which is mandatory: it always appears somewhere, even
+under an unusual label.
+
+Field-by-field guidance:
+
+1. bl_number (MANDATORY) - "Bill of Lading No.", "B/L No.", "BL Number" -
+   this is the CARRIER's own BL document number (e.g. "COSU6446078830"),
+   NOT the booking number (which may also appear on the same document as
+   a separate "Booking No." field - do not confuse the two).
+
+2. bl_date - the BL's own issue date: "Date of Issue". If no explicit
+   "Date of Issue" exists, "Date Laden on Board" is an acceptable fallback
+   (used for the same purpose on most B/Ls). Return as an ISO 8601 date.
+
+3. place_of_issue - "Place of Issue" - a city name, e.g. "HOUSTON".
+
+4. vessel - the vessel name, e.g. "XIN SHAN TOU", from "Ocean Vessel" or
+   "Vessel/Voy. No." (the vessel name part only, not the voyage number).
+
+5. voyage - the voyage number, e.g. "224S", from "Voy. No." or
+   "Vessel/Voy. No." (the voyage part only, not the vessel name).
+
+6. pol - Port of Loading.
+
+7. pod - Port of Discharge (where the vessel unloads, not any further
+   inland destination).
+
+8. place_of_receipt - "Place of Receipt", "Combined Transport Place of
+   Receipt" - often a different, usually inland, location than the Port
+   of Loading (e.g. "SEATTLE, WA, US" vs. port "SEATTLE").
+
+9. description_of_goods - the cargo description from the Marks & Numbers /
+   Description of Goods block, e.g. "OLD AND USED WORN CLOTHING". Leave
+   out incidental notes (fumigation stamps, shipper declarations, HS code)
+   that aren't part of the actual goods description.
+
+10. hs_code - "H.S. CODE", "HS Code", if shown.
+
+11. containers - one entry per container/seal line in the Marks & Numbers
+    block. container_no is the container number (e.g. "FCIU9844912"),
+    seal_no the seal number (e.g. "UL8377521") - these are usually shown
+    together separated by a slash. gross_weight and weight_unit come from
+    the Gross Weight column (e.g. 18056 / "KGS"). bales is the package/
+    bale/carton count for that specific container. If the B/L covers only
+    one container, return a single-item array.
 `;
 
   const result = await model.generateContent([

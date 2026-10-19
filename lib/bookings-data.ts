@@ -9,7 +9,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 const BOOKINGS_SELECT =
-  "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, carrier, vessel, container_size, status, instruction_status, created_at, " +
+  "id, carrier_booking_no, erd, si_cutoff, cargo_cutoff, pol, pod, final_destination, bl_issued_at, bl_number, bl_date, carrier, vessel, container_size, status, instruction_status, created_at, " +
   "containers (id, container_no, seal_no, size_type, packing_items:container_packing_items (id, seal_no, weight, weight_unit, bales, description, sort_order)), " +
   "booking_parties (role, party_id, parties (legal_name))";
 
@@ -38,6 +38,7 @@ function flattenBooking(b: any): any[] {
     pod: b.pod,
     final_destination: b.final_destination,
     bl_issued_at: b.bl_issued_at,
+    bl_number: b.bl_number,
     carrier: b.carrier,
     vessel: b.vessel,
     container_size: b.container_size,
