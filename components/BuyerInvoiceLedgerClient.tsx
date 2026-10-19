@@ -131,7 +131,7 @@ export default function BuyerInvoiceLedgerClient({
     totalsByCurrency[inv.currency] = (totalsByCurrency[inv.currency] ?? 0) + Number(inv.total || 0);
   }
 
-  const COLSPAN = 19;
+  const COLSPAN = 21;
 
   return (
     <div className="h-full flex flex-col">
@@ -222,6 +222,8 @@ export default function BuyerInvoiceLedgerClient({
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
+              <Th></Th>
+              <Th></Th>
               <Th></Th>
               <Th></Th>
               <Th></Th>
@@ -616,6 +618,8 @@ function InvoiceRows({
 }) {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [generatingDoc, setGeneratingDoc] = useState<"fumigation" | "coo" | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
 
   // "Generate Invoice" reuses the existing Final Invoice PDF pipeline
   // (app/api/tracking/[id]/documents/route.ts) rather than a new
@@ -683,6 +687,29 @@ function InvoiceRows({
     }
   }
 
+  // Fumigation Certificate / Certificate of Origin - no override form by
+  // design (see app/api/tracking/[id]/fumigation-certificate/route.ts's
+  // comment): fix the source data on Booking & Instructions / Buyers &
+  // Customers first, then generate. Both routes derive everything from
+  // the booking's uploaded BL (date/container/POL) and the buyer's own
+  // shipping details, so this is just a POST + open the result.
+  async function handleGenerateDoc(kind: "fumigation" | "coo") {
+    if (!inv.tracking_id) return;
+    setGeneratingDoc(kind);
+    setDocError(null);
+    try {
+      const endpoint = kind === "fumigation" ? "fumigation-certificate" : "certificate-of-origin";
+      const res = await fetch(`/api/tracking/${inv.tracking_id}/${endpoint}`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to generate");
+      if (json.url) window.open(json.url, "_blank");
+    } catch (err: any) {
+      setDocError(err.message);
+    } finally {
+      setGeneratingDoc(null);
+    }
+  }
+
   return (
     <>
       <tr className="border-b hover:bg-blue-50/30">
@@ -744,6 +771,27 @@ function InvoiceRows({
             {generating ? "Generating…" : "Generate Invoice"}
           </button>
           {genError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{genError}</div>}
+        </td>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <button
+            onClick={() => handleGenerateDoc("fumigation")}
+            disabled={!inv.tracking_id || generatingDoc !== null}
+            title={!inv.tracking_id ? "This invoice has no linked tracking entry yet" : undefined}
+            className="text-xs border px-2 py-1 rounded font-medium disabled:opacity-40"
+          >
+            {generatingDoc === "fumigation" ? "Generating…" : "Fumigation Cert."}
+          </button>
+        </td>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <button
+            onClick={() => handleGenerateDoc("coo")}
+            disabled={!inv.tracking_id || generatingDoc !== null}
+            title={!inv.tracking_id ? "This invoice has no linked tracking entry yet" : undefined}
+            className="text-xs border px-2 py-1 rounded font-medium disabled:opacity-40"
+          >
+            {generatingDoc === "coo" ? "Generating…" : "Certificate of Origin"}
+          </button>
+          {docError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError}</div>}
         </td>
         <td className="px-3 py-2">
           <button onClick={onToggle} className="text-xs text-accent underline whitespace-nowrap">
