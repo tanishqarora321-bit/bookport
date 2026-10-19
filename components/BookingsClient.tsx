@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail } from "lucide-react";
 import EditableCell from "@/components/EditableCell";
@@ -118,6 +118,29 @@ export default function BookingsClient({
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
   const [gstEntries, setGstEntries] = useState(buyerGstEntries);
+
+  // The duplicate-numbers banner is a one-time heads-up, not a permanent
+  // fixture - once dismissed for the current count, it stays hidden until
+  // a NEW duplicate shows up (duplicateGroupCount goes higher than
+  // whatever was dismissed), so a genuinely new conflict still surfaces.
+  const DUPLICATE_BANNER_KEY = "bookport:dismissed-duplicate-banner-count";
+  const [dismissedDuplicateCount, setDismissedDuplicateCount] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DUPLICATE_BANNER_KEY);
+      setDismissedDuplicateCount(stored ? parseInt(stored, 10) : 0);
+    } catch {
+      setDismissedDuplicateCount(0);
+    }
+  }, []);
+  function dismissDuplicateBanner() {
+    setDismissedDuplicateCount(duplicateGroupCount);
+    try {
+      localStorage.setItem(DUPLICATE_BANNER_KEY, String(duplicateGroupCount));
+    } catch {
+      /* private window / blocked storage - banner just won't stay dismissed, not worth failing over */
+    }
+  }
 
   const [line, setLine] = useState("all");
   const [destination, setDestination] = useState("all");
@@ -253,18 +276,20 @@ export default function BookingsClient({
         </Link>
       </div>
 
-      {variant === "single" && duplicateGroupCount > 0 && (
-        <Link
-          href="/bookings/multiple"
-          className="flex items-center gap-2 mb-4 shrink-0 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5 hover:bg-amber-100"
-        >
+      {variant === "single" && duplicateGroupCount > 0 && dismissedDuplicateCount !== null && duplicateGroupCount > dismissedDuplicateCount && (
+        <div className="flex items-center gap-2 mb-4 shrink-0 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
           <AlertTriangle className="w-4 h-4 shrink-0" size={16} />
-          {duplicateGroupCount} booking number{duplicateGroupCount === 1 ? "" : "s"} {duplicateGroupCount === 1 ? "has" : "have"} more than one entry — review in Multiple Bookings & Instructions →
-        </Link>
+          <Link href="/bookings/multiple" className="flex-1 hover:underline">
+            {duplicateGroupCount} booking number{duplicateGroupCount === 1 ? "" : "s"} {duplicateGroupCount === 1 ? "has" : "have"} more than one entry — review in Multiple Bookings & Instructions →
+          </Link>
+          <button onClick={dismissDuplicateBanner} className="text-amber-800/60 hover:text-amber-800 shrink-0" title="Dismiss">
+            ✕
+          </button>
+        </div>
       )}
 
       {variant === "single" && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 shrink-0">
           <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
           <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
           <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
