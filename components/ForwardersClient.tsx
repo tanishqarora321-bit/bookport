@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Ship, CheckCircle2 } from "lucide-react";
+import { Ship, CheckCircle2, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -20,6 +20,7 @@ type Forwarder = {
 export default function ForwardersClient({ initialForwarders }: { initialForwarders: Forwarder[] }) {
   const [forwarders, setForwarders] = useState(initialForwarders);
   const [showInactive, setShowInactive] = useState(false);
+  const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -78,23 +79,32 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
   const [editing, setEditing] = useState<Forwarder | null>(null);
   const [merging, setMerging] = useState<Forwarder | null>(null);
 
-  const visible = forwarders.filter((f) => showInactive || f.is_active);
+  const q = search.trim().toLowerCase();
+  const visible = forwarders
+    .filter((f) => showInactive || f.is_active)
+    .filter(
+      (f) =>
+        !q ||
+        f.legal_name.toLowerCase().includes(q) ||
+        (f.short_code ?? "").toLowerCase().includes(q) ||
+        (f.country ?? "").toLowerCase().includes(q)
+    );
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">Forwarders</h1>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-ink/60">
+          <label className="flex items-center gap-2 text-sm text-text-2">
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show removed
           </label>
-          <Link href="/forwarders/import" className="text-sm border px-3 py-1.5 rounded font-medium">
+          <Link href="/forwarders/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
           <button
             onClick={() => setAdding(!adding)}
-            className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium"
+            className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
           >
             + New Forwarder
           </button>
@@ -107,48 +117,58 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
       </div>
 
       {adding && (
-        <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-2 gap-3">
+        <div className="border border-accent/30 bg-accent/5 rounded-lg p-4 mb-4 grid grid-cols-2 gap-3">
           <input
             placeholder="Forwarder name *"
-            className="border rounded px-2 py-1.5 text-sm col-span-2"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm col-span-2"
             value={form.legal_name}
             onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
           />
           <input
             placeholder="Short code"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm"
             value={form.short_code}
             onChange={(e) => setForm({ ...form, short_code: e.target.value })}
           />
           <input
             placeholder="Country"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm"
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
           />
           <textarea
             placeholder="Address"
-            className="border rounded px-2 py-1.5 text-sm col-span-2"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm col-span-2"
             rows={2}
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
           />
           {error && <div className="col-span-2 text-xs text-cutoff">{error}</div>}
           <div className="col-span-2 flex gap-2">
-            <button onClick={addForwarder} disabled={saving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+            <button onClick={addForwarder} disabled={saving} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg">
               {saving ? "Saving…" : "Save Forwarder"}
             </button>
-            <button onClick={() => setAdding(false)} className="text-sm border px-3 py-1.5 rounded">
+            <button onClick={() => setAdding(false)} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      <div className="bg-surface rounded-xl shadow-sm">
+      <div className="relative mb-3 max-w-xs">
+        <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+        <input
+          placeholder="Search forwarders…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
+        />
+      </div>
+
+      <div className="bg-surface border border-line rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="text-left text-ink/50 border-b">
+            <tr className="text-left text-muted border-b border-line">
               <th className="px-3 py-2">Forwarder Name</th>
               <th className="px-3 py-2">Short Code</th>
               <th className="px-3 py-2">Country</th>
@@ -160,19 +180,19 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
           </thead>
           <tbody>
             {visible.map((f) => (
-              <tr key={f.id} className={`border-b last:border-0 hover:bg-blue-50/40 ${!f.is_active ? "opacity-40" : ""}`}>
+              <tr key={f.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!f.is_active ? "opacity-40" : ""}`}>
                 <td className="px-3 py-2 font-medium text-ink">{f.legal_name}</td>
-                <td className="px-3 py-2 text-ink/70">{f.short_code || "—"}</td>
-                <td className="px-3 py-2 text-ink/70">{f.country || "—"}</td>
-                <td className="px-3 py-2 text-ink/50 max-w-[260px] truncate" title={f.address ?? ""}>
+                <td className="px-3 py-2 text-text-2">{f.short_code || "—"}</td>
+                <td className="px-3 py-2 text-text-2">{f.country || "—"}</td>
+                <td className="px-3 py-2 text-muted max-w-[260px] truncate" title={f.address ?? ""}>
                   {f.address || "—"}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <button onClick={() => setEditing(f)} className="text-xs text-ink/50 hover:text-accent border px-2 py-1 rounded">
+                  <button onClick={() => setEditing(f)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1">
                     Edit
                   </button>
                   {forwarders.length > 1 && (
-                    <button onClick={() => setMerging(f)} className="text-xs text-ink/50 hover:text-accent border px-2 py-1 rounded ml-1">
+                    <button onClick={() => setMerging(f)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1 ml-1">
                       Merge
                     </button>
                   )}
@@ -185,8 +205,8 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   <button
                     onClick={() => toggleActive(f)}
-                    className={`text-xs px-2 py-1 rounded ${
-                      f.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                    className={`text-xs px-2 py-1 rounded-lg ${
+                      f.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
                     }`}
                   >
                     {f.is_active ? "Remove" : "Restore"}
@@ -194,7 +214,7 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
                   {!f.is_active && (
                     <button
                       onClick={() => deletePermanently(f)}
-                      className="text-xs px-2 py-1 rounded text-cutoff hover:bg-red-50 font-medium"
+                      className="text-xs px-2 py-1 rounded-lg text-cutoff hover:bg-critical-soft font-medium"
                       title="Delete permanently"
                     >
                       Delete
@@ -206,7 +226,11 @@ export default function ForwardersClient({ initialForwarders }: { initialForward
           </tbody>
         </table>
         {visible.length === 0 && (
-          <EmptyState icon={Ship} title="No forwarders yet" hint='Click "+ New Forwarder" above to add one.' />
+          <EmptyState
+            icon={Ship}
+            title={forwarders.length === 0 ? "No forwarders yet" : "No forwarders match"}
+            hint={forwarders.length === 0 ? 'Click "+ New Forwarder" above to add one.' : "Try a different search term."}
+          />
         )}
       </div>
 
@@ -287,62 +311,62 @@ function EditForwarderModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Forwarder</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
         <div className="space-y-3">
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Forwarder Name *</div>
+            <div className="text-xs text-muted mb-0.5">Forwarder Name *</div>
             <input
-              className="border rounded px-2 py-1.5 text-sm w-full"
+              className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
               value={form.legal_name}
               onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-xs text-ink/40 mb-0.5">Short Code</div>
+              <div className="text-xs text-muted mb-0.5">Short Code</div>
               <input
-                className="border rounded px-2 py-1.5 text-sm w-full"
+                className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                 value={form.short_code}
                 onChange={(e) => setForm({ ...form, short_code: e.target.value })}
               />
             </div>
             <div>
-              <div className="text-xs text-ink/40 mb-0.5">Country</div>
+              <div className="text-xs text-muted mb-0.5">Country</div>
               <input
-                className="border rounded px-2 py-1.5 text-sm w-full"
+                className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                 value={form.country}
                 onChange={(e) => setForm({ ...form, country: e.target.value })}
               />
             </div>
           </div>
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Address</div>
+            <div className="text-xs text-muted mb-0.5">Address</div>
             <textarea
-              className="border rounded px-2 py-1.5 text-sm w-full"
+              className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
               rows={2}
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
           </div>
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Email (for Send Instructions)</div>
+            <div className="text-xs text-muted mb-0.5">Email (for Send Instructions)</div>
             <input
               type="email"
-              className="border rounded px-2 py-1.5 text-sm w-full"
+              className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Cc Email</div>
+            <div className="text-xs text-muted mb-0.5">Cc Email</div>
             <input
               type="email"
-              className="border rounded px-2 py-1.5 text-sm w-full"
+              className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
               value={form.cc_email}
               onChange={(e) => setForm({ ...form, cc_email: e.target.value })}
             />
@@ -352,8 +376,8 @@ function EditForwarderModal({
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
 
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button onClick={save} disabled={saving} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -434,19 +458,19 @@ function MergeForwardersModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Forwarders</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
-        <p className="text-sm text-ink/50 mb-3">
+        <p className="text-sm text-muted mb-3">
           Moves all bookings and invoices from the other forwarder onto this one, then permanently removes it as a
           separate entry.
         </p>
 
         <div className="mb-3">
-          <div className="text-xs text-ink/40 mb-0.5">Merge which forwarder into "{forwarder.legal_name}"?</div>
-          <select className="border rounded px-2 py-1.5 text-sm w-full" value={otherId} onChange={(e) => setOtherId(e.target.value)}>
+          <div className="text-xs text-muted mb-0.5">Merge which forwarder into "{forwarder.legal_name}"?</div>
+          <select className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full" value={otherId} onChange={(e) => setOtherId(e.target.value)}>
             {others.map((f) => (
               <option key={f.id} value={f.id}>{f.legal_name}</option>
             ))}
@@ -455,54 +479,54 @@ function MergeForwardersModal({
 
         {other && (
           <>
-            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded p-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded-lg p-3 mb-3">
               <div>
                 <div className="font-medium text-ink mb-1">{forwarder.legal_name}</div>
-                <div className="text-ink/50">Short code: {forwarder.short_code || "—"}</div>
-                <div className="text-ink/50">Country: {forwarder.country || "—"}</div>
-                <div className="text-ink/50">Address: {forwarder.address || "—"}</div>
+                <div className="text-muted">Short code: {forwarder.short_code || "—"}</div>
+                <div className="text-muted">Country: {forwarder.country || "—"}</div>
+                <div className="text-muted">Address: {forwarder.address || "—"}</div>
                 <button onClick={useThisDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
               <div>
                 <div className="font-medium text-ink mb-1">{other.legal_name}</div>
-                <div className="text-ink/50">Short code: {other.short_code || "—"}</div>
-                <div className="text-ink/50">Country: {other.country || "—"}</div>
-                <div className="text-ink/50">Address: {other.address || "—"}</div>
+                <div className="text-muted">Short code: {other.short_code || "—"}</div>
+                <div className="text-muted">Country: {other.country || "—"}</div>
+                <div className="text-muted">Address: {other.address || "—"}</div>
                 <button onClick={useOtherDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
             </div>
 
             <div className="space-y-2">
               <div>
-                <div className="text-xs text-ink/40 mb-0.5">Final Name *</div>
+                <div className="text-xs text-muted mb-0.5">Final Name *</div>
                 <input
-                  className="border rounded px-2 py-1.5 text-sm w-full"
+                  className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                   value={form.legal_name}
                   onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-ink/40 mb-0.5">Final Short Code</div>
+                  <div className="text-xs text-muted mb-0.5">Final Short Code</div>
                   <input
-                    className="border rounded px-2 py-1.5 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                     value={form.short_code}
                     onChange={(e) => setForm({ ...form, short_code: e.target.value })}
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-ink/40 mb-0.5">Final Country</div>
+                  <div className="text-xs text-muted mb-0.5">Final Country</div>
                   <input
-                    className="border rounded px-2 py-1.5 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                     value={form.country}
                     onChange={(e) => setForm({ ...form, country: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <div className="text-xs text-ink/40 mb-0.5">Final Address</div>
+                <div className="text-xs text-muted mb-0.5">Final Address</div>
                 <textarea
-                  className="border rounded px-2 py-1.5 text-sm w-full"
+                  className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full"
                   rows={2}
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
@@ -515,8 +539,8 @@ function MergeForwardersModal({
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
 
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving || !other} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button onClick={save} disabled={saving || !other} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
             {saving ? "Merging…" : "Merge"}
           </button>
         </div>
