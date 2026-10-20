@@ -12,9 +12,7 @@ import {
   Truck,
   BarChart3,
   FileSpreadsheet,
-  Receipt,
   TrendingUp,
-  LayoutDashboard,
   Settings,
   ShieldCheck,
   Copy,
@@ -27,23 +25,45 @@ import { createClient } from "@/lib/supabase/client";
 import { useYear } from "@/lib/year-context";
 import { LogOut } from "lucide-react";
 
-// Only Booking & Instructions is real right now. Everything else routes to
-// the shared "Work in Progress" page - flip an item's `href` to its real
-// route as each module gets built (P1-P4 in the README).
-const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
-  { label: "Multiple Bookings & Instructions", href: "/bookings/multiple", icon: Copy },
-  { label: "Forwarders", href: "/forwarders", icon: Building2 },
-  { label: "Suppliers", href: "/suppliers", icon: Factory },
-  { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
-  { label: "Buyers / Customers", href: "/parties", icon: Users },
-  { label: "Truckers", href: "/truckers", icon: Truck },
-  { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
-  { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
-  { label: "Invoices & Statement", href: "/soon/invoices-statement", icon: Receipt },
-  { label: "Profit & Loss", href: "/profit-loss", icon: TrendingUp },
-  { label: "Dashboard & Reports", href: "/soon/dashboard-reports", icon: LayoutDashboard },
-  { label: "Settings & Control", href: "/team", icon: Settings },
+// Grouped to match the Ship-Sphere Design System v2 nav (Operations /
+// Partners / Commercial / Finance / Admin). Badge is an optional live count
+// fetched separately (see `badgeKey`), not a static value here.
+type NavItem = { label: string; href: string; icon: LucideIcon; badgeKey?: "duplicateBookings" };
+type NavGroup = { heading: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    heading: "Operations",
+    items: [
+      { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
+      { label: "Multiple Bookings", href: "/bookings/multiple", icon: Copy, badgeKey: "duplicateBookings" },
+      { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
+    ],
+  },
+  {
+    heading: "Partners",
+    items: [
+      { label: "Buyers / Customers", href: "/parties", icon: Users },
+      { label: "Forwarders", href: "/forwarders", icon: Building2 },
+      { label: "Suppliers", href: "/suppliers", icon: Factory },
+      { label: "Truckers", href: "/truckers", icon: Truck },
+    ],
+  },
+  {
+    heading: "Commercial",
+    items: [
+      { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
+      { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    heading: "Finance",
+    items: [{ label: "Profit & Loss", href: "/profit-loss", icon: TrendingUp }],
+  },
+  {
+    heading: "Admin",
+    items: [{ label: "Settings & Control", href: "/team", icon: Settings }],
+  },
 ];
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
@@ -54,6 +74,7 @@ export default function Sidebar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
+  const [duplicateBookings, setDuplicateBookings] = useState(0);
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
@@ -88,6 +109,13 @@ export default function Sidebar() {
     const { data: sub } = supabase.auth.onAuthStateChange(() => loadProfile());
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    fetch("/api/bookings/duplicate-count")
+      .then((r) => r.json())
+      .then(({ count }) => setDuplicateBookings(count ?? 0))
+      .catch(() => {});
+  }, [pathname]);
 
   async function signOut() {
     const supabase = createClient();
@@ -128,37 +156,56 @@ export default function Sidebar() {
       <YearSelector collapsed={collapsed} />
 
       <nav className="flex-1 py-2">
-        {MODULES.map((m) => {
-          const active =
-            pathname === m.href ||
-            (m.href === "/bookings" && pathname?.startsWith("/bookings") && !pathname?.startsWith("/bookings/multiple"));
-          const Icon = m.icon;
-          return (
-            <Link
-              key={m.href}
-              href={m.href}
-              title={collapsed ? m.label : undefined}
-              className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-                active ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" size={16} />
-              {!collapsed && <span className="truncate">{m.label}</span>}
-            </Link>
-          );
-        })}
-        {isPlatformOwner && (
-          <Link
-            href="/admin"
-            title={collapsed ? "Platform Admin" : undefined}
-            className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-              pathname === "/admin" ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 shrink-0" size={16} />
-            {!collapsed && <span className="truncate">Platform Admin</span>}
-          </Link>
-        )}
+        {NAV_GROUPS.map((group) => (
+          <div key={group.heading} className="mb-1">
+            {!collapsed && (
+              <div className="px-5 pt-3 pb-1 text-[10px] uppercase tracking-wide text-white/40 font-medium">
+                {group.heading}
+              </div>
+            )}
+            {group.items.map((m) => {
+              const active =
+                pathname === m.href ||
+                (m.href === "/bookings" && pathname?.startsWith("/bookings") && !pathname?.startsWith("/bookings/multiple"));
+              const Icon = m.icon;
+              const badge = m.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
+              return (
+                <Link
+                  key={m.href}
+                  href={m.href}
+                  title={collapsed ? m.label : undefined}
+                  className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
+                    active ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" size={16} />
+                  {!collapsed && (
+                    <span className="truncate flex-1 flex items-center justify-between gap-2">
+                      {m.label}
+                      {badge > 0 && (
+                        <span className="bg-amend text-white text-[11px] font-semibold rounded-full px-1.5 py-0.5 leading-none">
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+            {group.heading === "Admin" && isPlatformOwner && (
+              <Link
+                href="/admin"
+                title={collapsed ? "Platform Admin" : undefined}
+                className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
+                  pathname === "/admin" ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 shrink-0" size={16} />
+                {!collapsed && <span className="truncate">Platform Admin</span>}
+              </Link>
+            )}
+          </div>
+        ))}
       </nav>
 
       <button

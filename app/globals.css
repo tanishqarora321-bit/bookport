@@ -1,3 +1,96 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ship-Sphere Design System v2 - color tokens.
+   Light is the default; dark applies either when the viewer explicitly
+   picks "Dark" (data-theme="dark") or picks "System" (data-theme="system",
+   the default) and the OS prefers dark. Picking "Light" always wins over
+   the OS, via the :not([data-theme="light"]) guard below. */
+:root {
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-elevated: #ffffff;
+  --color-text: #0f172a;
+  --color-text-2: #475569;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-line-2: #cbd5e1;
+  --color-accent: #2f5fe0;
+  --color-accent-hover: #2449b8;
+  --color-accent-soft: #eaf0fd;
+  --color-success: #047857;
+  --color-success-soft: #e6f6ef;
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3e2;
+  --color-critical: #c81e1e;
+  --color-critical-soft: #fdecec;
+  --color-info: #0369a1;
+  --color-info-soft: #e5f2fa;
+  --color-ai-border: #f59e0b;
+
+  --color-nav: #0c1a3a;
+  --color-nav-hover: #16264f;
+  --color-nav-active: #2f5fe0;
+  --color-nav-muted: #aab6cf;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #0a1224;
+  --color-surface: #0f1b33;
+  --color-surface-2: #0c172c;
+  --color-elevated: #15233f;
+  --color-text: #e8eef8;
+  --color-text-2: #b6c2d6;
+  --color-muted: #8d9bb3;
+  --color-line: #24334f;
+  --color-line-2: #24334f;
+  --color-accent: #7ea2ff;
+  --color-accent-hover: #a3bdff;
+  --color-accent-soft: #1b2b52;
+  --color-success: #4ade9b;
+  --color-success-soft: #0f2e22;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #33260f;
+  --color-critical: #ff9c94;
+  --color-critical-soft: #3b1a1e;
+  --color-info: #7dd3fc;
+  --color-info-soft: #0e2a3b;
+  --color-ai-border: #b7791f;
+
+  --color-nav: #071027;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #0a1224;
+    --color-surface: #0f1b33;
+    --color-surface-2: #0c172c;
+    --color-elevated: #15233f;
+    --color-text: #e8eef8;
+    --color-text-2: #b6c2d6;
+    --color-muted: #8d9bb3;
+    --color-line: #24334f;
+    --color-line-2: #24334f;
+    --color-accent: #7ea2ff;
+    --color-accent-hover: #a3bdff;
+    --color-accent-soft: #1b2b52;
+    --color-success: #4ade9b;
+    --color-success-soft: #0f2e22;
+    --color-warning: #fbbf24;
+    --color-warning-soft: #33260f;
+    --color-critical: #ff9c94;
+    --color-critical-soft: #3b1a1e;
+    --color-info: #7dd3fc;
+    --color-info-soft: #0e2a3b;
+    --color-ai-border: #b7791f;
+
+    --color-nav: #071027;
+  }
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
