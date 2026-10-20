@@ -78,16 +78,16 @@ export default function BuyerImportClient() {
           ← Back to Buyers / Customers
         </Link>
         <div className="max-w-lg mx-auto mt-12 space-y-4 w-full">
-          <h1 className="text-xl font-semibold text-center">Import Buyers / Customers from Excel</h1>
+          <h1 className="text-xl font-semibold text-center text-ink">Import Buyers / Customers from Excel</h1>
           <p className="text-sm text-text-2 text-center">
             Each row becomes one buyer account, with its GST/IEC/shipping details filled in directly.
           </p>
-          <label className="block border-2 border-dashed rounded-lg p-10 bg-surface hover:border-accent text-center cursor-pointer">
-            <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
+          <label className="block border-2 border-dashed border-line rounded-lg p-10 bg-surface hover:border-accent text-center cursor-pointer">
+            <div className="font-medium text-ink">{uploading ? "Reading file…" : "Click to choose a file"}</div>
             <div className="text-sm text-text-2 mt-1">.xlsx — first sheet; the header row is found automatically even with a title banner above it</div>
             <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
           </label>
-          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+          {error && <p className="text-cutoff text-sm text-center">{error}</p>}
         </div>
       </div>
     );
@@ -97,21 +97,21 @@ export default function BuyerImportClient() {
     return (
       <div className="max-w-3xl mx-auto space-y-4">
         <div>
-          <h1 className="text-xl font-semibold">Match your columns</h1>
+          <h1 className="text-xl font-semibold text-ink">Match your columns</h1>
           <p className="text-sm text-text-2 mt-1">
             {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess for
             each field — review and correct anything before importing.
           </p>
         </div>
 
-        <div className="bg-surface rounded-xl shadow-sm divide-y">
+        <div className="bg-surface border border-line rounded-xl divide-y divide-line">
           {BUYER_IMPORT_FIELDS.map((f) => (
             <div key={f.key} className="grid grid-cols-3 gap-3 items-center px-4 py-2.5">
               <label className="text-sm text-ink">
                 {f.label} {f.required && <span className="text-cutoff">*</span>}
               </label>
               <select
-                className="col-span-2 border rounded px-2 py-1.5 text-sm"
+                className="col-span-2 border border-line bg-surface rounded-lg px-2 py-1.5 text-sm"
                 value={mapping[f.key] ?? ""}
                 onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value })}
               >
@@ -125,7 +125,7 @@ export default function BuyerImportClient() {
         </div>
 
         {parsed.rows.length > 0 && (
-          <div className="bg-surface rounded-xl shadow-sm p-4 overflow-x-auto">
+          <div className="bg-surface border border-line rounded-xl p-4 overflow-x-auto">
             <div className="text-xs font-medium text-text-2 mb-2">Preview (first 5 rows)</div>
             <table className="text-sm border-collapse">
               <thead>
@@ -137,9 +137,9 @@ export default function BuyerImportClient() {
               </thead>
               <tbody>
                 {parsed.rows.slice(0, 5).map((row, i) => (
-                  <tr key={i} className="border-t">
+                  <tr key={i} className="border-t border-line">
                     {row.map((cell, j) => (
-                      <td key={j} className="px-2 py-1 whitespace-nowrap text-ink/70">{cell || "—"}</td>
+                      <td key={j} className="px-2 py-1 whitespace-nowrap text-text-2">{cell || "—"}</td>
                     ))}
                   </tr>
                 ))}
@@ -148,14 +148,14 @@ export default function BuyerImportClient() {
           </div>
         )}
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-cutoff text-sm">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-2 pb-8">
-          <button onClick={() => setStep("upload")} className="px-4 py-2 text-sm rounded border">Back</button>
+          <button onClick={() => setStep("upload")} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2 text-sm">Back</button>
           <button
             onClick={handleImport}
             disabled={importing}
-            className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
+            className="bg-accent text-white hover:bg-accent-hover rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
             {importing ? "Importing…" : `Import ${parsed.rows.length} Row${parsed.rows.length === 1 ? "" : "s"}`}
           </button>
@@ -167,14 +167,14 @@ export default function BuyerImportClient() {
   if (step === "result" && result) {
     return (
       <div className="max-w-lg mx-auto mt-12 space-y-4">
-        <h1 className="text-xl font-semibold text-center">Import complete</h1>
-        <div className="bg-surface rounded-xl shadow-sm p-6 text-center space-y-1">
+        <h1 className="text-xl font-semibold text-center text-ink">Import complete</h1>
+        <div className="bg-surface border border-line rounded-xl p-6 text-center space-y-1">
           <div className="text-3xl font-semibold text-ink">{result.imported}</div>
           <div className="text-sm text-text-2">of {result.total} rows imported as buyer accounts</div>
         </div>
 
         {result.skipped.length > 0 && (
-          <div className="bg-surface rounded-xl shadow-sm p-4">
+          <div className="bg-surface border border-line rounded-xl p-4">
             <div className="text-sm font-medium text-ink mb-2">Skipped rows ({result.skipped.length})</div>
             <ul className="text-sm text-text-2 space-y-1 max-h-64 overflow-y-auto">
               {result.skipped.map((s, i) => (
@@ -185,7 +185,7 @@ export default function BuyerImportClient() {
         )}
 
         <div className="text-center">
-          <Link href={backHref} className="inline-block px-4 py-2 text-sm rounded bg-ink text-white">
+          <Link href={backHref} className="inline-block bg-accent text-white hover:bg-accent-hover rounded-lg px-4 py-2 text-sm font-medium">
             Go to Buyers / Customers
           </Link>
         </div>

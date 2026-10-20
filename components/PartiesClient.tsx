@@ -54,7 +54,7 @@ export default function PartiesClient({
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">Buyers / Customers</h1>
-        <label className="flex items-center gap-2 text-sm text-ink/60">
+        <label className="flex items-center gap-2 text-sm text-text-2">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
           Show removed
         </label>
@@ -66,11 +66,11 @@ export default function PartiesClient({
         <StatCard icon={Package} label="Items" value={items.length} />
       </div>
 
-      <div className="flex gap-1 border-b border-ink/10 mb-4">
+      <div className="flex gap-1 border-b border-line mb-4">
         <button
           onClick={() => setTab("parties")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-            tab === "parties" ? "border-accent text-accent" : "border-transparent text-ink/50 hover:text-ink"
+            tab === "parties" ? "border-accent text-accent" : "border-transparent text-muted hover:text-ink"
           }`}
         >
           Accounts
@@ -78,7 +78,7 @@ export default function PartiesClient({
         <button
           onClick={() => setTab("items")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
-            tab === "items" ? "border-accent text-accent" : "border-transparent text-ink/50 hover:text-ink"
+            tab === "items" ? "border-accent text-accent" : "border-transparent text-muted hover:text-ink"
           }`}
         >
           Items
@@ -176,40 +176,40 @@ function PartiesTab({
   return (
     <div className="flex-1 overflow-auto">
       <div className="flex justify-end gap-2 mb-3">
-        <Link href="/parties/import" className="text-sm border px-3 py-1.5 rounded font-medium">
+        <Link href="/parties/import" className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
           Import Excel
         </Link>
         <button
           onClick={() => setAdding(!adding)}
-          className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium"
+          className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium"
         >
           + New Account
         </button>
       </div>
 
       {adding && (
-        <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-2 gap-3">
+        <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-2 gap-3">
           <input
             placeholder="Account / party name *"
-            className="border rounded px-2 py-1.5 text-sm col-span-2"
+            className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm col-span-2"
             value={form.legal_name}
             onChange={(e) => setForm({ ...form, legal_name: e.target.value })}
           />
           <input
             placeholder="Short code (e.g. LR, used in invoice numbers)"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm"
             value={form.short_code}
             onChange={(e) => setForm({ ...form, short_code: e.target.value })}
           />
           <input
             placeholder="Country"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm"
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
           />
           <textarea
             placeholder="Address"
-            className="border rounded px-2 py-1.5 text-sm col-span-2"
+            className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm col-span-2"
             rows={2}
             value={form.address}
             onChange={(e) => setForm({ ...form, address: e.target.value })}
@@ -219,25 +219,25 @@ function PartiesTab({
             <button
               onClick={addParty}
               disabled={saving}
-              className="text-sm bg-ink text-white px-3 py-1.5 rounded"
+              className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save Account"}
             </button>
-            <button onClick={() => setAdding(false)} className="text-sm border px-3 py-1.5 rounded">
+            <button onClick={() => setAdding(false)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      <div className="bg-surface rounded-xl shadow-sm">
+      <div className="bg-surface border border-line rounded-xl overflow-hidden">
         <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-ink/50 border-b">
-              <th className="px-3 py-2">Account Name</th>
-              <th className="px-3 py-2">Short Code</th>
-              <th className="px-3 py-2">Country</th>
-              <th className="px-3 py-2">Address</th>
+          <thead className="sticky top-0 bg-surface-2 z-10">
+            <tr className="text-left text-muted border-b border-line">
+              <th className="px-3 py-2 font-medium">Account Name</th>
+              <th className="px-3 py-2 font-medium">Short Code</th>
+              <th className="px-3 py-2 font-medium">Country</th>
+              <th className="px-3 py-2 font-medium">Address</th>
               <th className="px-3 py-2"></th>
               <th className="px-3 py-2"></th>
               <th className="px-3 py-2"></th>
@@ -247,44 +247,44 @@ function PartiesTab({
           <tbody>
             {visible.map((p) => (
               <>
-                <tr key={p.id} className={`border-b last:border-0 hover:bg-blue-50/40 ${!p.is_active ? "opacity-40" : ""}`}>
+                <tr key={p.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!p.is_active ? "opacity-40" : ""}`}>
                   <td className="px-3 py-2">
                     <InlineEditText value={p.legal_name} onSave={(v) => updateField(parties, setParties, p, "legal_name", v)} />
                   </td>
-                  <td className="px-3 py-2 text-ink/70">
+                  <td className="px-3 py-2 text-text-2">
                     <InlineEditText value={p.short_code} onSave={(v) => updateField(parties, setParties, p, "short_code", v)} />
                   </td>
-                  <td className="px-3 py-2 text-ink/70">
+                  <td className="px-3 py-2 text-text-2">
                     <InlineEditText value={p.country} onSave={(v) => updateField(parties, setParties, p, "country", v)} />
                   </td>
-                  <td className="px-3 py-2 text-ink/50 max-w-[260px] truncate" title={p.address ?? ""}>
+                  <td className="px-3 py-2 text-muted max-w-[260px] truncate" title={p.address ?? ""}>
                     {p.address || "—"}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
-                    <button onClick={() => setEditing(p)} className="text-xs text-ink/50 hover:text-accent border px-2 py-1 rounded">
+                    <button onClick={() => setEditing(p)} className="text-xs text-muted hover:text-accent border border-line px-2 py-1 rounded-lg">
                       Edit
                     </button>
                     {parties.length > 1 && (
-                      <button onClick={() => setMerging(p)} className="text-xs text-ink/50 hover:text-accent border px-2 py-1 rounded ml-1">
+                      <button onClick={() => setMerging(p)} className="text-xs text-muted hover:text-accent border border-line px-2 py-1 rounded-lg ml-1">
                         Merge
                       </button>
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <button onClick={() => toggleExpanded(p.id)} className="text-xs text-accent underline whitespace-nowrap">
+                    <button onClick={() => toggleExpanded(p.id)} className="text-xs text-accent hover:underline whitespace-nowrap">
                       {expanded[p.id] ? "Hide Shipping Details ▲" : "Shipping Details ▼"}
                     </button>
                   </td>
                   <td className="px-3 py-2">
-                    <Link href={`/parties/${p.id}/invoices`} className="text-xs text-accent underline">
+                    <Link href={`/parties/${p.id}/invoices`} className="text-xs text-accent hover:underline">
                       Invoices →
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => toggleActive(p)}
-                      className={`text-xs px-2 py-1 rounded ${
-                        p.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                      className={`text-xs px-2 py-1 rounded-lg ${
+                        p.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
                       }`}
                     >
                       {p.is_active ? "Remove" : "Restore"}
@@ -292,7 +292,7 @@ function PartiesTab({
                     {!p.is_active && (
                       <button
                         onClick={() => deletePermanently(p)}
-                        className="text-xs px-2 py-1 rounded text-cutoff hover:bg-red-50 font-medium"
+                        className="text-xs px-2 py-1 rounded-lg text-cutoff hover:bg-critical-soft font-medium"
                         title="Delete permanently"
                       >
                         Delete
@@ -301,7 +301,7 @@ function PartiesTab({
                   </td>
                 </tr>
                 {expanded[p.id] && (
-                  <tr className="border-b bg-surface-2">
+                  <tr className="border-b border-line bg-surface-2">
                     <td colSpan={8} className="px-6 py-3">
                       <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
                     </td>
@@ -395,35 +395,35 @@ function EditPartyModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Account</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
         <div className="space-y-3">
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Account Name *</div>
-            <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
+            <div className="text-xs text-muted mb-0.5">Account Name *</div>
+            <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-xs text-ink/40 mb-0.5">Short Code</div>
-              <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.short_code} onChange={(e) => setForm({ ...form, short_code: e.target.value })} />
+              <div className="text-xs text-muted mb-0.5">Short Code</div>
+              <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.short_code} onChange={(e) => setForm({ ...form, short_code: e.target.value })} />
             </div>
             <div>
-              <div className="text-xs text-ink/40 mb-0.5">Country</div>
-              <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+              <div className="text-xs text-muted mb-0.5">Country</div>
+              <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
             </div>
           </div>
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Address</div>
-            <textarea className="border rounded px-2 py-1.5 text-sm w-full" rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <div className="text-xs text-muted mb-0.5">Address</div>
+            <textarea className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </div>
         </div>
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2 text-sm">Cancel</button>
+          <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -497,18 +497,18 @@ function MergePartiesModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Accounts</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
-        <p className="text-sm text-ink/50 mb-3">
+        <p className="text-sm text-text-2 mb-3">
           Moves all bookings and invoices from the other account onto this one (its shipping details move over
           too, unless this one already has its own), then permanently removes it as a separate entry.
         </p>
         <div className="mb-3">
-          <div className="text-xs text-ink/40 mb-0.5">Merge which account into "{party.legal_name}"?</div>
-          <select className="border rounded px-2 py-1.5 text-sm w-full" value={otherId} onChange={(e) => setOtherId(e.target.value)}>
+          <div className="text-xs text-muted mb-0.5">Merge which account into "{party.legal_name}"?</div>
+          <select className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={otherId} onChange={(e) => setOtherId(e.target.value)}>
             {others.map((p) => (
               <option key={p.id} value={p.id}>{p.legal_name}</option>
             ))}
@@ -516,50 +516,50 @@ function MergePartiesModal({
         </div>
         {other && (
           <>
-            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded p-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded-lg p-3 mb-3">
               <div>
                 <div className="font-medium text-ink mb-1">{party.legal_name}</div>
-                <div className="text-ink/50">Short code: {party.short_code || "—"}</div>
-                <div className="text-ink/50">Country: {party.country || "—"}</div>
-                <div className="text-ink/50">Address: {party.address || "—"}</div>
-                <div className="text-ink/50">{party.gst_entry ? "Has shipping details" : "No shipping details"}</div>
+                <div className="text-muted">Short code: {party.short_code || "—"}</div>
+                <div className="text-muted">Country: {party.country || "—"}</div>
+                <div className="text-muted">Address: {party.address || "—"}</div>
+                <div className="text-muted">{party.gst_entry ? "Has shipping details" : "No shipping details"}</div>
                 <button onClick={useThisDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
               <div>
                 <div className="font-medium text-ink mb-1">{other.legal_name}</div>
-                <div className="text-ink/50">Short code: {other.short_code || "—"}</div>
-                <div className="text-ink/50">Country: {other.country || "—"}</div>
-                <div className="text-ink/50">Address: {other.address || "—"}</div>
-                <div className="text-ink/50">{other.gst_entry ? "Has shipping details" : "No shipping details"}</div>
+                <div className="text-muted">Short code: {other.short_code || "—"}</div>
+                <div className="text-muted">Country: {other.country || "—"}</div>
+                <div className="text-muted">Address: {other.address || "—"}</div>
+                <div className="text-muted">{other.gst_entry ? "Has shipping details" : "No shipping details"}</div>
                 <button onClick={useOtherDetails} className="mt-1 text-accent hover:underline">Use these details</button>
               </div>
             </div>
             <div className="space-y-2">
               <div>
-                <div className="text-xs text-ink/40 mb-0.5">Final Name *</div>
-                <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
+                <div className="text-xs text-muted mb-0.5">Final Name *</div>
+                <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.legal_name} onChange={(e) => setForm({ ...form, legal_name: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-ink/40 mb-0.5">Final Short Code</div>
-                  <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.short_code} onChange={(e) => setForm({ ...form, short_code: e.target.value })} />
+                  <div className="text-xs text-muted mb-0.5">Final Short Code</div>
+                  <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.short_code} onChange={(e) => setForm({ ...form, short_code: e.target.value })} />
                 </div>
                 <div>
-                  <div className="text-xs text-ink/40 mb-0.5">Final Country</div>
-                  <input className="border rounded px-2 py-1.5 text-sm w-full" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+                  <div className="text-xs text-muted mb-0.5">Final Country</div>
+                  <input className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
                 </div>
               </div>
               <div>
-                <div className="text-xs text-ink/40 mb-0.5">Final Address</div>
-                <textarea className="border rounded px-2 py-1.5 text-sm w-full" rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                <div className="text-xs text-muted mb-0.5">Final Address</div>
+                <textarea className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm w-full" rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
               </div>
             </div>
           </>
         )}
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving || !other} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2 text-sm">Cancel</button>
+          <button onClick={save} disabled={saving || !other} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
             {saving ? "Merging…" : "Merge"}
           </button>
         </div>
@@ -614,7 +614,7 @@ function ShippingDetailsSection({
       <div className="grid grid-cols-3 gap-x-6 gap-y-2">
         {SHIPPING_FIELDS.map((f) => (
           <div key={f.key} className={f.wide ? "col-span-3" : ""} title={f.title}>
-            <div className="text-xs text-ink/40 mb-0.5">{f.label}</div>
+            <div className="text-xs text-muted mb-0.5">{f.label}</div>
             <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
           </div>
         ))}
@@ -643,8 +643,8 @@ function ShippingFieldInput({ value, onSave }: { value: string | null; onSave: (
 
   if (!editing) {
     return (
-      <div onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1.5 py-1 rounded text-sm border border-transparent">
-        {value || <span className="text-ink/30">—</span>}
+      <div onClick={() => setEditing(true)} className="cursor-text hover:bg-surface-2 px-1.5 py-1 rounded-lg text-sm border border-transparent">
+        {value || <span className="text-muted">—</span>}
       </div>
     );
   }
@@ -653,14 +653,14 @@ function ShippingFieldInput({ value, onSave }: { value: string | null; onSave: (
     <div className="flex gap-1 items-center">
       <input
         autoFocus
-        className="border border-accent rounded px-1.5 py-1 text-sm flex-1 min-w-0"
+        className="border border-accent rounded-lg px-1.5 py-1 text-sm flex-1 min-w-0 bg-surface"
         value={val}
         onChange={(e) => setVal(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && save()}
         disabled={saving}
       />
-      <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-1 rounded shrink-0">{saving ? "…" : "✓"}</button>
-      <button onClick={() => { setEditing(false); setVal(value ?? ""); }} className="text-xs border px-1.5 py-1 rounded shrink-0">✕</button>
+      <button onClick={save} disabled={saving} className="text-xs bg-accent text-white hover:bg-accent-hover px-1.5 py-1 rounded-lg shrink-0">{saving ? "…" : "✓"}</button>
+      <button onClick={() => { setEditing(false); setVal(value ?? ""); }} className="text-xs border border-line bg-surface hover:bg-surface-2 px-1.5 py-1 rounded-lg shrink-0">✕</button>
     </div>
   );
 }
@@ -719,7 +719,7 @@ function ItemsTab({
       <div className="flex gap-2 mb-4">
         <input
           placeholder="New item name, e.g. Mixed Rags"
-          className="border rounded px-2 py-1.5 text-sm flex-1"
+          className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm flex-1"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addItem()}
@@ -727,25 +727,25 @@ function ItemsTab({
         <button
           onClick={addItem}
           disabled={saving}
-          className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium"
+          className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60"
         >
           + Add
         </button>
       </div>
       {error && <div className="text-xs text-cutoff mb-2">{error}</div>}
 
-      <div className="bg-surface rounded-xl shadow-sm">
-        <ul className="divide-y">
+      <div className="bg-surface border border-line rounded-xl overflow-hidden">
+        <ul className="divide-y divide-line">
           {visible.map((item) => (
             <li
               key={item.id}
-              className={`flex items-center justify-between px-3 py-2 text-sm ${!item.is_active ? "opacity-40" : ""}`}
+              className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-surface-2 ${!item.is_active ? "opacity-40" : ""}`}
             >
-              <span>{item.name}</span>
+              <span className="text-ink">{item.name}</span>
               <button
                 onClick={() => toggleActive(item)}
-                className={`text-xs px-2 py-1 rounded ${
-                  item.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                className={`text-xs px-2 py-1 rounded-lg ${
+                  item.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
                 }`}
               >
                 {item.is_active ? "Remove" : "Restore"}
