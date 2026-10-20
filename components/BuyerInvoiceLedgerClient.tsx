@@ -160,13 +160,13 @@ export default function BuyerInvoiceLedgerClient({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
@@ -204,7 +204,7 @@ export default function BuyerInvoiceLedgerClient({
 
       <div className="flex-1 overflow-auto border rounded">
         <table className="text-sm border-collapse min-w-[2200px]">
-          <thead className="sticky top-0 bg-slate-50 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-ink/50 border-b">
               <Th>Sr. No</Th>
               <Th>Date</Th>
@@ -416,7 +416,7 @@ function AddInvoicePanel({
 
   return (
     <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <label className="block border-2 border-dashed rounded-lg p-4 bg-white hover:border-accent text-center cursor-pointer mb-3">
+      <label className="block border-2 border-dashed rounded-lg p-4 bg-surface hover:border-accent text-center cursor-pointer mb-3">
         <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills invoice number/date/currency/weight and cost lines below)"}</div>
         <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={uploading} />
       </label>
@@ -437,7 +437,7 @@ function AddInvoicePanel({
       {lookupError && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">{lookupError}</div>}
 
       {lookupResult?.matched && (
-        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-white border rounded p-3">
+        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-surface border rounded p-3">
           <div><span className="text-ink/40">Matched by:</span> {lookupResult.matched_by}</div>
           <div><span className="text-ink/40">Container:</span> {lookupResult.container_number || "—"}</div>
           <div><span className="text-ink/40">Forwarder:</span> {lookupResult.forwarder_name || "—"}</div>
@@ -822,7 +822,7 @@ function InvoiceRows({
         </td>
       </tr>
       {expanded && (
-        <tr className="border-b bg-slate-50/60">
+        <tr className="border-b bg-surface-2">
           <td colSpan={colSpan} className="px-6 py-3">
             <CostSection invoiceId={inv.id} items={inv.items} currency={inv.currency} onTotalChange={(total) => onChange({ total })} onItemsChange={(items) => onChange({ items })} />
           </td>
@@ -940,7 +940,7 @@ function EnterInvoiceModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
@@ -948,7 +948,7 @@ function EnterInvoiceModal({
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
         </div>
 
-        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+        <label className="block border-2 border-dashed rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
           <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>

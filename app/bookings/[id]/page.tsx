@@ -28,7 +28,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
   // wrapper reuses EditableCell's click-to-edit behavior inline in a div.
   const Field = ({ label, column, isDate = false }: { label: string; column: string; isDate?: boolean }) => (
     <div>
-      <span className="text-slate-400 text-xs">{label}</span>
+      <span className="text-muted text-xs">{label}</span>
       <table className="w-full -mt-1"><tbody><tr>
         <EditableCell bookingId={booking.id} column={column} value={(booking as any)[column]} isDate={isDate} />
       </tr></tbody></table>
@@ -38,18 +38,18 @@ export default async function BookingDetail({ params }: { params: { id: string }
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/bookings" className="text-slate-400 hover:text-slate-700 text-lg leading-none" title="Back to Bookings">
+        <Link href="/bookings" className="text-muted hover:text-ink text-lg leading-none" title="Back to Bookings">
           ←
         </Link>
         <div>
           <h1 className="text-2xl font-semibold">{booking.carrier_booking_no || booking.booking_no}</h1>
-          <p className="text-slate-500">{booking.carrier} · {booking.pol} → {booking.pod}</p>
+          <p className="text-text-2">{booking.carrier} · {booking.pol} → {booking.pod}</p>
         </div>
       </div>
 
-      <section className="bg-white rounded shadow-sm p-5 space-y-3">
-        <h2 className="font-medium text-slate-700">Dates & Cut-offs</h2>
-        <p className="text-xs text-slate-400 -mt-2">
+      <section className="bg-surface rounded shadow-sm p-5 space-y-3">
+        <h2 className="font-medium text-ink">Dates & Cut-offs</h2>
+        <p className="text-xs text-muted -mt-2">
           Editing any of these opens an amendment - it checks what breaks (trucking, SI status) before saving.
         </p>
         <div className="grid grid-cols-2 gap-4">
@@ -61,10 +61,10 @@ export default async function BookingDetail({ params }: { params: { id: string }
       </section>
 
       {legs && legs.length > 0 && (
-        <section className="bg-white rounded shadow-sm p-5">
-          <h2 className="font-medium text-slate-700 mb-2">Routing</h2>
+        <section className="bg-surface rounded shadow-sm p-5">
+          <h2 className="font-medium text-ink mb-2">Routing</h2>
           <table className="w-full text-sm">
-            <thead className="text-left text-slate-400">
+            <thead className="text-left text-muted">
               <tr><th>#</th><th>From</th><th>To</th><th>Mode</th><th>Vessel/Voyage</th><th>ETD</th><th>ETA</th></tr>
             </thead>
             <tbody>
@@ -81,8 +81,8 @@ export default async function BookingDetail({ params }: { params: { id: string }
         </section>
       )}
 
-      <section className="bg-white rounded shadow-sm p-5">
-        <h2 className="font-medium text-slate-700 mb-2">Trucking</h2>
+      <section className="bg-surface rounded shadow-sm p-5">
+        <h2 className="font-medium text-ink mb-2">Trucking</h2>
         {trucking && trucking.length > 0 ? (
           trucking.map((t: any) => (
             <div key={t.id} className="text-sm border-t pt-2">
@@ -90,15 +90,15 @@ export default async function BookingDetail({ params }: { params: { id: string }
             </div>
           ))
         ) : (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             No trucking assigned yet — this comes online with the Truckers module.
           </p>
         )}
       </section>
 
-      <section className="bg-white rounded shadow-sm p-5">
-        <h2 className="font-medium text-slate-700 mb-3">Shipment & Routing Details</h2>
-        <p className="text-xs text-slate-400 -mt-2 mb-3">Click any field below to fill in or correct it.</p>
+      <section className="bg-surface rounded shadow-sm p-5">
+        <h2 className="font-medium text-ink mb-3">Shipment & Routing Details</h2>
+        <p className="text-xs text-muted -mt-2 mb-3">Click any field below to fill in or correct it.</p>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Port of Delivery" column="final_destination" />
           <Field label="B/L Issued At" column="bl_issued_at" />

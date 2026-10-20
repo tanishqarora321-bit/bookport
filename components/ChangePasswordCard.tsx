@@ -37,7 +37,7 @@ export default function ChangePasswordCard({ email }: { email: string }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+    <div className="bg-surface rounded-xl shadow-sm p-4 mb-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-ink flex items-center gap-2">

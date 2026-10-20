@@ -148,21 +148,21 @@ function NewBookingPageInner() {
             </p>
           )}
           <div className={forMultiple ? "grid grid-cols-2 gap-4" : "grid grid-cols-3 gap-4"}>
-            <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-white hover:border-ink text-left">
+            <button onClick={() => setMode("manual")} className="border rounded-lg p-6 bg-surface hover:border-ink text-left">
               <div className="font-medium">Type it in</div>
-              <div className="text-sm text-slate-500">Fill the Booking & Instructions form by hand.</div>
+              <div className="text-sm text-text-2">Fill the Booking & Instructions form by hand.</div>
             </button>
-            <label className="border rounded-lg p-6 bg-white hover:border-ink text-left cursor-pointer">
+            <label className="border rounded-lg p-6 bg-surface hover:border-ink text-left cursor-pointer">
               <div className="font-medium">Upload PDF</div>
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-text-2">
                 {uploading ? "Extracting…" : "Booking confirmation → AI pre-fills the form, you review."}
               </div>
               <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
             {!forMultiple && (
-              <Link href="/bookings/import" className="border rounded-lg p-6 bg-white hover:border-ink text-left block">
+              <Link href="/bookings/import" className="border rounded-lg p-6 bg-surface hover:border-ink text-left block">
                 <div className="font-medium">Import Excel</div>
-                <div className="text-sm text-slate-500">Bring in existing bookings from a spreadsheet, in bulk.</div>
+                <div className="text-sm text-text-2">Bring in existing bookings from a spreadsheet, in bulk.</div>
               </Link>
             )}
           </div>
@@ -181,7 +181,7 @@ function NewBookingPageInner() {
         {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry in Multiple Bookings" : "New Booking"}
       </h1>
       {mode === "review" && (
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-text-2 mb-4">
           AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.
         </p>
       )}
@@ -197,11 +197,11 @@ function NewBookingPageInner() {
         const isMandatory = f.key === "booking_number";
         const dateVal = f.isDate ? toLocalInputValue(form[f.column] ?? "") : null;
         const inputClass = `w-full border rounded px-2 py-1.5 text-sm ${
-          meta ? "border-amber-400 bg-amber-50" : "border-slate-300"
+          meta ? "border-amber-400 bg-amber-50" : "border-line-2"
         } ${lowConfidence ? "border-cutoff" : ""}`;
         return (
           <div key={f.key} className="grid grid-cols-3 gap-3 items-start py-1.5 border-b last:border-0">
-            <label className="text-sm text-slate-600 pt-2">
+            <label className="text-sm text-text-2 pt-2">
               {f.label} {isMandatory && <span className="text-cutoff">*</span>}
             </label>
             <div className="col-span-2">
@@ -223,7 +223,7 @@ function NewBookingPageInner() {
                 />
               )}
               {meta?.source_quote && (
-                <div className="text-xs text-slate-400 mt-0.5">from PDF: "{meta.source_quote}"</div>
+                <div className="text-xs text-muted mt-0.5">from PDF: "{meta.source_quote}"</div>
               )}
             </div>
           </div>
@@ -242,14 +242,14 @@ function NewBookingPageInner() {
 
       {duplicateConfirm && (
         <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setDuplicateConfirm(null)}>
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-surface rounded-lg shadow-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-base font-semibold text-ink mb-2">Booking Number already exists</h2>
-            <p className="text-sm text-slate-600 mb-1">
+            <p className="text-sm text-text-2 mb-1">
               "{form["carrier_booking_no"]}" is already used by a booking created{" "}
               {new Date(duplicateConfirm.existing.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
               {" "}(status: {duplicateConfirm.existing.status}).
             </p>
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-text-2 mb-4">
               Save this as a second, separate entry anyway? Both will move to Multiple Bookings & Instructions for review.
             </p>
             <div className="flex justify-end gap-2">

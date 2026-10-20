@@ -104,23 +104,23 @@ export default function AuthCallbackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-surface-2 flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <Logo size={40} />
           <div>
             <div className="font-semibold text-lg leading-tight text-ink">Ship-Sphere</div>
-            <div className="text-xs text-slate-400 leading-tight">One Booking. All Connected.</div>
+            <div className="text-xs text-muted leading-tight">One Booking. All Connected.</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-surface rounded-xl shadow-sm p-6">
           {status === "loading" && <p className="text-sm text-ink/60 text-center">Confirming your invite…</p>}
 
           {status === "error" && (
             <div className="text-center space-y-2">
               <p className="text-sm text-cutoff">{errorMessage}</p>
-              <p className="text-xs text-slate-400">Ask your admin to send a fresh invite from Settings &amp; Control.</p>
+              <p className="text-xs text-muted">Ask your admin to send a fresh invite from Settings &amp; Control.</p>
             </div>
           )}
 

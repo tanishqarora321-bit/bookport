@@ -111,13 +111,13 @@ export default function ImportBookingsPage() {
     return (
       <div className="max-w-lg mx-auto mt-12 space-y-4">
         <h1 className="text-xl font-semibold text-center">Import Bookings from Excel</h1>
-        <p className="text-sm text-slate-500 text-center">
+        <p className="text-sm text-text-2 text-center">
           Upload an .xlsx spreadsheet of existing bookings. You'll match its columns to Ship-Sphere's
           fields before anything is saved.
         </p>
-        <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
+        <label className="block border-2 border-dashed rounded-lg p-10 bg-surface hover:border-accent text-center cursor-pointer">
           <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
-          <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet, first row must be headers</div>
+          <div className="text-sm text-text-2 mt-1">.xlsx — first sheet, first row must be headers</div>
           <input
             type="file"
             accept=".xlsx"
@@ -141,17 +141,17 @@ export default function ImportBookingsPage() {
       <div className="max-w-3xl mx-auto space-y-4">
         <div>
           <h1 className="text-xl font-semibold">Match your columns</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-text-2 mt-1">
             {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess
             for each field below — review and correct anything before importing. Fields left as "— Skip —" won't
             be imported.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm divide-y">
+        <div className="bg-surface rounded-xl shadow-sm divide-y">
           {IMPORT_FIELDS.map((f) => (
             <div key={f.key} className="grid grid-cols-3 gap-3 items-center px-4 py-2.5">
-              <label className="text-sm text-slate-700">
+              <label className="text-sm text-ink">
                 {f.label} {f.required && <span className="text-cutoff">*</span>}
               </label>
               <select
@@ -171,13 +171,13 @@ export default function ImportBookingsPage() {
         </div>
 
         {parsed.rows.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4 overflow-x-auto">
-            <div className="text-xs font-medium text-slate-500 mb-2">Preview (first 3 rows)</div>
+          <div className="bg-surface rounded-xl shadow-sm p-4 overflow-x-auto">
+            <div className="text-xs font-medium text-text-2 mb-2">Preview (first 3 rows)</div>
             <table className="text-sm border-collapse">
               <thead>
                 <tr>
                   {parsed.headers.map((h) => (
-                    <th key={h} className="px-2 py-1 text-left text-xs text-slate-500 whitespace-nowrap">
+                    <th key={h} className="px-2 py-1 text-left text-xs text-text-2 whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -221,21 +221,21 @@ export default function ImportBookingsPage() {
       <div className="max-w-2xl mx-auto space-y-4">
         <div>
           <h1 className="text-xl font-semibold">Some Booking Numbers already exist</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-text-2 mt-1">
             These are already saved in Booking & Instructions. For each one, choose whether this is an
             intentional second entry (it'll show up on Multiple Bookings & Instructions) or should be
             ignored — you can always add it there yourself later.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm divide-y">
+        <div className="bg-surface rounded-xl shadow-sm divide-y">
           {duplicateGroups.map((g) => {
             const key = g.carrierBookingNo.toLowerCase();
             return (
               <div key={key} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div>
                   <div className="text-sm font-medium text-ink">{g.carrierBookingNo}</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-text-2">
                     {g.sheetRows.length} row{g.sheetRows.length === 1 ? "" : "s"} in this file
                     {g.containerCount > 1 ? ` (${g.containerCount} containers)` : ""}
                   </div>
@@ -279,15 +279,15 @@ export default function ImportBookingsPage() {
     return (
       <div className="max-w-lg mx-auto mt-12 space-y-4">
         <h1 className="text-xl font-semibold text-center">Import complete</h1>
-        <div className="bg-white rounded-xl shadow-sm p-6 text-center space-y-1">
+        <div className="bg-surface rounded-xl shadow-sm p-6 text-center space-y-1">
           <div className="text-3xl font-semibold text-ink">{result.imported}</div>
-          <div className="text-sm text-slate-500">of {result.total} rows imported</div>
+          <div className="text-sm text-text-2">of {result.total} rows imported</div>
         </div>
 
         {result.skipped.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="bg-surface rounded-xl shadow-sm p-4">
             <div className="text-sm font-medium text-ink mb-2">Skipped rows ({result.skipped.length})</div>
-            <ul className="text-sm text-slate-600 space-y-1 max-h-64 overflow-y-auto">
+            <ul className="text-sm text-text-2 space-y-1 max-h-64 overflow-y-auto">
               {result.skipped.map((s, i) => (
                 <li key={i}>
                   Row {s.row}: {s.reason}

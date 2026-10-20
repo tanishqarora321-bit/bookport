@@ -33,7 +33,7 @@ export default function AmendableField({
 
   return (
     <div>
-      <label className="text-xs text-slate-400">{label}</label>
+      <label className="text-xs text-muted">{label}</label>
       {!editing ? (
         <div className="flex items-center justify-between group">
           <span className="text-sm">

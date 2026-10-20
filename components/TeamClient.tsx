@@ -169,7 +169,7 @@ export default function TeamClient({
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm">
+      <div className="bg-surface rounded-xl shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-ink/50 border-b">
@@ -187,7 +187,7 @@ export default function TeamClient({
                 <td className="px-3 py-2 text-ink/70">{t.full_name || "—"}</td>
                 <td className="px-3 py-2 text-ink/70">{t.role}</td>
                 <td className="px-3 py-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-surface-2 text-text-2"}`}>
                     {t.is_active ? "Active" : "Removed"}
                   </span>
                 </td>
@@ -232,7 +232,7 @@ export default function TeamClient({
           {companySuccess && <div className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 mb-3">{companySuccess}</div>}
 
           {onboarding && (
-            <div className="border border-ink/10 bg-slate-50 rounded p-4 grid grid-cols-4 gap-3">
+            <div className="border border-ink/10 bg-surface-2 rounded p-4 grid grid-cols-4 gap-3">
               <input
                 placeholder="Company name *"
                 className="border rounded px-2 py-1.5 text-sm"

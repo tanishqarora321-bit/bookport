@@ -175,7 +175,7 @@ function UploadBlModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
+        className="bg-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
@@ -185,9 +185,9 @@ function UploadBlModal({
 
         {step === "upload" && (
           <div className="py-6">
-            <label className="block border-2 border-dashed rounded-lg p-10 bg-slate-50 hover:border-accent text-center cursor-pointer">
+            <label className="block border-2 border-dashed rounded-lg p-10 bg-surface-2 hover:border-accent text-center cursor-pointer">
               <div className="font-medium text-sm">{uploading ? "Reading and extracting…" : "Click to choose the BL PDF"}</div>
-              <div className="text-xs text-slate-500 mt-1">Extracts BL Number, Issued Date, routing, and container/seal/weight details for you to review</div>
+              <div className="text-xs text-text-2 mt-1">Extracts BL Number, Issued Date, routing, and container/seal/weight details for you to review</div>
               <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
             {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
@@ -196,7 +196,7 @@ function UploadBlModal({
 
         {step === "review" && (
           <>
-            <p className="text-sm text-slate-500 mb-3">
+            <p className="text-sm text-text-2 mb-3">
               AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.
             </p>
             <div className="space-y-1 mb-4">
@@ -205,17 +205,17 @@ function UploadBlModal({
                 const highlighted = !!m;
                 return (
                   <div key={f.key} className="grid grid-cols-3 gap-3 items-start py-1 border-b last:border-0">
-                    <label className="text-sm text-slate-600 pt-2">
+                    <label className="text-sm text-text-2 pt-2">
                       {f.label} {f.key === "bl_number" && <span className="text-cutoff">*</span>}
                     </label>
                     <div className="col-span-2">
                       <input
                         type={f.isDate ? "date" : "text"}
-                        className={`w-full border rounded px-2 py-1.5 text-sm ${highlighted ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
+                        className={`w-full border rounded px-2 py-1.5 text-sm ${highlighted ? "border-amber-400 bg-amber-50" : "border-line-2"}`}
                         value={form[f.key]}
                         onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                       />
-                      {m?.source_quote && <div className="text-xs text-slate-400 mt-0.5">from PDF: "{m.source_quote}"</div>}
+                      {m?.source_quote && <div className="text-xs text-muted mt-0.5">from PDF: "{m.source_quote}"</div>}
                     </div>
                   </div>
                 );
@@ -229,7 +229,7 @@ function UploadBlModal({
             <div className="border rounded-lg overflow-x-auto mb-3">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-ink/40 bg-slate-50">
+                  <tr className="text-left text-ink/40 bg-surface-2">
                     <th className="px-2 py-1.5 font-normal">Container No.</th>
                     <th className="px-2 py-1.5 font-normal">Seal No.</th>
                     <th className="px-2 py-1.5 font-normal">Gross Weight</th>
@@ -261,7 +261,7 @@ function UploadBlModal({
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-slate-400 mb-3">
+            <p className="text-xs text-muted mb-3">
               Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one's missing.
             </p>
 

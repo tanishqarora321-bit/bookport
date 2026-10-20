@@ -230,7 +230,7 @@ function PartiesTab({
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm">
+      <div className="bg-surface rounded-xl shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-ink/50 border-b">
@@ -301,7 +301,7 @@ function PartiesTab({
                   </td>
                 </tr>
                 {expanded[p.id] && (
-                  <tr className="border-b bg-slate-50/60">
+                  <tr className="border-b bg-surface-2">
                     <td colSpan={8} className="px-6 py-3">
                       <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
                     </td>
@@ -395,7 +395,7 @@ function EditPartyModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Account</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
@@ -497,7 +497,7 @@ function MergePartiesModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Accounts</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
@@ -516,7 +516,7 @@ function MergePartiesModal({
         </div>
         {other && (
           <>
-            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded p-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded p-3 mb-3">
               <div>
                 <div className="font-medium text-ink mb-1">{party.legal_name}</div>
                 <div className="text-ink/50">Short code: {party.short_code || "—"}</div>
@@ -734,7 +734,7 @@ function ItemsTab({
       </div>
       {error && <div className="text-xs text-cutoff mb-2">{error}</div>}
 
-      <div className="bg-white rounded-xl shadow-sm">
+      <div className="bg-surface rounded-xl shadow-sm">
         <ul className="divide-y">
           {visible.map((item) => (
             <li

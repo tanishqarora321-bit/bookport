@@ -74,7 +74,7 @@ export default function ProfitLossClient() {
             {allYears ? "All years" : `Year ${year}`} — each row's own invoice date decides which year it counts toward.
           </p>
         </div>
-        <label className="flex items-center gap-1.5 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-sm bg-surface border border-line rounded-lg px-3 py-2 cursor-pointer">
           <input type="checkbox" checked={allYears} onChange={(e) => setAllYears(e.target.checked)} />
           All Years
         </label>
@@ -115,9 +115,9 @@ export default function ProfitLossClient() {
 function BookingTable({ rows }: { rows: BookingPL[] }) {
   const sorted = [...rows].sort((a, b) => a.booking_number.localeCompare(b.booking_number));
   return (
-    <div className="flex-1 overflow-auto bg-white rounded-xl shadow-sm">
+    <div className="flex-1 overflow-auto bg-surface rounded-xl shadow-sm">
       <table className="w-full text-sm border-collapse">
-        <thead className="sticky top-0 bg-slate-50 border-b">
+        <thead className="sticky top-0 bg-surface-2 border-b">
           <tr className="text-left text-ink/50">
             <th className="px-3 py-2">Booking Number</th>
             <th className="px-3 py-2">Buyer Revenue</th>
@@ -130,7 +130,7 @@ function BookingTable({ rows }: { rows: BookingPL[] }) {
         </thead>
         <tbody>
           {sorted.map((b) => (
-            <tr key={b.booking_number} className="border-b last:border-0 hover:bg-slate-50/70">
+            <tr key={b.booking_number} className="border-b last:border-0 hover:bg-surface-2">
               <td className="px-3 py-2 whitespace-nowrap font-medium text-ink">{b.booking_number}</td>
               <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(b.buyer_usd)}</td>
               <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(b.forwarder_usd)}</td>
@@ -152,9 +152,9 @@ function BookingTable({ rows }: { rows: BookingPL[] }) {
 function PartyTable({ rows }: { rows: PartyPL[] }) {
   const sorted = [...rows].sort((a, b) => (a.role === b.role ? b.invoiced_usd - a.invoiced_usd : a.role.localeCompare(b.role)));
   return (
-    <div className="flex-1 overflow-auto bg-white rounded-xl shadow-sm">
+    <div className="flex-1 overflow-auto bg-surface rounded-xl shadow-sm">
       <table className="w-full text-sm border-collapse">
-        <thead className="sticky top-0 bg-slate-50 border-b">
+        <thead className="sticky top-0 bg-surface-2 border-b">
           <tr className="text-left text-ink/50">
             <th className="px-3 py-2">Party</th>
             <th className="px-3 py-2">Role</th>
@@ -165,7 +165,7 @@ function PartyTable({ rows }: { rows: PartyPL[] }) {
         </thead>
         <tbody>
           {sorted.map((p) => (
-            <tr key={`${p.role}-${p.party_id}`} className="border-b last:border-0 hover:bg-slate-50/70">
+            <tr key={`${p.role}-${p.party_id}`} className="border-b last:border-0 hover:bg-surface-2">
               <td className="px-3 py-2 whitespace-nowrap font-medium text-ink">{p.legal_name}</td>
               <td className="px-3 py-2 whitespace-nowrap text-ink/60">{ROLE_LABELS[p.role]}</td>
               <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(p.invoiced_usd)}</td>

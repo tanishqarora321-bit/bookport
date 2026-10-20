@@ -17,7 +17,7 @@ type Company = {
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-100 text-emerald-700",
   trial: "bg-blue-100 text-blue-700",
-  cancelled: "bg-slate-200 text-slate-600",
+  cancelled: "bg-line text-text-2",
   suspended: "bg-red-100 text-red-700",
 };
 
@@ -60,7 +60,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
         <StatCard icon={Users} label="Total Seats Used" value={totalSeatsUsed} />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm">
+      <div className="bg-surface rounded-xl shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-ink/50 border-b">
@@ -82,7 +82,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                   <select
                     value={c.subscription_status}
                     onChange={(e) => changeStatus(c.id, e.target.value)}
-                    className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${STATUS_COLORS[c.subscription_status] ?? "bg-slate-100 text-slate-600"}`}
+                    className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${STATUS_COLORS[c.subscription_status] ?? "bg-surface-2 text-text-2"}`}
                   >
                     <option value="trial">Trial</option>
                     <option value="active">Active</option>

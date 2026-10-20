@@ -314,55 +314,55 @@ export default function BookingsClient({
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+          <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search booking #, POL, POD…"
-            className="border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm bg-white w-56"
+            className="border border-line rounded-lg pl-8 pr-3 py-2 text-sm bg-surface w-56"
           />
         </div>
-        <select value={line} onChange={(e) => setLine(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={line} onChange={(e) => setLine(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Lines</option>
           {lines.map((l) => (
             <option key={l} value={l}>{l}</option>
           ))}
         </select>
-        <select value={destination} onChange={(e) => setDestination(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={destination} onChange={(e) => setDestination(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Destinations</option>
           {destinations.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
         </select>
-        <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Forwarders</option>
           {forwarderOptions.map((f) => (
             <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
           ))}
         </select>
-        <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Truckers</option>
           {truckerOptions.map((t) => (
             <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
           ))}
         </select>
-        <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Suppliers</option>
           {supplierOptions.map((s) => (
             <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
           ))}
         </select>
-        <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Buyers</option>
           {buyerOptions.map((b) => (
             <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-sm bg-surface border border-line rounded-lg px-3 py-2 cursor-pointer">
           <input type="checkbox" checked={filterByYear} onChange={(e) => setFilterByYear(e.target.checked)} />
           Only {year} (by Month of Loading)
         </label>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
           <option value="confirmed">Confirmed</option>
@@ -372,25 +372,25 @@ export default function BookingsClient({
         </select>
         <button
           onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)}
-          className={`border rounded-lg px-3 py-2 text-sm ${cutoffSoonOnly ? "bg-accent text-white border-accent" : "bg-white border-slate-200"}`}
+          className={`border rounded-lg px-3 py-2 text-sm ${cutoffSoonOnly ? "bg-accent text-white border-accent" : "bg-surface border-line"}`}
         >
           Cut off within 3 days
         </button>
         <button
           onClick={() => setOverdueOnly(!overdueOnly)}
-          className={`border rounded-lg px-3 py-2 text-sm ${overdueOnly ? "bg-cutoff text-white border-cutoff" : "bg-white border-slate-200"}`}
+          className={`border rounded-lg px-3 py-2 text-sm ${overdueOnly ? "bg-cutoff text-white border-cutoff" : "bg-surface border-line"}`}
         >
           Cut-off overdue
         </button>
-        <button onClick={exportCsv} className="ml-auto border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white hover:bg-slate-50">
+        <button onClick={exportCsv} className="ml-auto border border-line rounded-lg px-3 py-2 text-sm bg-surface hover:bg-surface-2">
           ⬇ Export CSV
         </button>
       </div>
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
-      <div className="bg-white rounded-xl border border-slate-200 flex-1 overflow-auto">
+      <div className="bg-surface rounded-xl border border-line flex-1 overflow-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="text-left text-ink/50 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+          <thead className="text-left text-ink/50 border-b border-line bg-surface-2 sticky top-0 z-10">
             <tr>
               {[
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
@@ -408,7 +408,7 @@ export default function BookingsClient({
             {filtered.map((r, idx) => {
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
-                <tr key={rowKey(r)} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
+                <tr key={rowKey(r)} className="border-b border-line last:border-0 hover:bg-surface-2">
                   <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{idx + 1}</td>
                   <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} />
                   <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{monthOfLoading(r.erd)}</td>
@@ -574,7 +574,7 @@ function InstructionStatusCell({
     }
   }
 
-  const colorClass = value ? INSTRUCTION_STATUS_COLORS[value] ?? "bg-slate-100 text-slate-600" : "bg-white border border-slate-200 text-ink/60";
+  const colorClass = value ? INSTRUCTION_STATUS_COLORS[value] ?? "bg-surface-2 text-text-2" : "bg-surface border border-line text-ink/60";
 
   return (
     <td className="px-3 py-2 min-w-[140px]">

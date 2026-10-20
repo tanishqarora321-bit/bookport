@@ -102,7 +102,7 @@ export default function PartyPaymentHistory({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+    <div className="bg-surface rounded-xl shadow-sm p-4 mb-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-ink">Payment History</h2>
         <button onClick={() => setExpanded(!expanded)} className="text-xs text-accent underline">
@@ -113,11 +113,11 @@ export default function PartyPaymentHistory({
       {expanded && (
         <div className="mt-3">
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="bg-slate-50 rounded-lg p-3">
+            <div className="bg-surface-2 rounded-lg p-3">
               <div className="text-xs text-ink/40">Total Invoiced (USD)</div>
               <div className="text-lg font-semibold text-ink">{fmtMoney(totalInvoicedUsd, "USD")}</div>
             </div>
-            <div className="bg-slate-50 rounded-lg p-3">
+            <div className="bg-surface-2 rounded-lg p-3">
               <div className="text-xs text-ink/40">Total Paid (USD)</div>
               <div className="text-lg font-semibold text-ink">{fmtMoney(totalPaidUsd, "USD")}</div>
             </div>

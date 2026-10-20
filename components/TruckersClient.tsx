@@ -142,7 +142,7 @@ export default function TruckersClient({ initialTruckers }: { initialTruckers: T
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm">
+      <div className="bg-surface rounded-xl shadow-sm">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-ink/50 border-b">
@@ -275,7 +275,7 @@ function EditTruckerModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Trucker</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
@@ -397,7 +397,7 @@ function MergeTruckersModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Truckers</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
@@ -418,7 +418,7 @@ function MergeTruckersModal({
 
         {other && (
           <>
-            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded p-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 text-xs bg-surface-2 rounded p-3 mb-3">
               <div>
                 <div className="font-medium text-ink mb-1">{trucker.legal_name}</div>
                 <div className="text-ink/50">Short code: {trucker.short_code || "—"}</div>

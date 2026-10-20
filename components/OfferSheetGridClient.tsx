@@ -168,7 +168,7 @@ export default function OfferSheetGridClient({
 
       <div className="flex-1 overflow-auto border rounded">
         <table className="text-sm border-collapse min-w-max">
-          <thead className="sticky top-0 bg-slate-50 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-ink/50 border-b">
               {visibleColumns.map((c) => (
                 <th key={c.key} className="px-3 py-2 font-medium whitespace-nowrap">
@@ -201,7 +201,7 @@ export default function OfferSheetGridClient({
           </tbody>
           {rows.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 font-semibold bg-slate-50">
+              <tr className="border-t-2 font-semibold bg-surface-2">
                 {visibleColumns.map((c, i) => (
                   <td key={c.key} className="px-3 py-2 whitespace-nowrap">
                     {i === 0 ? "GRAND TOTAL" : c.kind === "number" || c.kind === "computed" ? formatValue(c, sumColumn(rows, c.key)) : ""}
@@ -267,7 +267,7 @@ function GroupBlock({
         </tr>
       ))}
       {onAddItem && (
-        <tr className="border-b bg-slate-50/40">
+        <tr className="border-b bg-surface-2">
           <td colSpan={visibleColumns.length + 1} className="px-3 py-1">
             <button onClick={onAddItem} className="text-xs text-accent underline">
               + Add Item to This Group
@@ -276,7 +276,7 @@ function GroupBlock({
         </tr>
       )}
       {showGroupTotal && (
-        <tr className="border-b bg-slate-50 text-xs font-medium text-ink/60">
+        <tr className="border-b bg-surface-2 text-xs font-medium text-ink/60">
           {visibleColumns.map((c, i) => (
             <td key={c.key} className="px-3 py-1 whitespace-nowrap">
               {i === 0 ? "Subtotal" : numericColumns.includes(c) ? formatValue(c, sumColumn(groupRows, c.key)) : ""}

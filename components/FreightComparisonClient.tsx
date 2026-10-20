@@ -207,9 +207,9 @@ export default function FreightComparisonClient({
 
       <div className="flex-1 overflow-auto border rounded mb-4">
         <table className="text-sm border-collapse min-w-max">
-          <thead className="sticky top-0 bg-slate-50 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-ink/50 border-b">
-              <th className="px-3 py-2 font-medium sticky left-0 bg-slate-50 z-20">Origin</th>
+              <th className="px-3 py-2 font-medium sticky left-0 bg-surface-2 z-20">Origin</th>
               {columns.map(([colKey, c]) => (
                 <th key={colKey} className="px-3 py-2 font-medium whitespace-nowrap text-center">
                   <div>{c.shipping_line}</div>
@@ -224,7 +224,7 @@ export default function FreightComparisonClient({
               const cheapestCol = cheapestColKeyForOrigin(originKey);
               return (
                 <tr key={originKey} className="border-b hover:bg-blue-50/20">
-                  <td className="px-3 py-2 font-medium whitespace-nowrap sticky left-0 bg-white">{originDisplay}</td>
+                  <td className="px-3 py-2 font-medium whitespace-nowrap sticky left-0 bg-surface">{originDisplay}</td>
                   {columns.map(([colKey]) => {
                     const v = matrix.get(`${originKey}||${colKey}`);
                     const isCheapest = colKey === cheapestCol && v !== undefined;
@@ -438,7 +438,7 @@ function UploadPanel({
             uploaded rate sheets" below.
           </p>
           {log.length > 0 && (
-            <div className="text-xs bg-white border rounded p-2 mb-2 space-y-0.5">
+            <div className="text-xs bg-surface border rounded p-2 mb-2 space-y-0.5">
               {log.map((l, i) => (
                 <div key={i}>{l}</div>
               ))}
@@ -552,7 +552,7 @@ function SheetManageCard({
 
   return (
     <div className="border rounded">
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-50">
+      <div className="flex items-center justify-between px-3 py-2 bg-surface-2">
         <button onClick={() => setOpen(!open)} className="text-sm font-medium text-left flex-1">
           {sheet.forwarder_name} <span className="text-ink/40 font-normal">— {rows.length} rates — {sheet.source_type === "pdf" ? sheet.source_file_name : "manual entry"}</span>
         </button>

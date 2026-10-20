@@ -107,9 +107,9 @@ export default function TrackingClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto bg-white rounded-xl shadow-sm">
+      <div className="flex-1 overflow-auto bg-surface rounded-xl shadow-sm">
         <table className="text-sm border-collapse min-w-[2000px]">
-          <thead className="sticky top-0 bg-slate-50 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-ink/50 border-b">
               <Th>Sr. No.</Th>
               <Th>Party</Th>
@@ -331,7 +331,7 @@ function TrackingRowView({
             patchRow(row.id, { bl_status: next }).then(() => onChange({ bl_status: next }));
           }}
           className={`text-xs px-2 py-1 rounded font-medium ${
-            row.bl_status === "Y" ? "bg-green-100 text-green-700" : "bg-slate-100 text-ink/50"
+            row.bl_status === "Y" ? "bg-green-100 text-green-700" : "bg-surface-2 text-ink/50"
           }`}
         >
           {row.bl_status}

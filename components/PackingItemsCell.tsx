@@ -134,7 +134,7 @@ function PackingPopover({
   }
 
   return (
-    <div className="absolute z-30 mt-1 w-[26rem] bg-white border rounded-lg shadow-lg p-3 text-left">
+    <div className="absolute z-30 mt-1 w-[26rem] bg-surface border rounded-lg shadow-lg p-3 text-left">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-ink/60">Seal No / Weight / Bales</span>
         <button onClick={onClose} title="Close" className="text-ink/40 hover:text-ink text-sm">
@@ -144,7 +144,7 @@ function PackingPopover({
 
       <ul className="space-y-1 mb-2 max-h-48 overflow-auto">
         {items.map((it) => (
-          <li key={it.id} className="grid grid-cols-[1fr_1fr_50px_1fr_auto] gap-1 items-center text-xs bg-slate-50 rounded px-2 py-1.5">
+          <li key={it.id} className="grid grid-cols-[1fr_1fr_50px_1fr_auto] gap-1 items-center text-xs bg-surface-2 rounded px-2 py-1.5">
             <input
               defaultValue={it.seal_no ?? ""}
               placeholder="Seal No"
@@ -187,7 +187,7 @@ function PackingPopover({
         {items.length === 0 && <li className="text-xs text-ink/40">No lines yet.</li>}
       </ul>
 
-      <div className="mb-2 border border-slate-200 rounded p-2 bg-slate-50/50">
+      <div className="mb-2 border border-line rounded p-2 bg-surface-2">
         <div className="grid grid-cols-[1fr_1fr_50px_1fr] gap-1 mb-1">
           <input
             placeholder="Seal No"

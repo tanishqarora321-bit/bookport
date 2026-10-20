@@ -86,7 +86,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex bg-white">
+    <div className="min-h-screen flex bg-surface">
       {/* Brand panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#0b2749] via-[#123a6b] to-accent">
         <div
@@ -139,7 +139,7 @@ function LoginForm() {
             <Logo size={40} />
             <div>
               <div className="font-semibold text-lg leading-tight text-ink">Ship-Sphere</div>
-              <div className="text-xs text-slate-400 leading-tight">One Booking. All Connected.</div>
+              <div className="text-xs text-muted leading-tight">One Booking. All Connected.</div>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ function LoginForm() {
               {saving ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="text-xs text-slate-400 text-center pt-2">
+            <p className="text-xs text-muted text-center pt-2">
               Don't have an account yet? Ask your admin to invite you from Settings & Control.
             </p>
           </form>

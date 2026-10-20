@@ -41,7 +41,7 @@ export default function InlineEditText({
         className="cursor-text hover:bg-blue-50 px-1 -mx-1 rounded block"
         title="Click to edit"
       >
-        {value || <span className="text-slate-300">{placeholder}</span>}
+        {value || <span className="text-muted">{placeholder}</span>}
       </span>
     );
   }

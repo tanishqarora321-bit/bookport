@@ -242,13 +242,13 @@ export default function InvoiceLedgerClient({
       <PartyPaymentHistory partyId={forwarderId} totalInvoicedUsd={totalUsd} />
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
@@ -257,7 +257,7 @@ export default function InvoiceLedgerClient({
 
       <div className="flex-1 overflow-auto border rounded">
         <table className="text-sm border-collapse min-w-[2300px]">
-          <thead className="sticky top-0 bg-slate-50 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-ink/50 border-b">
               <Th>Booking Number</Th>
               <Th>Container Number</Th>
@@ -321,7 +321,7 @@ export default function InvoiceLedgerClient({
           </tbody>
           {filtered.length > 0 && (
             <tfoot>
-              <tr className="font-medium bg-slate-50 border-t">
+              <tr className="font-medium bg-surface-2 border-t">
                 <td colSpan={10} className="px-3 py-2 text-right text-ink/60">Totals (converted to USD):</td>
                 {CHARGE_KEYS.map((key) => (
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
@@ -490,7 +490,7 @@ function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: str
       setSaving(false);
     }
   }
-  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-slate-100 text-slate-600";
+  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-surface-2 text-text-2";
   return (
     <select
       value={value}
@@ -708,7 +708,7 @@ function EnterInvoiceModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
@@ -716,7 +716,7 @@ function EnterInvoiceModal({
           <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
         </div>
 
-        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+        <label className="block border-2 border-dashed rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
           <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
