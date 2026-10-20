@@ -107,10 +107,10 @@ export default function TrackingClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto bg-surface rounded-xl shadow-sm">
+      <div className="flex-1 overflow-auto bg-surface rounded-xl border border-line">
         <table className="text-sm border-collapse min-w-[2000px]">
           <thead className="sticky top-0 bg-surface-2 z-10">
-            <tr className="text-left text-ink/50 border-b">
+            <tr className="text-left text-muted border-b border-line">
               <Th>Sr. No.</Th>
               <Th>Party</Th>
               <Th>Consignee as per BL</Th>
@@ -210,8 +210,8 @@ function AssignPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-3 gap-3">
-      <select className="border rounded px-2 py-1.5 text-sm" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
+    <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-3 gap-3">
+      <select className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface" value={bookingId} onChange={(e) => setBookingId(e.target.value)}>
         <option value="">Select booking…</option>
         {bookings.map((b) => (
           <option key={b.id} value={b.id}>
@@ -219,7 +219,7 @@ function AssignPanel({
           </option>
         ))}
       </select>
-      <select className="border rounded px-2 py-1.5 text-sm" value={partyId} onChange={(e) => setPartyId(e.target.value)}>
+      <select className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface" value={partyId} onChange={(e) => setPartyId(e.target.value)}>
         <option value="">Select party…</option>
         {parties.map((p) => (
           <option key={p.id} value={p.id}>
@@ -227,7 +227,7 @@ function AssignPanel({
           </option>
         ))}
       </select>
-      <select className="border rounded px-2 py-1.5 text-sm" value={itemId} onChange={(e) => setItemId(e.target.value)}>
+      <select className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface" value={itemId} onChange={(e) => setItemId(e.target.value)}>
         <option value="">Select item category…</option>
         {items.map((i) => (
           <option key={i.id} value={i.id}>
@@ -235,7 +235,7 @@ function AssignPanel({
           </option>
         ))}
       </select>
-      <select className="border rounded px-2 py-1.5 text-sm" value={forwarderId} onChange={(e) => setForwarderId(e.target.value)}>
+      <select className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface" value={forwarderId} onChange={(e) => setForwarderId(e.target.value)}>
         <option value="">Select forwarder…</option>
         {forwarders.map((f) => (
           <option key={f.id} value={f.id}>
@@ -244,7 +244,7 @@ function AssignPanel({
         ))}
       </select>
       {bookings.length === 0 && (
-        <div className="col-span-3 text-xs text-ink/50">
+        <div className="col-span-3 text-xs text-muted">
           No unassigned bookings available — every booking already has a tracking entry.
         </div>
       )}
@@ -255,10 +255,10 @@ function AssignPanel({
       )}
       {error && <div className="col-span-3 text-xs text-cutoff">{error}</div>}
       <div className="col-span-3 flex gap-2">
-        <button onClick={create} disabled={saving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+        <button onClick={create} disabled={saving} className="text-sm bg-accent text-white px-3 py-1.5 rounded-lg font-medium">
           {saving ? "Creating…" : "Create Tracking Entry"}
         </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
+        <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 px-3 py-1.5 rounded-lg">
           Cancel
         </button>
       </div>
@@ -282,7 +282,7 @@ function TrackingRowView({
   const party = parties.find((p) => p.id === row.party_id);
 
   return (
-    <tr className="border-b hover:bg-blue-50/30">
+    <tr className="border-b border-line hover:bg-surface-2">
       <Td>{sr}</Td>
       <Td>{party?.legal_name || "—"}</Td>
       <EditableTd
@@ -297,7 +297,7 @@ function TrackingRowView({
         {row.invoice_no ? (
           <EditableTd asInline value={row.invoice_no} onSave={(v) => patchRow(row.id, { invoice_no: v }).then(() => onChange({ invoice_no: v }))} />
         ) : (
-          <span className="text-ink/30">—</span>
+          <span className="text-muted">—</span>
         )}
       </td>
       <Td>{row.booking_number || "—"}</Td>
@@ -331,7 +331,7 @@ function TrackingRowView({
             patchRow(row.id, { bl_status: next }).then(() => onChange({ bl_status: next }));
           }}
           className={`text-xs px-2 py-1 rounded font-medium ${
-            row.bl_status === "Y" ? "bg-green-100 text-green-700" : "bg-surface-2 text-ink/50"
+            row.bl_status === "Y" ? "bg-success-soft text-success" : "bg-surface-2 text-muted"
           }`}
         >
           {row.bl_status}
@@ -352,7 +352,7 @@ function TrackingRowView({
 }
 
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 whitespace-nowrap text-ink/80">{children}</td>;
+  return <td className="px-3 py-2 whitespace-nowrap text-text-2">{children}</td>;
 }
 
 function SentToggleTd({ value, onToggle }: { value: boolean; onToggle: (v: boolean) => void }) {
@@ -361,7 +361,7 @@ function SentToggleTd({ value, onToggle }: { value: boolean; onToggle: (v: boole
       <button
         onClick={() => onToggle(!value)}
         className={`text-xs px-2 py-1 rounded font-medium ${
-          value ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+          value ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
         }`}
       >
         {value ? "Sent" : "Pending"}
@@ -406,7 +406,7 @@ function EditableTd({
   const display = value ? (isDate ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : value) : "—";
 
   const content = !editing ? (
-    <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block" title="Click to edit">
+    <span onClick={() => setEditing(true)} className="cursor-text hover:bg-accent-soft px-1 rounded block" title="Click to edit">
       {renderDisplay ? renderDisplay(value) : display}
     </span>
   ) : (

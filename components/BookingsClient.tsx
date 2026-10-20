@@ -7,6 +7,7 @@ import EditableCell from "@/components/EditableCell";
 import PartyPickerCell from "@/components/PartyPickerCell";
 import ContainerCell from "@/components/ContainerCell";
 import StatCard from "@/components/ui/StatCard";
+import EmptyState from "@/components/ui/EmptyState";
 import StatusCell from "@/components/StatusCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
@@ -257,6 +258,29 @@ export default function BookingsClient({
     setRows((prev) => prev.filter((r) => r.booking_id !== bookingId));
   }
 
+  function clearFilters() {
+    setLine("all");
+    setDestination("all");
+    setStatus("all");
+    setForwarderFilter("all");
+    setTruckerFilter("all");
+    setSupplierFilter("all");
+    setBuyerFilter("all");
+    setCutoffSoonOnly(false);
+    setOverdueOnly(false);
+    setSearch("");
+  }
+
+  const activeChips: { label: string; clear: () => void }[] = [
+    line !== "all" ? { label: `Line: ${line}`, clear: () => setLine("all") } : null,
+    destination !== "all" ? { label: `Destination: ${destination}`, clear: () => setDestination("all") } : null,
+    status !== "all" ? { label: `Status: ${status}`, clear: () => setStatus("all") } : null,
+    forwarderFilter !== "all" ? { label: `Forwarder: ${forwarderFilter}`, clear: () => setForwarderFilter("all") } : null,
+    truckerFilter !== "all" ? { label: `Trucker: ${truckerFilter}`, clear: () => setTruckerFilter("all") } : null,
+    supplierFilter !== "all" ? { label: `Supplier: ${supplierFilter}`, clear: () => setSupplierFilter("all") } : null,
+    buyerFilter !== "all" ? { label: `Buyer: ${buyerFilter}`, clear: () => setBuyerFilter("all") } : null,
+  ].filter((c): c is { label: string; clear: () => void } => c !== null);
+
   function exportCsv() {
     const csv = toCsv(filtered);
     const blob = new Blob([csv], { type: "text/csv" });
@@ -382,10 +406,31 @@ export default function BookingsClient({
         >
           Cut-off overdue
         </button>
+        {activeChips.length > 0 && (
+          <button onClick={clearFilters} className="text-sm text-accent hover:underline px-1">
+            Clear filters
+          </button>
+        )}
         <button onClick={exportCsv} className="ml-auto border border-line rounded-lg px-3 py-2 text-sm bg-surface hover:bg-surface-2">
           ⬇ Export CSV
         </button>
       </div>
+
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0 text-xs">
+          <span className="text-muted">Active:</span>
+          {activeChips.map((c) => (
+            <button
+              key={c.label}
+              onClick={c.clear}
+              className="inline-flex items-center gap-1.5 bg-accent-soft text-accent rounded-full px-2.5 py-1 hover:bg-accent hover:text-white"
+            >
+              {c.label}
+              <span aria-hidden>✕</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
       <div className="bg-surface rounded-xl border border-line flex-1 overflow-auto">
@@ -521,8 +566,23 @@ export default function BookingsClient({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={24} className="p-8 text-center text-ink/40">
-                  {rows.length === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
+                <td colSpan={24} className="p-0">
+                  {rows.length === 0 && variant === "multiple" ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                      <CheckCircle2 className="w-8 h-8 text-success" size={32} />
+                      <div className="text-sm font-medium text-ink">No duplicate booking numbers</div>
+                      <div className="text-xs text-muted max-w-sm">Every booking number has a single entry.</div>
+                      <Link href="/bookings" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 mt-1">
+                        Back to Booking & Instructions
+                      </Link>
+                    </div>
+                  ) : (
+                    <EmptyState
+                      icon={ClipboardList}
+                      title={rows.length === 0 ? "No bookings yet" : "No bookings match these filters"}
+                      hint={rows.length === 0 ? "Upload a PDF or add one manually." : undefined}
+                    />
+                  )}
                 </td>
               </tr>
             )}
@@ -539,8 +599,8 @@ export default function BookingsClient({
 // how every other optional field in this grid reads "—" rather than a
 // colored pill until someone actually sets it.
 const INSTRUCTION_STATUS_COLORS: Record<string, string> = {
-  sent: "bg-emerald-100 text-emerald-700",
-  not_sent: "bg-red-100 text-red-700",
+  sent: "bg-success-soft text-success",
+  not_sent: "bg-critical-soft text-critical",
 };
 const INSTRUCTION_STATUS_LABELS: Record<string, string> = {
   sent: "Sent",
