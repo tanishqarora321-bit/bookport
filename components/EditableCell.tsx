@@ -16,8 +16,8 @@ function formatDate(value: string, isDateTime: boolean) {
 // pencil icon that only shows on hover -- editing opens ONLY from clicking
 // that pencil, never from clicking the cell itself.
 export default function EditableCell({
-  bookingId, column, value, isDate = false, highlight = false
-}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean }) {
+  bookingId, column, value, isDate = false, highlight = false, sticky = false
+}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean; sticky?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -55,9 +55,11 @@ export default function EditableCell({
 
   const display = value ? (isDate ? formatDate(value, value.includes("T")) : value) : "—";
 
+  const stickyClass = sticky ? "stk2" : "";
+
   if (!editing) {
     return (
-      <td className={highlight ? "num" : ""} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
+      <td className={`${stickyClass} ${highlight ? "num" : ""}`.trim()} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
         <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {display}
           <button onClick={() => setEditing(true)} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
@@ -69,7 +71,7 @@ export default function EditableCell({
   }
 
   return (
-    <td style={{ minWidth: 180 }}>
+    <td className={stickyClass} style={{ minWidth: 180 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           autoFocus

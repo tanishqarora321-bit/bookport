@@ -474,7 +474,7 @@ export default function BookingsClient({
               return (
                 <tr key={rowKey(r)}>
                   <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>{idx + 1}</td>
-                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} />
+                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky />
                   <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
                   <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
