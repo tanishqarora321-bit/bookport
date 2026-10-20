@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
+import { KeyRound, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ChangePasswordCard({ email }: { email: string }) {
@@ -37,50 +37,78 @@ export default function ChangePasswordCard({ email }: { email: string }) {
   }
 
   return (
-    <div className="bg-surface border border-line rounded-xl p-4 mb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
-            <KeyRound className="w-4 h-4" size={16} /> Your Account
-          </h2>
-          <p className="text-xs text-muted mt-0.5">Signed in as {email}</p>
+    <section id="acct" className="card" aria-labelledby="acct-t">
+      <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
+        <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+          <KeyRound size={18} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h2 id="acct-t" className="h2">Your Account</h2>
+          <div className="lbl mt-0.5">
+            Signed in as <b className="text-ink font-semibold">{email}</b>
+          </div>
         </div>
         {!open && (
-          <button onClick={() => { setOpen(true); setSuccess(false); }} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
+          <button
+            type="button"
+            className="btn btn-s"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(true);
+              setSuccess(false);
+            }}
+          >
             Change Password
           </button>
         )}
       </div>
 
-      {success && <p className="text-sm text-success bg-success-soft rounded-lg px-3 py-2 mt-3">Password updated.</p>}
+      <div className="p-5 flex flex-col gap-4">
+        {success && (
+          <span role="status" className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--ok)" }}>
+            <CheckCircle2 size={14} aria-hidden="true" />
+            Password updated.
+          </span>
+        )}
 
-      {open && (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <input
-            type="password"
-            placeholder="New password (min 8 chars)"
-            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Confirm new password"
-            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          {error && <div className="col-span-2 text-xs text-cutoff">{error}</div>}
-          <div className="col-span-2 flex gap-2">
-            <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
-              {saving ? "Saving…" : "Save Password"}
-            </button>
-            <button onClick={() => setOpen(false)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        {open && (
+          <>
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+              <div className="field">
+                <label htmlFor="np">New password (min 8 chars)</label>
+                <input
+                  id="np"
+                  type="password"
+                  className="input"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="cp">Confirm new password</label>
+                <input
+                  id="cp"
+                  type="password"
+                  className="input"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && <span className="err">{error}</span>}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" className="btn btn-p" onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save Password"}
+              </button>
+              <button type="button" className="btn btn-g" onClick={() => setOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

@@ -94,7 +94,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
   const Field = ({ label, column, isDate = false }: { label: string; column: string; isDate?: boolean }) => (
     <div>
       <span className="text-muted text-xs">{label}</span>
-      <table className="w-full -mt-1"><tbody><tr>
+      <table className="tbl" style={{ marginTop: -10 }}><tbody><tr>
         <EditableCell bookingId={booking.id} column={column} value={(booking as any)[column]} isDate={isDate} />
       </tr></tbody></table>
     </div>

@@ -505,7 +505,7 @@ function AddInvoicePanel({
                 </td>
                 <td className="pb-1 text-center">
                   {items.length > 1 && (
-                    <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs">
+                    <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
                       ✕
                     </button>
                   )}
@@ -760,7 +760,7 @@ function EnterInvoiceModal({
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
           </h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
 
         <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
@@ -839,7 +839,7 @@ function EnterInvoiceModal({
                   </td>
                   <td className="pb-1 text-center">
                     {items.length > 1 && (
-                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs">
+                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
                         ✕
                       </button>
                     )}

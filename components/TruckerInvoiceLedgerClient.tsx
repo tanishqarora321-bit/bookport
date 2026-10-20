@@ -276,6 +276,7 @@ export default function TruckerInvoiceLedgerClient({
                       onClick={() => handleDeleteColumn(col)}
                       disabled={deletingColumnId === col.id}
                       title={`Delete "${col.label}" column (only works if it's 0 everywhere)`}
+                      aria-label={`Delete column ${col.label}`}
                       className="text-muted hover:text-cutoff font-normal normal-case tracking-normal"
                     >
                       ✕
@@ -547,7 +548,7 @@ function EditableCell({
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-1.5 py-0.5 rounded-lg">
+        <button onClick={save} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-1.5 py-0.5 rounded-lg" aria-label="Save">
           {saving ? "…" : "✓"}
         </button>
         <button onClick={() => setEditing(false)} className="text-xs border border-line hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
@@ -706,7 +707,7 @@ function EnterInvoiceModal({
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
           </h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
 
         <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">

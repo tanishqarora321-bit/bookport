@@ -398,7 +398,7 @@ function EditPartyModal({
       <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Account</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
         <div className="space-y-3">
           <div>
@@ -500,7 +500,7 @@ function MergePartiesModal({
       <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Accounts</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
         <p className="text-sm text-text-2 mb-3">
           Moves all bookings and invoices from the other account onto this one (its shipping details move over
@@ -659,8 +659,8 @@ function ShippingFieldInput({ value, onSave }: { value: string | null; onSave: (
         onKeyDown={(e) => e.key === "Enter" && save()}
         disabled={saving}
       />
-      <button onClick={save} disabled={saving} className="text-xs bg-accent text-white hover:bg-accent-hover px-1.5 py-1 rounded-lg shrink-0">{saving ? "…" : "✓"}</button>
-      <button onClick={() => { setEditing(false); setVal(value ?? ""); }} className="text-xs border border-line bg-surface hover:bg-surface-2 px-1.5 py-1 rounded-lg shrink-0">✕</button>
+      <button onClick={save} disabled={saving} className="text-xs bg-accent text-white hover:bg-accent-hover px-1.5 py-1 rounded-lg shrink-0" aria-label="Save">{saving ? "…" : "✓"}</button>
+      <button onClick={() => { setEditing(false); setVal(value ?? ""); }} className="text-xs border border-line bg-surface hover:bg-surface-2 px-1.5 py-1 rounded-lg shrink-0" aria-label="Cancel edit">✕</button>
     </div>
   );
 }

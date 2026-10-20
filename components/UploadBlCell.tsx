@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CloseIcon } from "@/components/EditableCell";
 
 type ExtractedField = { value: string | null; confidence: number; source_quote: string } | undefined;
 type ExtractedContainer = { container_no: string | null; seal_no: string | null; gross_weight: number | null; weight_unit: string | null; bales: number | null };
@@ -21,8 +22,8 @@ const FIELD_LABELS: { key: keyof FormState; label: string; isDate?: boolean }[] 
   { key: "voyage", label: "Voyage" },
   { key: "pol", label: "Port of Loading" },
   { key: "pod", label: "Port of Discharge" },
-  { key: "description_of_goods", label: "Description of Goods" },
   { key: "hs_code", label: "H.S. Code" },
+  { key: "description_of_goods", label: "Description of Goods" },
 ];
 
 // "Upload BL" on Booking & Instructions - mirrors the booking-confirmation
@@ -44,17 +45,32 @@ export default function UploadBlCell({
   const [open, setOpen] = useState(false);
 
   return (
-    <td className="px-3 py-2 whitespace-nowrap">
+    <td>
       <button
         onClick={() => setOpen(true)}
-        className={
+        className="btn btn-xs"
+        style={
           blNumber
-            ? "text-xs border border-emerald-600 text-emerald-700 px-2 py-1 rounded hover:bg-emerald-50 max-w-[140px] truncate inline-block align-bottom"
-            : "text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
+            ? { borderColor: "var(--ok)", color: "var(--ok)", maxWidth: 140 }
+            : { borderColor: "var(--accent)", color: "var(--accent)" }
         }
         title={blNumber ?? undefined}
       >
-        {blNumber ? `BL: ${blNumber}` : "Upload BL"}
+        {blNumber ? (
+          <>
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12l5 5 9-10" />
+            </svg>
+            <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>BL: {blNumber}</span>
+          </>
+        ) : (
+          <>
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 16V5M7 10l5-5 5 5M5 20h14" />
+            </svg>
+            Upload BL
+          </>
+        )}
       </button>
       {open && <UploadBlModal bookingId={bookingId} onClose={() => setOpen(false)} onApplied={onApplied} />}
     </td>
@@ -172,126 +188,167 @@ function UploadBlModal({
     }
   }
 
+  const stepIdx = { upload: 1, review: 2, done: 3 }[step];
+  function dotStyle(n: number): React.CSSProperties {
+    if (n < stepIdx) return { background: "var(--okS)", color: "var(--ok)" };
+    if (n === stepIdx) return { background: "var(--accent)", color: "var(--onAccent)" };
+    return { background: "var(--neuS)", color: "var(--tx2)" };
+  }
+  const fieldsRead = Object.values(meta).filter(Boolean).length;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="bg-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-semibold text-ink">Upload Bill of Lading</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink text-sm">✕</button>
+    <div className="scrim" onClick={onClose}>
+      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="bl-t" style={{ maxWidth: 880 }} onClick={(e) => e.stopPropagation()}>
+        <div className="mh">
+          <div>
+            <h2 id="bl-t" className="h2" style={{ fontSize: 18 }}>Upload Bill of Lading</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close dialog" className="ib">
+            <CloseIcon />
+          </button>
         </div>
 
+        <ol className="steps" aria-label="Steps" style={{ listStyle: "none", margin: 0, padding: "0 24px 12px" }}>
+          <li className="stp" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, ...dotStyle(1) }}>1</span><span style={{ fontWeight: 500 }}>Upload</span></li>
+          <li aria-hidden="true" style={{ width: 32, height: 1, background: "var(--line2)" }} />
+          <li className="stp" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, ...dotStyle(2) }}>2</span><span style={{ fontWeight: 500 }}>Review</span></li>
+          <li aria-hidden="true" style={{ width: 32, height: 1, background: "var(--line2)" }} />
+          <li className="stp" style={{ display: "flex", alignItems: "center", gap: 8 }}><span className="dot" style={{ width: 20, height: 20, borderRadius: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, ...dotStyle(3) }}>3</span><span style={{ fontWeight: 500 }}>Done</span></li>
+        </ol>
+
         {step === "upload" && (
-          <div className="py-6">
-            <label className="block border-2 border-dashed rounded-lg p-10 bg-surface-2 hover:border-accent text-center cursor-pointer">
-              <div className="font-medium text-sm">{uploading ? "Reading and extracting…" : "Click to choose the BL PDF"}</div>
-              <div className="text-xs text-text-2 mt-1">Extracts BL Number, Issued Date, routing, and container/seal/weight details for you to review</div>
-              <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
-            </label>
-            {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
-          </div>
+          <>
+            <div className="mb">
+              <label className="drop" style={{ width: "100%", cursor: "pointer" }}>
+                <span style={{ width: 44, height: 44, borderRadius: 12, background: "var(--accentS)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3" />
+                  </svg>
+                </span>
+                <b style={{ fontSize: 15 }}>{uploading ? "Reading and extracting…" : "Click to choose the BL PDF"}</b>
+                <span className="lbl">Extracts BL Number, Issued Date, routing, and container/seal/weight details for you to review</span>
+                <span className="meta">PDF only · or drop the file here</span>
+                <input type="file" accept="application/pdf" className="sr" onChange={handleUpload} disabled={uploading} />
+              </label>
+              {error && <div className="err">{error}</div>}
+            </div>
+            <div className="mf"><button onClick={onClose} className="btn btn-s">Cancel</button></div>
+          </>
         )}
 
         {step === "review" && (
           <>
-            <p className="text-sm text-text-2 mb-3">
-              AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.
-            </p>
-            <div className="space-y-1 mb-4">
-              {FIELD_LABELS.map((f) => {
-                const m = meta[f.key];
-                const highlighted = !!m;
-                return (
-                  <div key={f.key} className="grid grid-cols-3 gap-3 items-start py-1 border-b last:border-0">
-                    <label className="text-sm text-text-2 pt-2">
-                      {f.label} {f.key === "bl_number" && <span className="text-cutoff">*</span>}
-                    </label>
-                    <div className="col-span-2">
+            <div className="mb">
+              <div className="banner bn-warn" style={{ padding: "10px 14px" }}>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth={2} strokeLinecap="round">
+                  <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
+                </svg>
+                <span style={{ fontSize: 13 }}>AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.</span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 16px" }}>
+                {FIELD_LABELS.map((f) => {
+                  const m = meta[f.key];
+                  const highlighted = !!m;
+                  const wide = f.key === "description_of_goods";
+                  return (
+                    <div key={f.key} className="field" style={wide ? { gridColumn: "1 / -1" } : undefined}>
+                      <label htmlFor={`bl-${f.key}`}>
+                        {f.label} {f.key === "bl_number" && <span className="req">*</span>}
+                      </label>
                       <input
+                        id={`bl-${f.key}`}
                         type={f.isDate ? "date" : "text"}
-                        className={`w-full border rounded px-2 py-1.5 text-sm ${highlighted ? "border-amber-400 bg-amber-50" : "border-line-2"}`}
+                        className={`input${f.key === "bl_number" || f.key === "hs_code" ? " mono" : ""}${highlighted ? " ai" : ""}`}
                         value={form[f.key]}
                         onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
                       />
-                      {m?.source_quote && <div className="text-xs text-muted mt-0.5">from PDF: "{m.source_quote}"</div>}
+                      {m?.source_quote && <span className="src">from PDF: &quot;{m.source_quote}&quot;</span>}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm font-medium text-ink">Containers on this BL</div>
-              <button onClick={addContainerRow} className="text-xs text-accent underline">+ Add row</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <h3 className="h2" style={{ fontSize: 14 }}>Containers on this BL <span className="meta" style={{ fontWeight: 400 }}>{containers.length}</span></h3>
+                  <button onClick={addContainerRow} className="btn btn-xs">+ Add row</button>
+                </div>
+                <div className="card" style={{ overflow: "hidden" }}>
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th>Container No.</th><th>Seal No.</th><th className="r">Gross Weight</th><th>Unit</th><th className="r">Bales</th><th><span className="sr">Remove</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {containers.map((c, i) => (
+                        <tr key={i}>
+                          <td><input className="input input-s mono" value={c.container_no} onChange={(e) => updateContainer(i, { container_no: e.target.value })} aria-label={`Container No. row ${i + 1}`} style={{ width: 150 }} /></td>
+                          <td><input className="input input-s mono" value={c.seal_no} onChange={(e) => updateContainer(i, { seal_no: e.target.value })} aria-label={`Seal No. row ${i + 1}`} style={{ width: 120 }} /></td>
+                          <td className="r"><input className="input input-s num" value={c.gross_weight} onChange={(e) => updateContainer(i, { gross_weight: e.target.value })} aria-label={`Gross Weight row ${i + 1}`} style={{ width: 100, textAlign: "right" }} /></td>
+                          <td>
+                            <select className="select select-s" value={c.weight_unit} onChange={(e) => updateContainer(i, { weight_unit: e.target.value })} aria-label={`Unit row ${i + 1}`} style={{ width: 80 }}>
+                              <option value="">—</option>
+                              <option value="KGS">KGS</option>
+                              <option value="LBS">LBS</option>
+                            </select>
+                          </td>
+                          <td className="r"><input className="input input-s num" value={c.bales} onChange={(e) => updateContainer(i, { bales: e.target.value })} aria-label={`Bales row ${i + 1}`} style={{ width: 64, textAlign: "right" }} /></td>
+                          <td><button onClick={() => removeContainerRow(i)} aria-label={`Remove row ${i + 1}`} className="ib"><CloseIcon /></button></td>
+                        </tr>
+                      ))}
+                      {containers.length === 0 && (
+                        <tr><td colSpan={6} className="meta">No containers found on this BL.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="meta" style={{ margin: 0, display: "flex", gap: 6, alignItems: "flex-start" }}>
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth={2} strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
+                  </svg>
+                  Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one&apos;s missing.
+                </p>
+              </div>
+              {error && <div className="err">{error}</div>}
             </div>
-            <div className="border rounded-lg overflow-x-auto mb-3">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-ink/40 bg-surface-2">
-                    <th className="px-2 py-1.5 font-normal">Container No.</th>
-                    <th className="px-2 py-1.5 font-normal">Seal No.</th>
-                    <th className="px-2 py-1.5 font-normal">Gross Weight</th>
-                    <th className="px-2 py-1.5 font-normal">Unit</th>
-                    <th className="px-2 py-1.5 font-normal">Bales</th>
-                    <th className="px-2 py-1.5 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {containers.map((c, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="px-2 py-1"><input className="border rounded px-1.5 py-1 text-sm w-full" value={c.container_no} onChange={(e) => updateContainer(i, { container_no: e.target.value })} /></td>
-                      <td className="px-2 py-1"><input className="border rounded px-1.5 py-1 text-sm w-full" value={c.seal_no} onChange={(e) => updateContainer(i, { seal_no: e.target.value })} /></td>
-                      <td className="px-2 py-1"><input className="border rounded px-1.5 py-1 text-sm w-24" value={c.gross_weight} onChange={(e) => updateContainer(i, { gross_weight: e.target.value })} /></td>
-                      <td className="px-2 py-1">
-                        <select className="border rounded px-1.5 py-1 text-sm" value={c.weight_unit} onChange={(e) => updateContainer(i, { weight_unit: e.target.value })}>
-                          <option value="">—</option>
-                          <option value="KGS">KGS</option>
-                          <option value="LBS">LBS</option>
-                        </select>
-                      </td>
-                      <td className="px-2 py-1"><input className="border rounded px-1.5 py-1 text-sm w-16" value={c.bales} onChange={(e) => updateContainer(i, { bales: e.target.value })} /></td>
-                      <td className="px-2 py-1 text-center"><button onClick={() => removeContainerRow(i)} className="text-cutoff text-xs">✕</button></td>
-                    </tr>
-                  ))}
-                  {containers.length === 0 && (
-                    <tr><td colSpan={6} className="px-2 py-2 text-xs text-ink/40">No containers found on this BL.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-muted mb-3">
-              Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one's missing.
-            </p>
-
-            {error && <div className="text-sm text-cutoff mb-2">{error}</div>}
-
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-50">
-                {saving ? "Saving…" : "Save"}
-              </button>
+            <div className="mf" style={{ justifyContent: "space-between" }}>
+              <span className="lbl" style={{ alignSelf: "center" }}>{fieldsRead} fields read</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={onClose} className="btn btn-s">Cancel</button>
+                <button onClick={handleSave} disabled={saving} className="btn btn-s btn-p">
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
             </div>
           </>
         )}
 
         {step === "done" && result && (
-          <div className="text-center py-6">
-            <p className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 inline-block">
-              BL details saved{result.containersMatched > 0 ? ` — ${result.containersMatched} container${result.containersMatched === 1 ? "" : "s"} updated` : ""}.
-            </p>
-            {result.unmatchedContainers.length > 0 && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-2">
-                Not on this booking yet, so skipped: {result.unmatchedContainers.join(", ")}
-              </p>
-            )}
-            <div className="mt-4">
-              <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Close</button>
+          <>
+            <div className="mb">
+              <div className="banner bn-ok" role="status">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12l5 5 9-10" />
+                </svg>
+                <b style={{ fontWeight: 600 }}>
+                  BL details saved{result.containersMatched > 0 ? ` — ${result.containersMatched} container${result.containersMatched === 1 ? "" : "s"} updated` : ""}.
+                </b>
+              </div>
+              {result.unmatchedContainers.length > 0 && (
+                <div className="banner bn-warn">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3l10 18H2zM12 10v4M12 17v.5" />
+                  </svg>
+                  <span style={{ fontSize: 13 }}>Not on this booking yet, so skipped: <span className="mono" style={{ fontWeight: 600 }}>{result.unmatchedContainers.join(", ")}</span></span>
+                </div>
+              )}
             </div>
-          </div>
+            <div className="mf"><button onClick={onClose} className="btn btn-s btn-p">Close</button></div>
+          </>
         )}
-      </div>
+      </section>
     </div>
   );
 }

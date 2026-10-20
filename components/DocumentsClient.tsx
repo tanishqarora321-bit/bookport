@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 
 type Doc = {
@@ -11,6 +11,33 @@ type Doc = {
   version: number;
   created_at: string;
 };
+
+type FormState = {
+  invoice_date: string;
+  terms: string;
+  reference_no: string;
+  weight_lbs: string;
+  qty_bales: string;
+  description: string;
+  rate: string;
+  amount: string;
+  currency: string;
+};
+
+function formatDateLong(value: string): string {
+  if (!value) return "—";
+  const d = new Date(value.length <= 10 ? `${value}T00:00:00` : value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function computedAmountHelp(weight: string, rate: string): string | null {
+  const w = parseFloat(weight.replace(/,/g, ""));
+  const r = parseFloat(rate.replace(/,/g, ""));
+  if (Number.isNaN(w) || Number.isNaN(r)) return null;
+  const product = w * r;
+  return `Weight × Rate = ${product.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function DocumentsClient({
   trackingId,
@@ -29,7 +56,7 @@ export default function DocumentsClient({
 }) {
   const latest = existingDocs[0];
   const [docs, setDocs] = useState(existingDocs);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     invoice_date: latest?.field_data?.invoice_date || new Date().toISOString().slice(0, 10),
     terms: latest?.field_data?.terms || "Advance",
     reference_no: latest?.field_data?.reference_no || "",
@@ -65,106 +92,327 @@ export default function DocumentsClient({
   }
 
   const missingParty = !partyName;
+  const currentVersion = docs[0]?.version;
+  const amountHelp = computedAmountHelp(form.weight_lbs, form.rate);
+
+  const lockedFields: { label: string; value: string | null; mono?: boolean }[] = [
+    { label: "Consignee", value: partyName },
+    { label: "Booking Number", value: tracking.booking_number, mono: true },
+    { label: "Container Number", value: tracking.container_number, mono: true },
+    { label: "Shipping Line", value: tracking.shipping_line },
+    { label: "Seal Number", value: tracking.seal_number, mono: true },
+    { label: "Invoice Number", value: tracking.invoice_no, mono: true },
+  ];
 
   return (
-    <div className="h-full flex flex-col max-w-3xl">
-      <Link href="/tracking" className="text-sm text-accent mb-3">
-        ← Back to Tracking
-      </Link>
-      <h1 className="text-xl font-semibold text-ink mb-1">Generate Final Invoice</h1>
-      <p className="text-sm text-ink/50 mb-4">
-        Auto-filled fields come from this shipment's tracking entry. Anything below is editable before you generate —
-        each generation creates a new version, nothing gets overwritten.
-      </p>
-
-      {missingParty && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded p-3 mb-4">
-          This tracking entry has no party assigned yet. Assign one from the Tracking grid before generating.
-        </div>
-      )}
-
-      <div className="border rounded p-4 mb-4 grid grid-cols-2 gap-3 text-sm">
-        <ReadOnlyField label="Consignee (from Party)" value={partyName} />
-        <ReadOnlyField label="Booking Number" value={tracking.booking_number} />
-        <ReadOnlyField label="Container Number" value={tracking.container_number} />
-        <ReadOnlyField label="Shipping Line" value={tracking.shipping_line} />
-        <ReadOnlyField label="Seal Number" value={tracking.seal_number} />
-        <ReadOnlyField label="Invoice Number" value={tracking.invoice_no} />
-
-        <EditField label="Invoice / Ship Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
-        <EditField label="Terms" value={form.terms} onChange={(v) => setForm({ ...form, terms: v })} />
-        <EditField label="Reference #" value={form.reference_no} onChange={(v) => setForm({ ...form, reference_no: v })} />
-        <EditField label="Description" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
-        <EditField label="Weight (LBS)" value={form.weight_lbs} onChange={(v) => setForm({ ...form, weight_lbs: v })} />
-        <EditField label="Qty (Bales)" value={form.qty_bales} onChange={(v) => setForm({ ...form, qty_bales: v })} />
-        <EditField label="Rate" value={form.rate} onChange={(v) => setForm({ ...form, rate: v })} />
-        <div className="flex gap-2">
-          <EditField label="Amount" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} />
-          <EditField label="Currency" value={form.currency} onChange={(v) => setForm({ ...form, currency: v })} />
-        </div>
-      </div>
-
-      {error && <div className="text-sm text-cutoff mb-3">{error}</div>}
-
-      <button
-        onClick={generate}
-        disabled={generating || missingParty}
-        className="text-sm bg-accent text-white px-4 py-2 rounded font-medium w-fit disabled:opacity-50"
+    <div className="flex flex-col gap-5">
+      <Link
+        href="/tracking"
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium self-start text-ink"
       >
-        {generating ? "Generating…" : docs.length > 0 ? "Regenerate (new version)" : "Generate Invoice PDF"}
-      </button>
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M11 18l-6-6 6-6" />
+        </svg>
+        Back to Tracking
+      </Link>
 
-      {lastUrl && (
-        <a href={lastUrl} target="_blank" className="text-sm text-accent underline mt-2 w-fit">
-          Open the PDF just generated →
-        </a>
-      )}
+      <div className="max-w-[900px]">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h1 className="h1">Generate Final Invoice</h1>
+          {currentVersion != null && <span className="badge b-acc">v{currentVersion} current</span>}
+        </div>
+        <p className="sub">
+          Auto-filled fields come from this shipment&apos;s tracking entry. Anything below is editable before you
+          generate — each generation creates a new version, nothing gets overwritten.
+        </p>
+      </div>
 
-      <h2 className="text-sm font-semibold text-ink mt-8 mb-2">Version history</h2>
-      <div className="border rounded divide-y">
-        {docs.map((d) => (
-          <VersionRow key={d.id} doc={d} />
-        ))}
-        {docs.length === 0 && <div className="px-3 py-6 text-center text-ink/40 text-sm">No versions generated yet.</div>}
+      <div className="flex flex-wrap gap-5 items-start">
+        {/* Left column */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4" style={{ flexBasis: 520 }}>
+          <section className="card flex flex-col gap-3.5" style={{ padding: "18px 20px" }} aria-labelledby="ro-h">
+            <div className="flex justify-between items-center gap-2 flex-wrap">
+              <h2 id="ro-h" className="h2">From tracking (read-only)</h2>
+              <Link href="/tracking" className="text-[13px]">Change in Tracking</Link>
+            </div>
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              {lockedFields.map((l) => (
+                <div className="field" key={l.label}>
+                  <span className="text-[13px] font-medium text-ink">{l.label}</span>
+                  <div
+                    className="flex items-center gap-2 h-10 px-3 border border-line rounded-[9px] bg-surface-2 text-ink text-sm"
+                    aria-readonly="true"
+                  >
+                    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mut)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <path d="M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4" />
+                    </svg>
+                    {l.value ? (
+                      <span className={`truncate ${l.mono ? "mono" : ""}`}>{l.value}</span>
+                    ) : (
+                      <span className="dash">—</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="card flex flex-col gap-3.5" style={{ padding: "18px 20px" }} aria-labelledby="ed-h">
+            <h2 id="ed-h" className="h2">Editable</h2>
+            <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+              <div className="field">
+                <label htmlFor="df-date">Invoice / Ship Date</label>
+                <input
+                  id="df-date"
+                  type="date"
+                  className="input"
+                  value={form.invoice_date}
+                  onChange={(e) => setForm({ ...form, invoice_date: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="df-terms">Terms</label>
+                <input
+                  id="df-terms"
+                  className="input"
+                  value={form.terms}
+                  onChange={(e) => setForm({ ...form, terms: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="df-ref">Reference #</label>
+                <input
+                  id="df-ref"
+                  className="input"
+                  value={form.reference_no}
+                  onChange={(e) => setForm({ ...form, reference_no: e.target.value })}
+                />
+              </div>
+              <div className="field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="df-desc">Description</label>
+                <input
+                  id="df-desc"
+                  className="input"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="df-weight">Weight (LBS)</label>
+                <input
+                  id="df-weight"
+                  className="input num"
+                  value={form.weight_lbs}
+                  onChange={(e) => setForm({ ...form, weight_lbs: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="df-qty">Qty (Bales)</label>
+                <input
+                  id="df-qty"
+                  className="input num"
+                  value={form.qty_bales}
+                  onChange={(e) => setForm({ ...form, qty_bales: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="df-rate">Rate</label>
+                <input
+                  id="df-rate"
+                  className="input num"
+                  value={form.rate}
+                  onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                />
+                <span className="help">Per LBS</span>
+              </div>
+              <div className="field">
+                <label htmlFor="df-amount">Amount</label>
+                <input
+                  id="df-amount"
+                  className="input num"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                />
+                {amountHelp && <span className="help">{amountHelp}</span>}
+              </div>
+              <div className="field">
+                <label htmlFor="df-currency">Currency</label>
+                <input
+                  id="df-currency"
+                  className="input"
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {error && <p className="err">{error}</p>}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-line">
+              {lastUrl ? (
+                <a href={lastUrl} target="_blank" rel="noreferrer" className="text-sm font-medium">
+                  Open the PDF just generated →
+                </a>
+              ) : (
+                <span />
+              )}
+              <button onClick={generate} disabled={generating || missingParty} className="btn btn-p">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" />
+                </svg>
+                {generating ? "Generating…" : docs.length > 0 ? "Regenerate (new version)" : "Generate Invoice PDF"}
+              </button>
+            </div>
+          </section>
+
+          <section className="card" style={{ padding: "18px 20px" }} aria-labelledby="vh-h">
+            <h2 id="vh-h" className="h2" style={{ marginBottom: 8 }}>Version history</h2>
+            {docs.length === 0 ? (
+              <p className="lbl" style={{ padding: "24px 0", textAlign: "center" }}>No versions generated yet.</p>
+            ) : (
+              docs.map((d, i) => <VersionRow key={d.id} doc={d} isCurrent={i === 0} />)
+            )}
+          </section>
+
+          {missingParty && (
+            <div className="banner bn-warn text-[13px]" role="note">
+              <span className="meta font-semibold uppercase tracking-wide" style={{ width: "100%" }}>State · no party</span>
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l10 18H2zM12 10v4M12 17.5v.5" />
+              </svg>
+              <span style={{ flex: "1 1 300px" }}>
+                This tracking entry has no party assigned yet. Assign one from the Tracking grid before generating.
+              </span>
+              <Link href="/tracking" className="btn btn-s">Open Tracking</Link>
+            </div>
+          )}
+        </div>
+
+        {/* Right column: live preview, built from local form state - no new data fetching */}
+        <aside
+          className="card bg-surface-2 flex flex-col gap-3"
+          style={{ flex: "1 1 440px", minWidth: 0, padding: 16 }}
+          aria-label="Live PDF preview"
+        >
+          <div className="flex justify-between items-center">
+            <span className="h2">Live preview</span>
+            <span className="meta">A4 · updates as you type</span>
+          </div>
+          <div
+            style={{
+              aspectRatio: "1 / 1.414",
+              width: "100%",
+              borderRadius: 4,
+              boxShadow: "0 2px 10px rgba(15,23,42,0.12)",
+              padding: "28px 26px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              overflow: "hidden",
+              background: "#FFFFFF",
+              color: "#111827",
+              fontFamily: "'Geist', system-ui, sans-serif",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, borderBottom: "3px solid #2F5FE0", paddingBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>[Company name]</div>
+                <div style={{ fontSize: 9, color: "#4B5563", lineHeight: 1.4 }}>[Company address line 1]<br />[City, State ZIP] · Ph [Phone] · [Email]</div>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0.08em", color: "#2F5FE0" }}>INVOICE</div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ display: "flex", gap: 12, flex: 1 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7280" }}>CONSIGNEE</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.4 }}>
+                    {partyName || "[Consignee]"}
+                    {partyAddress ? <><br />{partyAddress}</> : null}
+                  </div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#6B7280" }}>NOTIFY</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.4 }}>Same as consignee</div>
+                </div>
+              </div>
+              <table style={{ borderCollapse: "collapse", alignSelf: "flex-start" }}>
+                <tbody>
+                  <tr>
+                    <th style={previewTh}>Date</th>
+                    <td style={previewTd}>{formatDateLong(form.invoice_date)}</td>
+                  </tr>
+                  <tr>
+                    <th style={previewTh}>Invoice #</th>
+                    <td style={{ ...previewTd, fontFamily: "'Geist Mono', monospace" }}>{tracking.invoice_no || "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={previewTh}>Booking</th>
+                  <th style={previewTh}>Container</th>
+                  <th style={previewTh}>Terms</th>
+                  <th style={previewTh}>Ship Date</th>
+                  <th style={previewTh}>Ship Via</th>
+                  <th style={previewTh}>Seal</th>
+                  <th style={previewTh}>Reference</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={previewTd}>{tracking.booking_number || "—"}</td>
+                  <td style={previewTd}>{tracking.container_number || "—"}</td>
+                  <td style={previewTd}>{form.terms || "—"}</td>
+                  <td style={previewTd}>{formatDateLong(form.invoice_date)}</td>
+                  <td style={previewTd}>{tracking.shipping_line || "—"}</td>
+                  <td style={previewTd}>{tracking.seal_number || "—"}</td>
+                  <td style={previewTd}>{form.reference_no || "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={previewTh}>Description</th>
+                  <th style={{ ...previewTh, textAlign: "right" }}>Qty (Bales)</th>
+                  <th style={{ ...previewTh, textAlign: "right" }}>Weight (LBS)</th>
+                  <th style={{ ...previewTh, textAlign: "right" }}>Rate</th>
+                  <th style={{ ...previewTh, textAlign: "right" }}>Amount ({form.currency || "USD"})</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={previewTd}>{form.description || "—"}</td>
+                  <td style={{ ...previewTd, textAlign: "right" }}>{form.qty_bales || "—"}</td>
+                  <td style={{ ...previewTd, textAlign: "right" }}>{form.weight_lbs || "—"}</td>
+                  <td style={{ ...previewTd, textAlign: "right" }}>{form.rate || "—"}</td>
+                  <td style={{ ...previewTd, textAlign: "right" }}>{form.amount || "—"}</td>
+                </tr>
+                <tr>
+                  <td colSpan={4} style={{ ...previewTd, textAlign: "right", fontWeight: 700 }}>TOTAL</td>
+                  <td style={{ ...previewTd, textAlign: "right", fontWeight: 700 }}>
+                    {form.amount ? `${form.currency || "USD"} ${form.amount}` : "—"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style={{ flex: 1 }} />
+            <div style={{ fontSize: 8, color: "#6B7280", borderTop: "1px solid #E5E7EB", paddingTop: 8 }}>
+              [Letterhead footer text]
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div>
-      <div className="text-xs text-ink/40">{label}</div>
-      <div className="text-ink/80">{value || "—"}</div>
-    </div>
-  );
-}
+const previewTh: CSSProperties = { border: "1px solid #D1D5DB", padding: "5px 7px", fontSize: 10, textAlign: "left", background: "#F3F4F6", fontWeight: 700 };
+const previewTd: CSSProperties = { border: "1px solid #D1D5DB", padding: "5px 7px", fontSize: 10, textAlign: "left" };
 
-function EditField({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <div className="text-xs text-ink/40 mb-0.5">{label}</div>
-      <input
-        type={type}
-        className="border rounded px-2 py-1 text-sm w-full"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}
-
-function VersionRow({ doc }: { doc: Doc }) {
+function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -180,19 +428,15 @@ function VersionRow({ doc }: { doc: Doc }) {
   }
 
   return (
-    <div className="flex items-center justify-between px-3 py-2 text-sm">
-      <div>
-        <span className="font-medium">v{doc.version}</span>
-        <span className="text-ink/40 ml-2">
-          {new Date(doc.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-        </span>
-      </div>
+    <div className="flex flex-wrap items-center gap-3 border-t border-line" style={{ padding: "11px 0" }}>
+      <span className={`badge ${isCurrent ? "b-acc" : "b-neu"}`} style={{ minWidth: 40 }}>v{doc.version}</span>
+      <span className="num" style={{ flex: "1 1 200px" }}>
+        {new Date(doc.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+      </span>
       {url ? (
-        <a href={url} target="_blank" className="text-accent underline">
-          Open PDF
-        </a>
+        <a href={url} target="_blank" rel="noreferrer" className="btn btn-xs">Open PDF</a>
       ) : (
-        <button onClick={getSignedUrl} disabled={loading} className="text-accent">
+        <button onClick={getSignedUrl} disabled={loading} className="btn btn-xs">
           {loading ? "Loading…" : "Get link"}
         </button>
       )}

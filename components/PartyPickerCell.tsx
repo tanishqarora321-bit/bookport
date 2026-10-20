@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PencilIcon, CheckIcon, CloseIcon } from "@/components/EditableCell";
 
 type PartyOption = { id: string; legal_name: string };
 
@@ -93,18 +94,19 @@ export default function PartyPickerCell({
 
   if (!editing) {
     return (
-      <td className="px-3 py-2 text-sm whitespace-nowrap group text-ink/80">
-        <span className="inline-flex items-center gap-1.5">
+      <td>
+        <span className={current?.name ? "" : "dash"} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {current?.name || "—"}
           <button
             onClick={() => {
               setSelected(current?.id ?? "");
               setEditing(true);
             }}
-            title={`Edit ${roleLabel}`}
-            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
+            aria-label={`Edit ${roleLabel}`}
+            className="pen"
+            style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}
           >
-            ✎
+            <PencilIcon />
           </button>
         </span>
       </td>
@@ -112,11 +114,12 @@ export default function PartyPickerCell({
   }
 
   return (
-    <td className="px-3 py-2 min-w-[220px]">
+    <td style={{ minWidth: 220 }}>
       {!creating ? (
-        <div className="flex items-center gap-1">
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <select
-            className="border border-accent rounded px-1.5 py-1 text-sm flex-1"
+            className="select select-s"
+            style={{ width: "auto", flex: 1, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
             disabled={saving}
@@ -128,46 +131,42 @@ export default function PartyPickerCell({
               </option>
             ))}
           </select>
-          <button
-            onClick={() => assign(selected || null)}
-            disabled={saving}
-            title="Confirm"
-            className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0"
-          >
-            {saving ? "…" : "✓"}
+          <button onClick={() => assign(selected || null)} disabled={saving} aria-label="Confirm" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
+            <CheckIcon />
           </button>
-          <button onClick={() => setCreating(true)} className="text-xs border px-2 py-1 rounded shrink-0" title={`Add new ${roleLabel}`}>
+          <button onClick={() => setCreating(true)} className="btn btn-xs">
             + New
           </button>
-          <button onClick={() => setEditing(false)} title="Close" className="text-xs border px-2 py-1 rounded shrink-0">
-            ✕
+          <button onClick={() => setEditing(false)} aria-label="Close" className="ib">
+            <CloseIcon />
           </button>
         </div>
       ) : (
-        <div className="border border-accent/40 bg-accent/5 rounded p-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-ink/60">New {roleLabel}</span>
-            <button onClick={() => setCreating(false)} title="Close" className="text-ink/40 hover:text-ink text-xs">
-              ✕
+        <div className="card" style={{ padding: 10, borderColor: "var(--accent)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>New {roleLabel}</span>
+            <button onClick={() => setCreating(false)} aria-label="Close" className="ib" style={{ width: 24, height: 24 }}>
+              <CloseIcon />
             </button>
           </div>
-          <div className="flex gap-1">
+          <div style={{ display: "flex", gap: 6 }}>
             <input
               autoFocus
               placeholder={`${roleLabel} name`}
-              className="border rounded px-1.5 py-1 text-sm flex-1"
+              className="input input-s"
+              style={{ flex: 1 }}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && createNew()}
               disabled={saving}
             />
-            <button onClick={createNew} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
+            <button onClick={createNew} disabled={saving} className="btn btn-s btn-p">
               {saving ? "…" : "Save"}
             </button>
           </div>
         </div>
       )}
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );
 }

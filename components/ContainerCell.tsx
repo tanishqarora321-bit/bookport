@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PencilIcon, CheckIcon, CloseIcon } from "@/components/EditableCell";
 
 // One cell = one container slot on a booking (container_id null means this
 // booking has no container row yet -- the very first row, "booking number
@@ -64,22 +65,21 @@ export default function ContainerCell({
 
   if (!editing) {
     return (
-      <td className="px-3 py-2 text-sm whitespace-nowrap group text-ink/80">
-        <span className="inline-flex items-center gap-1.5">
-          {value || "—"}
-          <button
-            onClick={() => setEditing(true)}
-            title="Edit Container Number"
-            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
-          >
-            ✎
+      <td>
+        <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span className={value ? "" : "dash"}>{value || "—"}</span>
+          <button onClick={() => setEditing(true)} aria-label="Edit Container Number" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
+            <PencilIcon />
           </button>
           <button
             onClick={onAddContainer}
-            title="Add another container to this booking"
-            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
+            aria-label={`Add another container to ${value ?? "this booking"}`}
+            className="ib"
+            style={{ width: 24, height: 24, borderColor: "var(--line)" }}
           >
-            +
+            <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
           </button>
         </span>
       </td>
@@ -87,24 +87,25 @@ export default function ContainerCell({
   }
 
   return (
-    <td className="px-3 py-2 min-w-[160px]">
-      <div className="flex items-center gap-1">
+    <td style={{ minWidth: 160 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           autoFocus
-          className="border border-accent rounded px-1.5 py-1 text-sm w-full"
+          className="input input-s mono"
+          style={{ width: "auto", flex: 1, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
-          {saving ? "…" : "✓"}
+        <button onClick={save} disabled={saving} aria-label="Save" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
+          <CheckIcon />
         </button>
-        <button onClick={() => setEditing(false)} title="Close" className="text-xs border px-2 py-1 rounded shrink-0">
-          ✕
+        <button onClick={() => setEditing(false)} aria-label="Close" className="ib">
+          <CloseIcon />
         </button>
       </div>
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );
 }

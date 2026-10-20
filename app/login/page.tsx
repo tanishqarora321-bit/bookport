@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Ship, Container, MapPinned, FileCheck2 } from "lucide-react";
+import { Container, MapPinned, FileCheck2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
@@ -88,23 +88,13 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex bg-surface">
       {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-[#0b2749] via-[#123a6b] to-accent">
-        <div
-          className="absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, white 1px, transparent 1px), radial-gradient(circle at 60% 70%, white 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-navy">
+        <div className="relative z-10 flex flex-col justify-between p-12 text-nav-text w-full">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-white/15 backdrop-blur flex items-center justify-center w-11 h-11 shrink-0">
-              <Ship className="text-white" size={24} strokeWidth={2.25} />
-            </div>
+            <Logo size={40} />
             <div>
               <div className="font-semibold text-lg leading-tight">Ship-Sphere</div>
-              <div className="text-xs text-white/60 leading-tight">One Booking. All Connected.</div>
+              <div className="text-xs text-nav-muted leading-tight">One Booking. All Connected.</div>
             </div>
           </div>
 
@@ -112,29 +102,29 @@ function LoginForm() {
             <h1 className="text-3xl font-semibold leading-tight mb-4">
               Freight forwarding, without the spreadsheet chaos.
             </h1>
-            <p className="text-white/70 text-sm leading-relaxed mb-8">
+            <p className="text-nav-text/70 text-sm leading-relaxed mb-8">
               Bookings, tracking, documents and invoicing for your whole team — kept in sync, in one
               place, for every client you manage.
             </p>
             <div className="space-y-4">
               {FEATURES.map(({ icon: Icon, text }) => (
                 <div key={text} className="flex items-center gap-3">
-                  <div className="rounded-full bg-white/10 w-8 h-8 flex items-center justify-center shrink-0">
-                    <Icon size={15} className="text-white" />
+                  <div className="rounded-full bg-nav-text/10 w-8 h-8 flex items-center justify-center shrink-0">
+                    <Icon size={15} className="text-nav-text" />
                   </div>
-                  <span className="text-sm text-white/85">{text}</span>
+                  <span className="text-sm text-nav-text/85">{text}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="text-xs text-white/40">© {new Date().getFullYear()} Ship-Sphere. All rights reserved.</div>
+          <div className="text-xs text-nav-text/40">© {new Date().getFullYear()} Ship-Sphere. All rights reserved.</div>
         </div>
       </div>
 
       {/* Form panel */}
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-[400px]">
           <div className="flex items-center gap-3 mb-8 justify-center lg:hidden">
             <Logo size={40} />
             <div>
@@ -143,57 +133,66 @@ function LoginForm() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <h1 className="text-2xl font-semibold text-ink mb-1">Welcome back</h1>
-            <p className="text-sm text-ink/40">Sign in to your Ship-Sphere account.</p>
-          </div>
-
           {searchParams.get("reason") === "elsewhere" && (
-            <div className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mb-4">
-              You've been signed out because this account signed in on another device. Ship-Sphere only allows one active session at a time.
+            <div className="banner bn-info mb-4" role="status" style={{ fontSize: 13, alignItems: "flex-start" }}>
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
+              </svg>
+              <span style={{ flex: 1 }}>
+                You&apos;ve been signed out because this account signed in on another device. Ship-Sphere only allows one active session at a time.
+              </span>
             </div>
           )}
 
-          <form onSubmit={signIn} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-ink/60 mb-1">Email</label>
+          <div className="mb-6">
+            <h1 className="h1">Welcome back</h1>
+            <p className="sub">Sign in to your Ship-Sphere account.</p>
+          </div>
+
+          <form onSubmit={signIn} className="flex flex-col gap-4">
+            <div className="field">
+              <label htmlFor="login-email">Email</label>
               <input
+                id="login-email"
                 type="email"
                 required
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-ink/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
+                className="input"
                 placeholder="you@company.com"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-ink/60 mb-1">Password</label>
+            <div className="field">
+              <label htmlFor="login-password">Password</label>
               <input
+                id="login-password"
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full border border-ink/10 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition"
+                className="input"
                 placeholder="••••••••"
               />
+              {error && (
+                <span className="err" role="alert">
+                  {error}
+                </span>
+              )}
             </div>
-
-            {error && (
-              <div className="text-sm text-cutoff bg-red-50 rounded-lg px-3 py-2">{error}</div>
-            )}
 
             <button
               type="submit"
               disabled={saving}
-              className="w-full bg-accent hover:bg-accent/90 transition text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-60"
+              className="btn btn-p w-full"
+              style={{ height: 44, fontSize: 15 }}
             >
               {saving ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="text-xs text-muted text-center pt-2">
-              Don't have an account yet? Ask your admin to invite you from Settings & Control.
+            <p className="lbl" style={{ margin: 0, textAlign: "center" }}>
+              Don&apos;t have an account yet? Ask your admin to invite you from Settings &amp; Control.
             </p>
           </form>
         </div>

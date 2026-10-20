@@ -59,66 +59,182 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
     }
   }
 
+  const previewAddressLines = addressLines.split("\n").filter(Boolean);
+
   return (
-    <div className="bg-surface border border-line rounded-xl p-4 mb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
-            <FileText className="w-4 h-4" size={16} /> Document Letterhead
-          </h2>
-          <p className="text-xs text-muted mt-0.5">
-            {config?.company_name ? `Used on Final Invoice & Booking Instructions PDFs: ${config.company_name}` : "Not set up yet"}
-          </p>
+    <section id="lh" className="card" aria-labelledby="lh-t">
+      <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
+        <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+          <FileText size={18} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h2 id="lh-t" className="h2">Document Letterhead</h2>
+          <div className="lbl mt-0.5">
+            {config?.company_name ? (
+              <>
+                Used on Final Invoice &amp; Booking Instructions PDFs: <b className="text-ink font-semibold">{config.company_name}</b>
+              </>
+            ) : (
+              "Not set up yet"
+            )}
+          </div>
         </div>
-        {isAdmin && !open && (
-          <button onClick={() => { setOpen(true); setSuccess(false); }} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
-            Edit
-          </button>
+        {isAdmin ? (
+          !open && (
+            <button
+              type="button"
+              className="btn btn-s"
+              aria-expanded={open}
+              onClick={() => {
+                setOpen(true);
+                setSuccess(false);
+              }}
+            >
+              Edit
+            </button>
+          )
+        ) : (
+          <span className="badge b-neu">Admins only</span>
         )}
       </div>
 
-      {success && <p className="text-sm text-success bg-success-soft rounded-lg px-3 py-2 mt-3">Letterhead updated.</p>}
+      <div className="p-5 flex flex-col gap-4">
+        {success && (
+          <span role="status" className="meta" style={{ color: "var(--ok)", fontWeight: 600 }}>
+            Letterhead updated.
+          </span>
+        )}
 
-      {open && (
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <input
-            placeholder="Company name"
-            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm col-span-2 text-ink placeholder:text-muted"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-          />
-          <textarea
-            placeholder="Address (one line per row)"
-            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm col-span-2 text-ink placeholder:text-muted"
-            rows={3}
-            value={addressLines}
-            onChange={(e) => setAddressLines(e.target.value)}
-          />
-          <input placeholder="Phone" className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <input placeholder="Fax" className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted" value={fax} onChange={(e) => setFax(e.target.value)} />
-          <input placeholder="Email" className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted">Accent color</span>
-            <input type="color" className="border border-line rounded-lg h-8 w-14 bg-surface" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} />
+        {open && (
+          <div className="flex flex-wrap gap-6 items-start">
+            <div className="flex-1 flex flex-col gap-3.5 min-w-0" style={{ flexBasis: 360 }}>
+              <div className="field">
+                <label htmlFor="lc">Company name</label>
+                <input id="lc" className="input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="la">Address (one line per row)</label>
+                <textarea
+                  id="la"
+                  className="textarea"
+                  rows={3}
+                  value={addressLines}
+                  onChange={(e) => setAddressLines(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="field">
+                  <label htmlFor="lp">Phone</label>
+                  <input id="lp" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="lf">Fax</label>
+                  <input id="lf" className="input" placeholder="Optional" value={fax} onChange={(e) => setFax(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="le">Email</label>
+                  <input id="le" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="lcol">Accent color</label>
+                <div className="flex items-center gap-2.5">
+                  <input
+                    id="lcol"
+                    type="color"
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                    style={{ width: 44, height: 40, padding: 2, border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}
+                  />
+                  <input
+                    className="input mono"
+                    aria-label="Accent color hex"
+                    style={{ maxWidth: 140 }}
+                    value={accentColor}
+                    onChange={(e) => setAccentColor(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="lsd">Shipper declares clause</label>
+                <textarea
+                  id="lsd"
+                  className="textarea"
+                  rows={3}
+                  value={shipperDeclaration}
+                  onChange={(e) => setShipperDeclaration(e.target.value)}
+                />
+                <span className="help">
+                  Use{" "}
+                  <span className="mono" style={{ background: "var(--accentS)", color: "var(--accent)", padding: "1px 6px", borderRadius: 4 }}>
+                    {"{destination}"}
+                  </span>{" "}
+                  where the port of delivery should be inserted.
+                </span>
+              </div>
+
+              {error && <span className="err">{error}</span>}
+
+              <div className="flex gap-2.5 items-center">
+                <button type="button" className="btn btn-p" onClick={save} disabled={saving}>
+                  {saving ? "Saving…" : "Save Letterhead"}
+                </button>
+                <button type="button" className="btn btn-g" onClick={() => setOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 min-w-[260px]" style={{ flex: "0 1 320px" }}>
+              <span className="lbl font-semibold text-ink">Live preview</span>
+              <div
+                aria-label="Letterhead preview"
+                role="img"
+                className="card"
+                style={{
+                  padding: 18,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  fontSize: 10,
+                  aspectRatio: "8.5 / 11",
+                }}
+              >
+                <div style={{ borderTop: `4px solid ${accentColor}`, paddingTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: accentColor }}>{companyName || "Company name"}</div>
+                    <div className="text-text-2" style={{ lineHeight: 1.4 }}>
+                      {previewAddressLines.length > 0 ? (
+                        previewAddressLines.map((line, i) => (
+                          <span key={i}>
+                            {line}
+                            <br />
+                          </span>
+                        ))
+                      ) : (
+                        <span className="dash">—</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-text-2" style={{ textAlign: "right", lineHeight: 1.4 }}>
+                    {phone}
+                    {phone && email ? <br /> : null}
+                    {email}
+                  </div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", marginTop: 8 }}>INVOICE</div>
+                <div className="bg-line" style={{ height: 6, borderRadius: 3, width: "80%" }} />
+                <div className="bg-line" style={{ height: 6, borderRadius: 3, width: "60%" }} />
+                <div className="bg-line" style={{ height: 6, borderRadius: 3, width: "70%" }} />
+                <div style={{ flex: 1 }} />
+                <div className="text-text-2" style={{ fontStyle: "italic" }}>
+                  {shipperDeclaration || <span className="dash">—</span>}
+                </div>
+              </div>
+            </div>
           </div>
-          <textarea
-            placeholder="Shipper declares clause (use {destination} where the port of delivery should be inserted)"
-            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm col-span-2 text-ink placeholder:text-muted"
-            rows={3}
-            value={shipperDeclaration}
-            onChange={(e) => setShipperDeclaration(e.target.value)}
-          />
-          {error && <div className="col-span-2 text-xs text-cutoff">{error}</div>}
-          <div className="col-span-2 flex gap-2">
-            <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
-              {saving ? "Saving…" : "Save Letterhead"}
-            </button>
-            <button onClick={() => setOpen(false)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   );
 }

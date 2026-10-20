@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Users } from "lucide-react";
-import StatCard from "@/components/ui/StatCard";
 
 type Company = {
   id: string;
@@ -14,11 +12,14 @@ type Company = {
   admin_email: string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-success-soft text-success",
-  trial: "bg-info-soft text-info",
-  cancelled: "bg-surface-2 text-text-2",
-  suspended: "bg-critical-soft text-critical",
+// Ship-Sphere v2 design system's company-status badge map
+// (design-v2/SPEC.md): Trial b-acc, Active b-ok, Suspended b-crit,
+// Cancelled b-neu.
+const STATUS_BADGE: Record<string, string> = {
+  trial: "b-acc",
+  active: "b-ok",
+  suspended: "b-crit",
+  cancelled: "b-neu",
 };
 
 export default function AdminCompaniesClient({ initialCompanies }: { initialCompanies: Company[] }) {
@@ -65,87 +66,133 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-ink">Platform Admin</h1>
-        <p className="text-sm text-muted">Every client company on Ship-Sphere — only you can see this page.</p>
+    <div className="relative flex flex-col gap-5">
+      <div>
+        <h1 className="h1">Platform Admin</h1>
+        <p className="sub">Every client company on Ship-Sphere — only you can see this page.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Building2} label="Total Companies" value={companies.length} />
-        <StatCard icon={Building2} label="Active" value={activeCount} tone="success" />
-        <StatCard icon={Building2} label="Trial" value={trialCount} />
-        <StatCard icon={Users} label="Total Seats Used" value={totalSeatsUsed} />
-      </div>
+      <section aria-label="Totals" className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
+        <div className="card kpi">
+          <span className="lbl">Total Companies</span>
+          <span className="v">{companies.length}</span>
+          <span className="meta">All time</span>
+        </div>
+        <div className="card kpi">
+          <span className="lbl">Active</span>
+          <span className="v" style={{ color: "var(--ok)" }}>{activeCount}</span>
+          <span className="meta">Paying, signed in</span>
+        </div>
+        <div className="card kpi">
+          <span className="lbl">Trial</span>
+          <span className="v" style={{ color: "var(--accent)" }}>{trialCount}</span>
+          <span className="meta">Pilot accounts</span>
+        </div>
+        <div className="card kpi">
+          <span className="lbl">Total Seats Used</span>
+          <span className="v">{totalSeatsUsed}</span>
+          <span className="meta">Across all companies</span>
+        </div>
+      </section>
 
-      <div className="bg-surface border border-line rounded-xl overflow-hidden">
-        <table className="w-full text-sm border-collapse">
-          <thead className="bg-surface-2">
-            <tr className="text-left text-muted border-b border-line">
-              <th className="px-4 py-3">Company</th>
-              <th className="px-4 py-3">Admin</th>
-              <th className="px-4 py-3">Seats</th>
-              <th className="px-4 py-3">Created</th>
-              <th className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {companies.map((c) => {
-              const pct = c.seat_limit > 0 ? Math.min(100, Math.round((c.seats_used / c.seat_limit) * 100)) : 0;
-              return (
-                <tr key={c.id} className="border-b border-line last:border-0 hover:bg-surface-2">
-                  <td className="px-4 py-3 font-medium text-ink">{c.name}</td>
-                  <td className="px-4 py-3 text-text-2">{c.admin_email}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-text-2 whitespace-nowrap">{c.seats_used} / {c.seat_limit}</span>
-                      <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden shrink-0">
-                        <div
-                          className={`h-full rounded-full ${pct >= 100 ? "bg-critical" : pct >= 75 ? "bg-warning" : "bg-accent"}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={c.subscription_status}
-                      onChange={(e) => changeStatus(c.id, e.target.value)}
-                      className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${STATUS_COLORS[c.subscription_status] ?? "bg-surface-2 text-text-2"}`}
-                    >
-                      <option value="trial">Trial</option>
-                      <option value="active">Active</option>
-                      <option value="suspended">Suspended</option>
-                      <option value="cancelled">Cancelled</option>
-                    </select>
-                  </td>
-                </tr>
-              );
-            })}
-            {companies.length === 0 && (
+      <section className="card" aria-labelledby="co-t">
+        <div className="flex items-center justify-between" style={{ padding: "16px 18px" }}>
+          <h2 id="co-t" className="h2">Client companies</h2>
+        </div>
+        <div className="tw" style={{ borderTop: "1px solid var(--line)" }}>
+          <table className="tbl">
+            <thead>
               <tr>
-                <td colSpan={5} className="p-8 text-center text-muted">No companies yet.</td>
+                <th>Company</th>
+                <th>Admin</th>
+                <th style={{ minWidth: 180 }}>Seats</th>
+                <th>Created</th>
+                <th>Status</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {companies.map((c) => {
+                const pct = c.seat_limit > 0 ? Math.min(100, Math.round((c.seats_used / c.seat_limit) * 100)) : 0;
+                return (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td className="text-text-2">{c.admin_email}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 overflow-hidden shrink-0" style={{ height: 6, borderRadius: 3, background: "var(--neuS)" }}>
+                          <div
+                            className={pct >= 100 ? "bg-critical" : pct >= 75 ? "bg-warning" : "bg-accent"}
+                            style={{ width: `${pct}%`, height: "100%" }}
+                          />
+                        </div>
+                        <span className="num whitespace-nowrap">{c.seats_used} / {c.seat_limit}</span>
+                      </div>
+                    </td>
+                    <td className="num text-muted">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                    <td>
+                      <div className="relative inline-block">
+                        <select
+                          value={c.subscription_status}
+                          onChange={(e) => changeStatus(c.id, e.target.value)}
+                          aria-label={`Change status for ${c.name}`}
+                          className={`badge ${STATUS_BADGE[c.subscription_status] ?? "b-neu"} appearance-none cursor-pointer`}
+                          style={{ border: 0, paddingRight: 20, height: 24 }}
+                        >
+                          <option value="trial">Trial</option>
+                          <option value="active">Active</option>
+                          <option value="suspended">Suspended</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                        <svg
+                          aria-hidden="true"
+                          className="pointer-events-none absolute"
+                          style={{ right: 6, top: "50%", transform: "translateY(-50%)" }}
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {companies.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-muted">No companies yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {confirming && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => !applying && setConfirming(null)}>
-          <div className="bg-surface border border-line rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-ink mb-2">
-              {confirming.status === "cancelled" ? "Cancel" : "Suspend"} "{confirming.name}"?
-            </h2>
-            <p className="text-sm text-text-2 mb-4">
-              Every user there will be signed out and blocked from logging back in until you reactivate it. Their data is not touched or deleted.
-            </p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirming(null)} disabled={applying} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
+        <div className="scrim" onClick={() => !applying && setConfirming(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <h2 className="h2">
+                  {confirming.status === "cancelled" ? "Cancel" : "Suspend"} "{confirming.name}"?
+                </h2>
+              </div>
+            </div>
+            <div className="mb">
+              <p className="lbl">
+                Every user there will be signed out and blocked from logging back in until you reactivate it. Their data is not touched or deleted.
+              </p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setConfirming(null)} disabled={applying} className="btn btn-g">
                 Cancel
               </button>
-              <button onClick={confirmChange} disabled={applying} className="bg-critical text-white hover:opacity-90 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
+              <button type="button" onClick={confirmChange} disabled={applying} className="btn btn-dp">
                 {applying ? "Applying…" : confirming.status === "cancelled" ? "Cancel Company" : "Suspend Company"}
               </button>
             </div>

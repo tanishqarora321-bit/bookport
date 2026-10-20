@@ -34,6 +34,67 @@ function monthToInputValue(m: string) {
   return m.slice(0, 7); // 'YYYY-MM'
 }
 
+// ---------------- Shared icons (16px stroke, aria-hidden) ----------------
+
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  );
+}
+
+function RemoveIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg className="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform .15s", flexShrink: 0 }}
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
 export default function FreightComparisonClient({
   yearOptions,
   selectedYear,
@@ -105,6 +166,21 @@ export default function FreightComparisonClient({
     return { origins: originsSorted, columns: columnsSorted, matrix: cellMap };
   }, [sheets]);
 
+  // Visual-only grouping of the already-sorted columns by shipping line, so the
+  // table can render a shipping-line header row above the forwarder sub-header row.
+  const lineGroups = useMemo(() => {
+    const groups: { shippingLine: string; span: number }[] = [];
+    for (const [, col] of columns) {
+      const last = groups[groups.length - 1];
+      if (last && last.shippingLine === col.shipping_line) {
+        last.span += 1;
+      } else {
+        groups.push({ shippingLine: col.shipping_line, span: 1 });
+      }
+    }
+    return groups;
+  }, [columns]);
+
   function exportCsv() {
     const header = ["Origin", ...columns.map(([, c]) => `${c.forwarder_name} - ${c.shipping_line}`)];
     const freeDaysRow = ["Free Days", ...columns.map(([, c]) => (c.free_days ?? ""))];
@@ -140,54 +216,21 @@ export default function FreightComparisonClient({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+    <div className="h-full flex flex-col" style={{ gap: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <h1 className="text-xl font-semibold text-ink">Freight Comparison</h1>
-          <p className="text-xs text-ink/50">{fmtMonth(selectedMonth)} — {selectedDestination}</p>
+          <h1 className="h1">Freight Comparison</h1>
+          <p className="sub">
+            {fmtMonth(selectedMonth)} — {selectedDestination}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <select
-            className="border rounded px-2 py-1.5 text-sm"
-            value={selectedYear}
-            onChange={(e) => navigateYear(e.target.value)}
-          >
-            <option value="all">All Years</option>
-            {!yearOptions.includes(selectedYear) && selectedYear !== "all" && <option value={selectedYear}>{selectedYear}</option>}
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          <select
-            className="border rounded px-2 py-1.5 text-sm"
-            value={selectedMonth}
-            onChange={(e) => navigate(e.target.value, selectedDestination)}
-          >
-            {!monthOptions.includes(selectedMonth) && <option value={selectedMonth}>{fmtMonth(selectedMonth)}</option>}
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>
-                {fmtMonth(m)}
-              </option>
-            ))}
-          </select>
-          <select
-            className="border rounded px-2 py-1.5 text-sm"
-            value={selectedDestination}
-            onChange={(e) => navigate(selectedMonth, e.target.value)}
-          >
-            {!destinationOptions.includes(selectedDestination) && <option value={selectedDestination}>{selectedDestination}</option>}
-            {destinationOptions.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-          <button onClick={exportCsv} disabled={origins.length === 0} className="text-sm border px-3 py-1.5 rounded disabled:opacity-40">
-            ⬇ Export CSV
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button type="button" onClick={exportCsv} disabled={origins.length === 0} className="btn">
+            <DownloadIcon />
+            Export CSV
           </button>
-          <button onClick={() => setUploading(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
+          <button type="button" onClick={() => setUploading(true)} className="btn btn-p">
+            <PlusIcon />
             + Upload Rate Sheet
           </button>
         </div>
@@ -205,60 +248,158 @@ export default function FreightComparisonClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto border rounded mb-4">
-        <table className="text-sm border-collapse min-w-max">
-          <thead className="sticky top-0 bg-surface-2 z-10">
-            <tr className="text-left text-ink/50 border-b">
-              <th className="px-3 py-2 font-medium sticky left-0 bg-surface-2 z-20">Origin</th>
-              {columns.map(([colKey, c]) => (
-                <th key={colKey} className="px-3 py-2 font-medium whitespace-nowrap text-center">
-                  <div>{c.shipping_line}</div>
-                  <div className="text-[11px] text-ink/40 font-normal">{c.forwarder_name}</div>
-                  {c.free_days !== null && <div className="text-[10px] text-accent font-normal">{c.free_days} free days</div>}
-                </th>
+      <section className="card" style={{ overflow: "hidden" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
+          <div className="field" style={{ width: 150 }}>
+            <label htmlFor="fy">Year</label>
+            <select id="fy" className="select select-s" value={selectedYear} onChange={(e) => navigateYear(e.target.value)}>
+              <option value="all">All Years</option>
+              {!yearOptions.includes(selectedYear) && selectedYear !== "all" && <option value={selectedYear}>{selectedYear}</option>}
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {origins.map(([originKey, originDisplay]) => {
-              const cheapestCol = cheapestColKeyForOrigin(originKey);
-              return (
-                <tr key={originKey} className="border-b hover:bg-blue-50/20">
-                  <td className="px-3 py-2 font-medium whitespace-nowrap sticky left-0 bg-surface">{originDisplay}</td>
-                  {columns.map(([colKey]) => {
-                    const v = matrix.get(`${originKey}||${colKey}`);
-                    const isCheapest = colKey === cheapestCol && v !== undefined;
-                    return (
-                      <td
-                        key={colKey}
-                        className={`px-3 py-2 text-center whitespace-nowrap ${
-                          isCheapest ? "bg-green-100 text-green-800 font-semibold" : "text-ink/70"
-                        }`}
-                      >
-                        {v !== undefined ? `$${v.toLocaleString()}` : "—"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-            {origins.length === 0 && (
-              <tr>
-                <td colSpan={columns.length + 1} className="px-3 py-10 text-center text-ink/40">
-                  No rate sheets uploaded yet for {fmtMonth(selectedMonth)} / {selectedDestination}. Click "+ Upload Rate Sheet" to add one.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </select>
+          </div>
+          <div className="field" style={{ width: 180 }}>
+            <label htmlFor="fm">Month</label>
+            <select id="fm" className="select select-s" value={selectedMonth} onChange={(e) => navigate(e.target.value, selectedDestination)}>
+              {!monthOptions.includes(selectedMonth) && <option value={selectedMonth}>{fmtMonth(selectedMonth)}</option>}
+              {monthOptions.map((m) => (
+                <option key={m} value={m}>
+                  {fmtMonth(m)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ width: 180 }}>
+            <label htmlFor="fd">Destination</label>
+            <select id="fd" className="select select-s" value={selectedDestination} onChange={(e) => navigate(selectedMonth, e.target.value)}>
+              {!destinationOptions.includes(selectedDestination) && <option value={selectedDestination}>{selectedDestination}</option>}
+              {destinationOptions.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div className="lbl" style={{ display: "flex", gap: 16, alignItems: "center", paddingBottom: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: "var(--okS)", border: "1px solid var(--ok)" }} />
+              Cheapest per origin
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span className="dash">—</span> no rate
+            </span>
+          </div>
+        </div>
 
-      <div>
-        <button onClick={() => setManageOpen(!manageOpen)} className="text-xs text-accent underline mb-2">
-          {manageOpen ? "Hide" : "Manage"} uploaded rate sheets ({sheets.length})
+        <div className="tw">
+          <table className="tbl" style={{ minWidth: 900 }}>
+            <caption className="sr">
+              Ocean freight comparison for {selectedDestination}, {fmtMonth(selectedMonth)}, by origin, shipping line and forwarder
+            </caption>
+            <thead>
+              <tr>
+                <th rowSpan={2} className="stk" style={{ zIndex: 3, minWidth: 160, verticalAlign: "bottom" }}>
+                  Origin
+                </th>
+                {lineGroups.map((g, i) => (
+                  <th key={i} colSpan={g.span} style={{ textAlign: "center", borderLeft: "1px solid var(--line)" }}>
+                    {g.shippingLine}
+                  </th>
+                ))}
+              </tr>
+              <tr>
+                {columns.map(([colKey, c]) => (
+                  <th key={colKey} className="r" style={{ top: 37, fontWeight: 500, borderLeft: "1px solid var(--line)" }}>
+                    <div style={{ color: "var(--tx)", fontWeight: 600 }}>{c.forwarder_name}</div>
+                    {c.free_days !== null && <div className="meta">{c.free_days} free days</div>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {origins.map(([originKey, originDisplay]) => {
+                const cheapestCol = cheapestColKeyForOrigin(originKey);
+                return (
+                  <tr key={originKey}>
+                    <td className="stk" style={{ fontWeight: 600 }}>
+                      {originDisplay}
+                    </td>
+                    {columns.map(([colKey]) => {
+                      const v = matrix.get(`${originKey}||${colKey}`);
+                      const isCheapest = colKey === cheapestCol && v !== undefined;
+                      return (
+                        <td
+                          key={colKey}
+                          className="r num"
+                          style={{
+                            borderLeft: "1px solid var(--line)",
+                            ...(isCheapest ? { background: "var(--okS)", color: "var(--ok)", fontWeight: 700 } : {}),
+                          }}
+                        >
+                          {v === undefined ? (
+                            <span className="dash" aria-label="No rate">
+                              —
+                            </span>
+                          ) : isCheapest ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              <CheckIcon />${v.toLocaleString()}
+                              <span className="sr"> (cheapest)</span>
+                            </span>
+                          ) : (
+                            `$${v.toLocaleString()}`
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+              {origins.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + 1} style={{ textAlign: "center", padding: "40px 12px", whiteSpace: "normal" }}>
+                    <span className="lbl">
+                      No rate sheets uploaded yet for {fmtMonth(selectedMonth)} / {selectedDestination}. Click &quot;+ Upload Rate Sheet&quot; to add one.
+                    </span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card">
+        <button
+          type="button"
+          aria-expanded={manageOpen}
+          onClick={() => setManageOpen(!manageOpen)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "16px 18px",
+            border: 0,
+            background: "transparent",
+            color: "var(--tx)",
+            font: "inherit",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          <ChevronIcon open={manageOpen} />
+          <span className="h2" style={{ flex: 1 }}>
+            Manage uploaded rate sheets ({sheets.length})
+          </span>
+          <span className="lbl">{manageOpen ? "Hide" : "Show"}</span>
         </button>
         {manageOpen && (
-          <div className="space-y-3">
+          <div style={{ padding: "0 18px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
             {sheets.map((s) => (
               <SheetManageCard
                 key={s.id}
@@ -270,10 +411,10 @@ export default function FreightComparisonClient({
                 onChanged={() => router.refresh()}
               />
             ))}
-            {sheets.length === 0 && <p className="text-xs text-ink/40">No sheets for this month/destination yet.</p>}
+            {sheets.length === 0 && <p className="meta">No sheets for this month/destination yet.</p>}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
@@ -383,39 +524,49 @@ function UploadPanel({
     }
   }
 
+  const pdfMode = mode === "pdf";
+
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="flex gap-2 mb-3">
-        <button
-          onClick={() => setMode("pdf")}
-          className={`text-xs px-3 py-1 rounded ${mode === "pdf" ? "bg-ink text-white" : "border"}`}
-        >
-          Upload PDF(s)
-        </button>
-        <button
-          onClick={() => setMode("manual")}
-          className={`text-xs px-3 py-1 rounded ${mode === "manual" ? "bg-ink text-white" : "border"}`}
-        >
-          Manual Entry (Excel / email source)
-        </button>
+    <section className="card" aria-labelledby="upload-rate-sheet-h" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <h2 id="upload-rate-sheet-h" className="h2">
+          Upload rate sheet
+        </h2>
+        <div className="seg" role="radiogroup" aria-label="Upload method">
+          <button type="button" role="radio" aria-checked={pdfMode} className={pdfMode ? "on" : ""} onClick={() => setMode("pdf")}>
+            Upload PDF(s)
+          </button>
+          <button type="button" role="radio" aria-checked={!pdfMode} className={!pdfMode ? "on" : ""} onClick={() => setMode("manual")}>
+            Manual Entry (Excel / email source)
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <div>
-          <div className="text-xs text-ink/40 mb-0.5">Forwarder Name *</div>
-          <input className="border rounded px-2 py-1 text-sm w-full" value={forwarderName} onChange={(e) => setForwarderName(e.target.value)} placeholder="e.g. UAL, Walker" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+        <div className="field">
+          <label htmlFor="rs-fwn">
+            Forwarder Name <span className="req">*</span>
+          </label>
+          <input
+            id="rs-fwn"
+            className="input"
+            placeholder="e.g. UAL, Walker"
+            value={forwarderName}
+            onChange={(e) => setForwarderName(e.target.value)}
+            aria-describedby={error ? "rs-error" : undefined}
+          />
         </div>
-        <div>
-          <div className="text-xs text-ink/40 mb-0.5">Destination</div>
-          <input className="border rounded px-2 py-1 text-sm w-full" value={destination} onChange={(e) => setDestination(e.target.value)} />
+        <div className="field">
+          <label htmlFor="rs-dst">Destination</label>
+          <input id="rs-dst" className="input" value={destination} onChange={(e) => setDestination(e.target.value)} />
         </div>
-        <div>
-          <div className="text-xs text-ink/40 mb-0.5">Rate Month</div>
-          <input type="month" className="border rounded px-2 py-1 text-sm w-full" value={month} onChange={(e) => setMonth(e.target.value)} />
+        <div className="field">
+          <label htmlFor="rs-rm">Rate Month</label>
+          <input id="rs-rm" type="month" className="input" value={month} onChange={(e) => setMonth(e.target.value)} />
         </div>
-        <div>
-          <div className="text-xs text-ink/40 mb-0.5">Currency</div>
-          <select className="border rounded px-2 py-1 text-sm w-full" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+        <div className="field">
+          <label htmlFor="rs-cur">Currency</label>
+          <select id="rs-cur" className="select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
             <option value="INR">INR</option>
@@ -423,88 +574,119 @@ function UploadPanel({
         </div>
       </div>
 
-      {mode === "pdf" ? (
-        <div>
-          <input
-            type="file"
-            accept="application/pdf"
-            multiple
-            onChange={(e) => setFiles(Array.from(e.target.files || []))}
-            className="text-sm mb-2"
-          />
-          <p className="text-xs text-ink/40 mb-2">
-            Each PDF becomes its own rate sheet under this forwarder/month/destination. AI extraction reads every
-            origin+carrier rate cell — review the comparison table afterward and fix anything it misread under "Manage
-            uploaded rate sheets" below.
+      {pdfMode ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label className="drop" style={{ cursor: "pointer" }}>
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3" />
+            </svg>
+            <span style={{ fontWeight: 600 }}>Choose one or more rate-sheet PDFs</span>
+            {files.length > 0 && <span className="meta">{files.length} file{files.length === 1 ? "" : "s"} selected</span>}
+            <input type="file" accept="application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} className="sr" />
+          </label>
+          <p className="help" style={{ margin: 0 }}>
+            Each PDF becomes its own rate sheet under this forwarder/month/destination. AI extraction reads every origin+carrier rate cell —
+            review the comparison table afterward and fix anything it misread under &quot;Manage uploaded rate sheets&quot; below.
           </p>
           {log.length > 0 && (
-            <div className="text-xs bg-surface border rounded p-2 mb-2 space-y-0.5">
+            <div
+              role="log"
+              aria-label="Extraction log"
+              style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 13, background: "var(--surf2)" }}
+            >
               {log.map((l, i) => (
-                <div key={i}>{l}</div>
+                <span key={i} style={l.startsWith("✓") ? { color: "var(--ok)", fontWeight: 500 } : l.startsWith("✕") ? { color: "var(--crit)", fontWeight: 500 } : { color: "var(--tx2)" }}>
+                  {l}
+                </span>
               ))}
             </div>
           )}
         </div>
       ) : (
-        <div className="border-t pt-3">
-          <div className="text-xs font-medium text-ink/60 mb-2">Rate Rows</div>
-          <table className="w-full text-sm mb-2">
-            <thead>
-              <tr className="text-left text-ink/40">
-                <th className="pb-1 pr-2 font-normal">Origin</th>
-                <th className="pb-1 pr-2 font-normal">Shipping Line</th>
-                <th className="pb-1 pr-2 font-normal w-24">Rate</th>
-                <th className="pb-1 pr-2 font-normal w-24">Free Days</th>
-                <th className="pb-1 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e, i) => (
-                <tr key={i}>
-                  <td className="pr-2 pb-1">
-                    <input className="border rounded px-2 py-1 text-sm w-full" value={e.origin} onChange={(ev) => updateEntry(i, { origin: ev.target.value })} />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input className="border rounded px-2 py-1 text-sm w-full" value={e.shipping_line} onChange={(ev) => updateEntry(i, { shipping_line: ev.target.value })} />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input type="number" className="border rounded px-2 py-1 text-sm w-full" value={e.rate} onChange={(ev) => updateEntry(i, { rate: ev.target.value })} />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input type="number" className="border rounded px-2 py-1 text-sm w-full" value={e.free_days} onChange={(ev) => updateEntry(i, { free_days: ev.target.value })} />
-                  </td>
-                  <td className="pb-1 text-center">
-                    {entries.length > 1 && (
-                      <button onClick={() => removeEntryRow(i)} className="text-cutoff text-xs">
-                        ✕
-                      </button>
-                    )}
-                  </td>
+        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "10px 14px", fontWeight: 600, background: "var(--surf2)", borderBottom: "1px solid var(--line)" }}>Rate Rows</div>
+          <div className="tw">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Origin</th>
+                  <th>Shipping Line</th>
+                  <th className="r">Rate</th>
+                  <th className="r">Free Days</th>
+                  <th>
+                    <span className="sr">Remove</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <button onClick={addEntryRow} className="text-xs text-accent underline">
-            + Add Row
-          </button>
+              </thead>
+              <tbody>
+                {entries.map((e, i) => (
+                  <tr key={i}>
+                    <td>
+                      <input className="input input-s" aria-label={`Origin row ${i + 1}`} value={e.origin} onChange={(ev) => updateEntry(i, { origin: ev.target.value })} />
+                    </td>
+                    <td>
+                      <input
+                        className="input input-s"
+                        aria-label={`Shipping line row ${i + 1}`}
+                        value={e.shipping_line}
+                        onChange={(ev) => updateEntry(i, { shipping_line: ev.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        className="input input-s num"
+                        style={{ textAlign: "right" }}
+                        aria-label={`Rate row ${i + 1}`}
+                        value={e.rate}
+                        onChange={(ev) => updateEntry(i, { rate: ev.target.value })}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        className="input input-s num"
+                        style={{ textAlign: "right" }}
+                        aria-label={`Free days row ${i + 1}`}
+                        value={e.free_days}
+                        onChange={(ev) => updateEntry(i, { free_days: ev.target.value })}
+                      />
+                    </td>
+                    <td className="r">
+                      {entries.length > 1 && (
+                        <button type="button" className="ib" aria-label={`Remove row ${i + 1}`} onClick={() => removeEntryRow(i)}>
+                          <RemoveIcon />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: "10px 14px" }}>
+            <button type="button" className="btn btn-s" onClick={addEntryRow}>
+              + Add Row
+            </button>
+          </div>
         </div>
       )}
 
-      {error && <div className="text-xs text-cutoff mt-3">{error}</div>}
+      {error && (
+        <p id="rs-error" className="err" style={{ margin: 0 }}>
+          {error}
+        </p>
+      )}
 
-      <div className="flex gap-2 mt-3">
-        <button
-          onClick={mode === "pdf" ? savePdfs : saveManual}
-          disabled={saving}
-          className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save Rate Sheet"}
-        </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>
+        <button type="button" className="btn btn-p" onClick={mode === "pdf" ? savePdfs : saveManual} disabled={saving}>
+          {saving ? "Saving…" : "Save Rate Sheet"}
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -550,50 +732,64 @@ function SheetManageCard({
     onChanged();
   }
 
+  const sourceLabel = sheet.source_type === "pdf" ? sheet.source_file_name : "manual entry";
+
   return (
-    <div className="border rounded">
-      <div className="flex items-center justify-between px-3 py-2 bg-surface-2">
-        <button onClick={() => setOpen(!open)} className="text-sm font-medium text-left flex-1">
-          {sheet.forwarder_name} <span className="text-ink/40 font-normal">— {rows.length} rates — {sheet.source_type === "pdf" ? sheet.source_file_name : "manual entry"}</span>
+    <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--surf2)" }}>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          style={{ flex: 1, minWidth: 200, display: "flex", alignItems: "center", gap: 8, border: 0, background: "transparent", font: "inherit", color: "var(--tx)", cursor: "pointer", textAlign: "left" }}
+        >
+          <ChevronIcon open={open} />
+          <span>
+            <b style={{ fontWeight: 600 }}>{sheet.forwarder_name}</b> <span className="lbl">— {rows.length} rates — {sourceLabel}</span>
+          </span>
         </button>
-        <button onClick={deleteSheet} disabled={deleting} className="text-xs text-cutoff hover:bg-red-50 px-2 py-1 rounded">
+        <button type="button" className="btn btn-s btn-g btn-d" onClick={deleteSheet} disabled={deleting}>
           {deleting ? "…" : "Delete Sheet"}
         </button>
       </div>
       {open && (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-ink/40 border-t">
-              <th className="px-3 py-1 font-normal">Origin</th>
-              <th className="px-3 py-1 font-normal">Shipping Line</th>
-              <th className="px-3 py-1 font-normal w-24">Rate</th>
-              <th className="px-3 py-1 font-normal w-24">Free Days</th>
-              <th className="px-3 py-1 w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t">
-                <RowCell value={r.origin} onSave={(v) => patchEntry(r.id, "origin", v)} />
-                <RowCell value={r.shipping_line} onSave={(v) => patchEntry(r.id, "shipping_line", v)} />
-                <RowCell value={r.rate?.toString() ?? ""} isNumber onSave={(v) => patchEntry(r.id, "rate", v)} />
-                <RowCell value={r.free_days?.toString() ?? ""} isNumber onSave={(v) => patchEntry(r.id, "free_days", v)} />
-                <td className="px-3 py-1 text-center">
-                  <button onClick={() => deleteEntry(r.id)} className="text-cutoff text-xs">
-                    ✕
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
+        <div className="tw">
+          <table className="tbl">
+            <thead>
               <tr>
-                <td colSpan={5} className="px-3 py-2 text-ink/40 text-xs">
-                  No rows.
-                </td>
+                <th>Origin</th>
+                <th>Shipping Line</th>
+                <th className="r">Rate</th>
+                <th className="r">Free Days</th>
+                <th>
+                  <span className="sr">Remove</span>
+                </th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <RowCell value={r.origin} onSave={(v) => patchEntry(r.id, "origin", v)} />
+                  <RowCell value={r.shipping_line} onSave={(v) => patchEntry(r.id, "shipping_line", v)} />
+                  <RowCell value={r.rate?.toString() ?? ""} isNumber onSave={(v) => patchEntry(r.id, "rate", v)} />
+                  <RowCell value={r.free_days?.toString() ?? ""} isNumber onSave={(v) => patchEntry(r.id, "free_days", v)} />
+                  <td className="r">
+                    <button type="button" className="ib" aria-label={`Remove ${r.origin} ${r.shipping_line} rate`} onClick={() => deleteEntry(r.id)}>
+                      <RemoveIcon />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="meta" style={{ padding: "10px 12px" }}>
+                    No rows.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -624,28 +820,35 @@ function RowCell({
 
   if (!editing) {
     return (
-      <td className="px-3 py-1">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
-          {value || "—"}
-        </span>
+      <td className={isNumber ? "r num" : undefined}>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, border: 0, background: "transparent", font: "inherit", color: "inherit", cursor: "text", padding: 0 }}
+        >
+          {value ? <span>{value}</span> : <span className="dash">—</span>}
+          <PencilIcon />
+        </button>
       </td>
     );
   }
 
   return (
-    <td className="px-3 py-1">
-      <div className="flex gap-1 items-center">
+    <td className={isNumber ? "r" : undefined}>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: isNumber ? "flex-end" : "flex-start" }}>
         <input
           autoFocus
           type={isNumber ? "number" : "text"}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-full"
+          className="input input-s"
+          style={isNumber ? { width: 90, textAlign: "right" } : undefined}
+          aria-label="Edit value"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
-          {saving ? "…" : "✓"}
+        <button type="button" className="ib" onClick={save} disabled={saving} aria-label="Save">
+          <CheckIcon size={14} />
         </button>
       </div>
     </td>

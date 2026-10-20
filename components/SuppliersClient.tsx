@@ -309,7 +309,7 @@ function EditSupplierModal({
       <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Edit Supplier</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
 
         <div className="space-y-3">
@@ -436,7 +436,7 @@ function MergeSuppliersModal({
       <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">Merge Suppliers</h2>
-          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
         <p className="text-sm text-muted mb-3">
           Moves all bookings and invoices from the other supplier onto this one, then permanently removes it as a
