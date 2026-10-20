@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Profit &amp; Loss</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pos{color:var(--ok);font-weight:600}
+.neg{color:var(--crit);font-weight:600}
+.bar{display:inline-block;width:56px;height:6px;border-radius:3px;background:var(--neuS);overflow:hidden;vertical-align:middle;margin-left:8px}
+.sortb{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1050px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="pl" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Finance <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Profit &amp; Loss</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Profit &amp; Loss</h1>
+          <p class="sub">{{subtitle}}</p>
+        </div>
+        <label style="display: inline-flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; cursor: pointer">
+          <button role="switch" aria-checked="{{allStr}}" aria-label="All Years" class="sw {{allCls}}" onClick="{{toggleAll}}"></button>
+          All Years
+        </label>
+      </div>
+
+      <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px">
+        <div class="card kpi">
+          <span class="lbl">Buyer Revenue (USD)</span>
+          <span class="v" style="color: var(--ok)">$612,480.00</span>
+          <span class="meta">Sum of buyer invoices dated in 2026</span>
+        </div>
+        <div class="card kpi">
+          <span class="lbl">Total Expenses (USD)</span>
+          <span class="v" style="display: flex; align-items: center; gap: 8px; color: var(--crit)">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+            $538,210.00
+          </span>
+          <span class="meta">Forwarder + Supplier + Trucker</span>
+        </div>
+        <div class="card kpi">
+          <span class="lbl">Net P&amp;L (USD)</span>
+          <span class="v" style="display: flex; align-items: baseline; gap: 10px; color: var(--ok)">$74,270.00 <span class="badge b-ok">12.1% margin</span></span>
+          <span class="meta">Revenue − expenses</span>
+        </div>
+      </section>
+
+      <section class="card" style="overflow: hidden">
+        <div role="tablist" aria-label="P&amp;L view" class="tabs" style="padding: 0 12px">
+          <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+            <button role="tab" aria-selected="{{t.sel}}" class="tab {{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{byBooking}}" hint-placeholder-val="{{true}}">
+          <div class="tw" style="max-height: 560px">
+            <table class="tbl" style="min-width: 900px">
+              <thead>
+                <tr>
+                  <th aria-sort="none"><button class="sortb">Booking Number</button></th>
+                  <th class="r" aria-sort="none"><button class="sortb">Buyer Revenue</button></th>
+                  <th class="r" aria-sort="none"><button class="sortb">Forwarder</button></th>
+                  <th class="r" aria-sort="none"><button class="sortb">Supplier</button></th>
+                  <th class="r" aria-sort="none"><button class="sortb">Trucker</button></th>
+                  <th class="r" aria-sort="none"><button class="sortb">Total Expenses</button></th>
+                  <th class="r" aria-sort="descending"><button class="sortb" style="color: var(--tx)">Net P&amp;L <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+                  <tr>
+                    <td><a class="mono" href="V2BookingDetail.dc.html" style="font-weight: 500">{{r.bk}}</a></td>
+                    <td class="r num">{{r.rev}}</td>
+                    <td class="r num">{{r.fwd}}</td>
+                    <td class="r num">{{r.sup}}</td>
+                    <td class="r num">{{r.trk}}</td>
+                    <td class="r num">{{r.exp}}</td>
+                    <td class="r num"><span class="{{r.cls}}">{{r.net}}</span><span class="bar" aria-hidden="true"><span style="display: block; height: 6px; width: {{r.w}}; background: {{r.c}}"></span></span><span class="sr"> margin {{r.m}}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total · 8 bookings</td>
+                  <td class="r num">{{tot.rev}}</td>
+                  <td class="r num">{{tot.fwd}}</td>
+                  <td class="r num">{{tot.sup}}</td>
+                  <td class="r num">{{tot.trk}}</td>
+                  <td class="r num">{{tot.exp}}</td>
+                  <td class="r num"><span class="pos">{{tot.net}}</span></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{byParty}}" hint-placeholder-val="{{false}}">
+          <div class="tw" style="max-height: 560px">
+            <table class="tbl" style="min-width: 760px">
+              <thead>
+                <tr><th>Party</th><th>Role</th><th class="r">Invoiced (USD)</th><th class="r">Paid (USD)</th><th class="r">Net (USD)</th></tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{parties}}" as="p" hint-placeholder-count="7">
+                  <tr>
+                    <td style="font-weight: 500">{{p.name}}</td>
+                    <td><span class="badge {{p.b}}">{{p.role}}</span></td>
+                    <td class="r num">{{p.inv}}</td>
+                    <td class="r num">{{p.paid}}</td>
+                    <td class="r num"><span style="font-weight: 600">{{p.net}}</span> <span class="meta">{{p.suffix}}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+      </section>
+
+      <section class="card" aria-label="Empty state example" style="padding: 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap">
+        <div style="width: 44px; height: 44px; border-radius: 22px; background: var(--neuS); color: var(--neu); display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>
+        </div>
+        <div style="flex: 1; min-width: 240px">
+          <div class="meta" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600">Empty state · e.g. Year 2027</div>
+          <div style="font-weight: 600; margin-top: 2px">No invoiced bookings for this period yet.</div>
+          <div class="lbl" style="margin-top: 2px">By Party shows: “No invoiced parties for this period yet.”</div>
+        </div>
+        <button class="btn btn-s">Show all years</button>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1050}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, tab: 'booking', all: false }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const tab = this.state.tab;
+    const tabs = [['booking', 'By Booking Number'], ['party', 'By Party']].map(([id, label]) => ({ label, cls: tab === id ? 'on' : '', sel: tab === id ? 'true' : 'false', pick: () => this.setState({ tab: id }) }));
+    const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const data = [
+      ['HL-11952005', 14820, 1290, 10840, 620],
+      ['401610299853', 12140, 1180, 8960, 540],
+      ['EX471632', 13096, 1245, 9810, 480],
+      ['400600270642', 11480, 1310, 8420, 610],
+      ['NAM8534819', 10840, 1420, 7980, 390],
+      ['274502536', 12360, 2180, 8620, 520],
+      ['400600270749', 9320, 1060, 7440, 410],
+      ['NAM8535021', 15204, 255, 10470, 570]
+    ];
+    data[7] = ['NAM8535021', 15204, 2255, 13470, 570];
+    const sum = (i) => data.reduce((a, d) => a + d[i], 0);
+    const tR = sum(1), tF = sum(2), tS = sum(3), tT = sum(4), tE = tF + tS + tT;
+    const tot = { rev: money(tR), fwd: money(tF), sup: money(tS), trk: money(tT), exp: money(tE), net: money(tR - tE) };
+    const rows = data.map(([bk, rev, f, s, t]) => {
+      const exp = f + s + t; const net = rev - exp; const m = net / rev;
+      return { bk, rev: money(rev), fwd: money(f), sup: money(s), trk: money(t), exp: money(exp), net: money(net), cls: net < 0 ? 'neg' : 'pos', w: Math.min(100, Math.round(Math.abs(m) * 400)) + '%', c: net < 0 ? 'var(--crit)' : 'var(--ok)', m: (m * 100).toFixed(1) + '%' };
+    }).sort((a, b) => parseFloat(b.net.replace(/[$,]/g, '')) - parseFloat(a.net.replace(/[$,]/g, '')));
+    const RB = { Buyer: 'b-ok', Forwarder: 'b-acc', Supplier: 'b-info', Trucker: 'b-warn' };
+    const pp = (name, role, inv, paid) => ({ name, role, b: RB[role], inv: money(inv), paid: money(paid), net: money(inv - paid), suffix: role === 'Buyer' ? '(outstanding)' : '(owed)' });
+    const parties = [
+      pp('Jagmohan', 'Buyer', 248600, 236460),
+      pp('Kuldeep', 'Buyer', 182300, 176020),
+      pp('LR Traders', 'Buyer', 181580, 181580),
+      pp('UAL', 'Forwarder', 41820, 38240),
+      pp('Walker', 'Forwarder', 29460, 29460),
+      pp('[Supplier name]', 'Supplier', 438900, 410200),
+      pp('[Trucker name]', 'Trucker', 28030, 24800)
+    ];
+    const all = this.state.all;
+    return {
+      themeClass: 'th-' + theme, themes, tabs, rows, parties, tot,
+      byBooking: tab === 'booking', byParty: tab === 'party',
+      allStr: all ? 'true' : 'false', allCls: all ? 'on' : '', toggleAll: () => this.setState({ all: !all }),
+      subtitle: all ? 'All years — each row’s own invoice date decides which year it counts toward.' : 'Year 2026 — each row’s own invoice date decides which year it counts toward.'
+    };
+  }
+}
+</script>
+</body>
+</html>

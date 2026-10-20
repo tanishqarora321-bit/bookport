@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Buyers / Customers</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 24px}
+.dl dt{font-size:12px;color:var(--mut);margin-bottom:3px}
+.dl dd{margin:0;font-size:13px;display:flex;align-items:center;gap:6px}
+.dl dd .pen{opacity:1}
+.code{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;border:1px solid var(--line2);background:var(--surf2);font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;font-weight:500}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1200px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="buyers" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Partners <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Buyers / Customers</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Buyers / Customers</h1>
+          <p class="sub">Accounts, shipping details and item categories</p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tx2); margin-right: 6px">
+            <button role="switch" aria-checked="{{showRemovedAria}}" aria-label="Show removed" class="sw {{showRemovedCls}}" onClick="{{toggleRemoved}}"></button>
+            Show removed
+          </label>
+          <a class="btn" href="#">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M8 13h8M8 17h8M12 11v8"/></svg>
+            Import Excel
+          </a>
+          <button class="btn btn-p">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            New Account
+          </button>
+        </div>
+      </div>
+
+      <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+        <div class="card kpi"><span class="lbl">Total Accounts</span><span class="v">24</span><span class="meta">Including 2 removed</span></div>
+        <div class="card kpi"><span class="lbl">Active</span><span class="v" style="color: var(--ok)">22</span><span class="meta">Available in party pickers</span></div>
+        <div class="card kpi"><span class="lbl">Items</span><span class="v">7</span><span class="meta">Categories used in Shipment Tracking</span></div>
+      </section>
+
+      <div class="tabs" role="tablist" aria-label="Buyers sections">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+          <button role="tab" aria-selected="{{t.sel}}" class="tab {{t.cls}}" onClick="{{t.pick}}">{{t.label}} <span class="meta">{{t.n}}</span></button>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{isAccounts}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 20px">
+
+          <section class="card" aria-labelledby="addacc" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; border-color: var(--accent)">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <h2 id="addacc" class="h2">New account</h2>
+              <button class="ib" aria-label="Close new account form"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px">
+              <div class="field"><label for="an">Account / party name <span class="req">*</span></label><input id="an" class="input" value="Shree Ganesh Textiles"></div>
+              <div class="field"><label for="sc">Short code</label><input id="sc" class="input mono" value="SG" maxlength="6"><span class="help">e.g. LR — used in invoice numbers: 2026-SG/01</span></div>
+              <div class="field"><label for="co">Country</label><input id="co" class="input" placeholder="India"></div>
+            </div>
+            <div class="field"><label for="ad">Address</label><textarea id="ad" class="textarea" placeholder="Street, city, state, PIN"></textarea></div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end">
+              <button class="btn">Cancel</button>
+              <button class="btn btn-p">Save Account</button>
+            </div>
+          </section>
+
+          <section class="card" style="overflow: hidden">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line)">
+              <label style="flex: 0 1 320px; min-width: 200px; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--line2); border-radius: 8px; background: var(--surf)">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg>
+                <span class="sr">Search accounts</span>
+                <input type="search" placeholder="Search name, short code, country" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: var(--tx)">
+              </label>
+              <span class="meta" style="margin-left: auto">{{rowCount}}</span>
+            </div>
+            <div class="tw">
+              <table class="tbl">
+                <thead>
+                  <tr>
+                    <th aria-sort="ascending">Account Name ↑</th>
+                    <th>Short Code</th>
+                    <th>Country</th>
+                    <th>Address</th>
+                    <th class="r"><span class="sr">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                    <tr style="opacity: {{r.op}}">
+                      <td>
+                        <span style="display: inline-flex; align-items: center; gap: 8px">
+                          <span style="font-weight: 600">{{r.name}}</span>
+                          <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg>
+                          <sc-if value="{{r.removed}}" hint-placeholder-val="{{false}}"><span class="badge b-neu">Removed</span></sc-if>
+                        </span>
+                      </td>
+                      <td><sc-if value="{{r.code}}" hint-placeholder-val="{{true}}"><span class="code">{{r.code}}</span></sc-if><sc-if value="{{r.noCode}}" hint-placeholder-val="{{false}}"><span class="badge b-warn">Missing</span></sc-if></td>
+                      <td>{{r.country}}</td>
+                      <td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: var(--tx2)" title="{{r.addr}}">{{r.addr}}</td>
+                      <td class="r">
+                        <sc-if value="{{r.active}}" hint-placeholder-val="{{true}}">
+                          <span style="display: inline-flex; gap: 4px; align-items: center">
+                            <button class="btn btn-g btn-xs">Edit</button>
+                            <button class="btn btn-g btn-xs">Merge</button>
+                            <button class="btn btn-xs" aria-expanded="{{r.expAria}}" onClick="{{r.toggle}}">{{r.expLabel}}</button>
+                            <a class="btn btn-g btn-xs" href="V2BuyerLedger.dc.html" style="color: var(--accent)">Invoices →</a>
+                            <button class="btn btn-g btn-xs btn-d">Remove</button>
+                          </span>
+                        </sc-if>
+                        <sc-if value="{{r.removed}}" hint-placeholder-val="{{false}}">
+                          <span style="display: inline-flex; gap: 4px">
+                            <button class="btn btn-xs">Restore</button>
+                            <button class="btn btn-xs btn-d">Delete</button>
+                          </span>
+                        </sc-if>
+                      </td>
+                    </tr>
+                    <sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+                      <tr>
+                        <td colspan="5" style="background: var(--surf2); padding: 18px 20px; white-space: normal">
+                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px">
+                            <div style="font-size: 13px; font-weight: 600">Shipping details — used on BL consignee, instructions and documents</div>
+                            <span class="meta">Click any value to edit</span>
+                          </div>
+                          <dl class="dl" style="margin: 0">
+                            <div><dt>GST No.</dt><dd class="mono">06AABCJ1234K1Z5 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>IEC Code</dt><dd class="mono">0512034567 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>PAN No.</dt><dd><span class="dash">— Add</span> <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>Mobile</dt><dd class="num">+91 98120 45678 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>Email</dt><dd>accounts@jagmohanexports.in <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>Description of Goods</dt><dd>Mixed Rags (Used Clothing, Mutilated) <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>H.S. Code</dt><dd class="mono">63109000 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div><dt>Address</dt><dd>Plot 14, Sector 29, Panipat, Haryana 132103 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd></div>
+                            <div>
+                              <dt style="display: flex; align-items: center; gap: 4px">Transit Destination
+                                <button class="ib" style="width: 20px; height: 20px" aria-label="About Transit Destination: used in the Instructions email's shipper-declares clause, e.g. KANDLA SPECIAL ECONOMIC ZONE (INKDL6)" title="For the Instructions email's shipper-declares clause, e.g. KANDLA SPECIAL ECONOMIC ZONE (INKDL6)">
+                                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5"/></svg>
+                                </button>
+                              </dt>
+                              <dd>KANDLA SPECIAL ECONOMIC ZONE (INKDL6) <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></dd>
+                            </div>
+                          </dl>
+                        </td>
+                      </tr>
+                    </sc-if>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line)">
+              <span class="meta">Showing 1–6 of 24</span>
+              <span style="display: inline-flex; gap: 6px"><button class="btn btn-xs" disabled>Previous</button><button class="btn btn-xs">Next</button></span>
+            </div>
+          </section>
+
+          <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+            <section class="card" aria-labelledby="mergeh" style="flex: 2 1 560px; min-width: 0; box-shadow: var(--shadowL)">
+              <div class="mh">
+                <div>
+                  <h2 id="mergeh" class="h2" style="font-size: 18px">Merge Accounts</h2>
+                  <p class="lbl" style="margin: 4px 0 0">Combine a duplicate into this account. Bookings and invoices move to the final account.</p>
+                </div>
+                <button class="ib" aria-label="Close"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+              </div>
+              <div class="mb">
+                <div class="field">
+                  <label for="mg">Merge which account into "Jagmohan"?</label>
+                  <select id="mg" class="select"><option>Jagmohan Exports (JME)</option><option>Kuldeep</option><option>LR Traders</option></select>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+                  <div style="border: 2px solid var(--accent); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px; background: var(--accentS)">
+                    <span class="meta">Keep</span>
+                    <b style="font-size: 14px">Jagmohan</b>
+                    <span class="lbl">JM · India</span>
+                    <span class="lbl">Plot 14, Sector 29, Panipat</span>
+                    <span class="badge b-acc" style="align-self: flex-start">Using these details</span>
+                  </div>
+                  <div style="border: 1px solid var(--line2); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 6px">
+                    <span class="meta">Merge in</span>
+                    <b style="font-size: 14px">Jagmohan Exports</b>
+                    <span class="lbl">JME · India</span>
+                    <span class="lbl">Sector 29, Panipat, Haryana</span>
+                    <button class="btn btn-xs" style="align-self: flex-start">Use these details</button>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+                  <div class="field"><label for="fn">Final Name <span class="req">*</span></label><input id="fn" class="input" value="Jagmohan"></div>
+                  <div class="field"><label for="fs">Final Short Code</label><input id="fs" class="input mono" value="JM"></div>
+                  <div class="field"><label for="fc">Final Country</label><input id="fc" class="input" value="India"></div>
+                  <div class="field"><label for="fa">Final Address</label><input id="fa" class="input" value="Plot 14, Sector 29, Panipat"></div>
+                </div>
+                <div class="banner bn-crit" role="note">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>
+                  <span style="flex: 1 1 300px; font-size: 13px"><b>This can't be undone.</b> "Jagmohan Exports" will be deleted and its 6 bookings and 4 invoices will move to "Jagmohan".</span>
+                </div>
+              </div>
+              <div class="mf"><button class="btn">Cancel</button><button class="btn btn-dp">Merge</button></div>
+            </section>
+
+            <section class="card" aria-label="Empty state example" style="flex: 1 1 300px; min-width: 0; padding: 32px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+              <span class="meta" style="align-self: flex-start">Empty state</span>
+              <div style="width: 48px; height: 48px; border-radius: 24px; background: var(--neuS); color: var(--tx2); display: flex; align-items: center; justify-content: center">
+                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19 8v6M16 11h6"/></svg>
+              </div>
+              <div style="font-weight: 600; font-size: 15px">No accounts yet</div>
+              <div class="lbl" style="max-width: 260px">Click "+ New Account" above to add your first buyer or customer.</div>
+              <div style="display: flex; gap: 8px; margin-top: 6px"><button class="btn btn-s">Import Excel</button><button class="btn btn-p btn-s">+ New Account</button></div>
+            </section>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isItems}}" hint-placeholder-val="{{false}}">
+        <section class="card" style="padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; max-width: 760px">
+          <div>
+            <h2 class="h2">Item categories</h2>
+            <p class="lbl" style="margin: 4px 0 0">Assigned to shipments in Shipment Tracking and used to group buyer P&amp;L.</p>
+          </div>
+          <div style="display: flex; gap: 10px">
+            <label for="ni" class="sr">New item name</label>
+            <input id="ni" class="input" placeholder="New item name, e.g. Mixed Rags">
+            <button class="btn btn-p">+ Add</button>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden">
+            <sc-for list="{{items}}" as="i" hint-placeholder-count="7">
+              <li style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); opacity: {{i.op}}">
+                <span style="flex: 1; font-weight: 500">{{i.name}}</span>
+                <span class="meta num">{{i.n}}</span>
+                <sc-if value="{{i.removed}}" hint-placeholder-val="{{false}}"><span class="badge b-neu">Removed</span><button class="btn btn-xs">Restore</button></sc-if>
+                <sc-if value="{{i.active}}" hint-placeholder-val="{{true}}"><button class="btn btn-g btn-xs btn-d">Remove</button></sc-if>
+              </li>
+            </sc-for>
+          </ul>
+          <div class="meta">Empty state copy: "No items yet — Add item categories like Mixed Rag to assign in Shipment Tracking."</div>
+        </section>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, tab: 'accounts', open: 'jm', removed: true }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const tab = this.state.tab;
+    const tabs = [['accounts', 'Accounts', '22'], ['items', 'Items', '7']].map(([id, label, n]) => ({ label, n, cls: tab === id ? 'on' : '', sel: tab === id ? 'true' : 'false', pick: () => this.setState({ tab: id }) }));
+    const data = [
+      ['jm', 'Jagmohan', 'JM', 'India', 'Plot 14, Sector 29, Panipat, Haryana 132103', false],
+      ['kd', 'Kuldeep', 'KD', 'India', 'GT Road, Samalkha, Panipat, Haryana', false],
+      ['lr', 'LR Traders', 'LR', 'India', 'Kandla SEZ, Gandhidham, Gujarat 370230', false],
+      ['pr', 'Panipat Recyclers LLP', 'PR', 'India', 'Industrial Area Phase 2, Panipat', false],
+      ['sg', 'Shree Ganesh Textiles', '', 'India', 'Bhiwandi, Thane, Maharashtra', false],
+      ['je', 'Jagmohan Exports', 'JME', 'India', 'Sector 29, Panipat, Haryana', true]
+    ];
+    const showRemoved = this.state.removed;
+    const rows = data.filter((d) => showRemoved || !d[5]).map(([id, name, code, country, addr, removed]) => {
+      const open = this.state.open === id;
+      return { name, code, noCode: !code, country, addr, removed, active: !removed, op: removed ? '0.62' : '1', open, expAria: open ? 'true' : 'false', expLabel: open ? 'Hide Shipping Details ▲' : 'Shipping Details ▼', toggle: () => this.setState({ open: open ? null : id }) };
+    });
+    const items = [['Mixed Rags', '38 shipments', false], ['Shoddy Wool', '12 shipments', false], ['Cotton Cuttings', '9 shipments', false], ['Bed Sheets', '6 shipments', false], ['Wipers', '4 shipments', false], ['Credential Clothing', '2 shipments', false], ['Hosiery Clips', '0 shipments', true]]
+      .map(([name, n, removed]) => ({ name, n, removed, active: !removed, op: removed ? '0.62' : '1' }));
+    return {
+      themeClass: 'th-' + theme, themes, tabs, isAccounts: tab === 'accounts', isItems: tab === 'items', rows, items,
+      rowCount: rows.length + ' accounts shown',
+      showRemovedCls: showRemoved ? 'on' : '', showRemovedAria: showRemoved ? 'true' : 'false', toggleRemoved: () => this.setState({ removed: !showRemoved })
+    };
+  }
+}
+</script>
+</body>
+</html>

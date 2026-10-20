@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Offer Sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.cmp{background:var(--surf2)!important;color:var(--tx2)}
+.fx{display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 4px;border-radius:4px;background:var(--accentS);color:var(--accent);font-size:10px;font-weight:700;margin-left:4px;font-style:italic}
+.gh td{background:var(--accentS)!important;font-weight:600}
+.gs td{background:var(--surf2)!important;font-weight:600}
+.secbtn{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--tx);font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.secbtn.on{background:var(--accentS);font-weight:600}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1300px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="offers" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Commercial <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Offer Sheet</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Offer Sheet</h1>
+          <p class="sub">Costing sections you define — each with its own columns and formulas</p>
+        </div>
+        <button class="btn btn-p">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          New Section
+        </button>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" aria-labelledby="secs" style="flex: 1 1 240px; min-width: 0; padding: 12px">
+          <h2 id="secs" class="meta" style="margin: 4px 8px 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600">Sections</h2>
+          <sc-for list="{{sections}}" as="s" hint-placeholder-count="3">
+            <button class="secbtn {{s.cls}}" aria-current="{{s.cur}}" onClick="{{s.pick}}">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h14v18H5zM5 9h14M5 15h14M12 9v12"/></svg>
+              <span style="flex: 1">{{s.name}}</span>
+              <span class="meta num">{{s.n}}</span>
+            </button>
+          </sc-for>
+        </section>
+
+        <section class="card" aria-labelledby="sheets" style="flex: 3 1 560px; min-width: 0; overflow: hidden">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px">
+            <div>
+              <h2 id="sheets" class="h2">{{secName}}</h2>
+              <div class="meta" style="margin-top: 2px">Sheets in this section</div>
+            </div>
+            <button class="btn btn-s">+ New Sheet</button>
+          </div>
+          <table class="tbl">
+            <thead><tr><th>Title</th><th>Period</th><th class="r">Rows</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#grid" style="font-weight: 600">October 2026 Mixed Rags</a></td><td>Oct 2026</td><td class="r num">14</td></tr>
+              <tr><td><a href="#grid" style="font-weight: 600">September 2026 Mixed Rags</a></td><td>Sep 2026</td><td class="r num">22</td></tr>
+              <tr><td><a href="#grid" style="font-weight: 600">August 2026 Mixed Rags</a></td><td>Aug 2026</td><td class="r num">18</td></tr>
+              <tr><td><a href="#grid" style="font-weight: 600">Partly offer — Jagmohan</a></td><td><span class="dash">—</span></td><td class="r num">6</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section id="grid" class="card" aria-labelledby="gt" style="flex: 3 1 700px; min-width: 0; overflow: hidden">
+          <div style="padding: 16px 18px 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--line)">
+            <a href="#" style="font-size: 13px">← Back to Offer Sheet</a>
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px">
+              <div>
+                <h2 id="gt" style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">October 2026 Mixed Rags</h2>
+                <div class="lbl" style="margin-top: 2px">Mixed Rags</div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button class="btn btn-s">
+                  <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4"/></svg>
+                  Sheet Settings
+                </button>
+                <button class="btn btn-s">Export CSV</button>
+                <button class="btn btn-s btn-p">+ New Group</button>
+              </div>
+            </div>
+          </div>
+          <div class="tw">
+            <table class="tbl" style="min-width: 760px">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th class="r">Weight (lbs)</th>
+                  <th class="r">Rate ($/lb)</th>
+                  <th class="r">Freight</th>
+                  <th class="r" title="= Weight × Rate + group:Freight ÷ items">Total cost<span class="fx" aria-label="computed">ƒx</span></th>
+                  <th class="r" title="= (Offer − Total cost) ÷ Offer">Margin %<span class="fx" aria-label="computed">ƒx</span></th>
+                  <th><span class="sr">Delete</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{groups}}" as="g" hint-placeholder-count="2">
+                  <tr class="gh">
+                    <td colspan="6"><span style="display: inline-flex; align-items: center; gap: 8px">{{g.title}} <span class="mono meta">{{g.ctr}}</span></span></td>
+                    <td class="r"><button class="btn btn-xs">+ Add Item to This Group</button></td>
+                  </tr>
+                  <sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+                    <tr>
+                      <td>{{it.name}}</td>
+                      <td class="r num">{{it.w}}</td>
+                      <td class="r num">{{it.rate}}</td>
+                      <td class="r num">{{it.fr}}</td>
+                      <td class="r num cmp">{{it.total}}</td>
+                      <td class="r num cmp">{{it.margin}}</td>
+                      <td class="r"><button class="ib" aria-label="Delete row {{it.name}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button></td>
+                    </tr>
+                  </sc-for>
+                  <tr class="gs">
+                    <td>Group subtotal</td>
+                    <td class="r num">{{g.w}}</td>
+                    <td></td>
+                    <td class="r num">{{g.fr}}</td>
+                    <td class="r num">{{g.total}}</td>
+                    <td class="r num">{{g.margin}}</td>
+                    <td></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line)" class="meta">
+            <span class="fx" aria-hidden="true">ƒx</span> Computed columns are read-only. Hover a column header to see its formula, e.g. “= Weight × Rate + group:Freight”.
+          </div>
+        </section>
+
+        <aside class="card" aria-labelledby="ss" style="flex: 1 1 260px; min-width: 0; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+          <h2 id="ss" class="h2">Sheet Settings</h2>
+          <p class="lbl" style="margin: 0">Constants used by this section's formulas (as <span class="mono">sheet:</span> values).</p>
+          <div class="field">
+            <label for="fxr">USD → INR rate</label>
+            <input id="fxr" class="input num" value="84.20">
+            <span class="help">Used by “Total (INR)” on every row</span>
+          </div>
+          <div style="display: flex; justify-content: flex-end"><button class="btn btn-s btn-p">Save</button></div>
+          <div style="border-top: 1px solid var(--line); padding-top: 12px">
+            <div class="meta" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 6px">When no constants are used</div>
+            <p class="lbl" style="margin: 0">This section's formulas don't use any sheet-level constants.</p>
+          </div>
+        </aside>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" aria-labelledby="ns" style="flex: 2 1 520px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+          <h2 id="ns" class="h2">New Section</h2>
+          <div class="field" style="max-width: 420px">
+            <label for="sn">Section Name <span class="req">*</span></label>
+            <input id="sn" class="input" placeholder="e.g. Partly Offer Sheet">
+          </div>
+          <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden">
+            <div style="padding: 10px 14px; font-weight: 600; background: var(--surf2); border-bottom: 1px solid var(--line)">Columns</div>
+            <table class="tbl">
+              <thead><tr><th>Column Key</th><th>Label</th><th>Type</th><th><span class="sr">Remove</span></th></tr></thead>
+              <tbody>
+                <tr><td><input class="input input-s mono" aria-label="Column key 1" value="weight"></td><td><input class="input input-s" aria-label="Label 1" value="Weight (lbs)"></td><td><select class="select select-s" aria-label="Type 1"><option>Text</option><option selected>Number</option><option>Date</option></select></td><td><button class="ib" aria-label="Remove column 1"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                <tr><td><input class="input input-s mono" aria-label="Column key 2" value="item"></td><td><input class="input input-s" aria-label="Label 2" value="Item"></td><td><select class="select select-s" aria-label="Type 2"><option selected>Text</option><option>Number</option><option>Date</option></select></td><td><button class="ib" aria-label="Remove column 2"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                <tr><td><input class="input input-s mono" aria-label="Column key 3" placeholder="e.g. weight"></td><td><input class="input input-s" aria-label="Label 3" placeholder="e.g. Weight (lbs)"></td><td><select class="select select-s" aria-label="Type 3"><option selected>Text</option><option>Number</option><option>Date</option></select></td><td><button class="ib" aria-label="Remove column 3"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+              </tbody>
+            </table>
+            <div style="padding: 10px 14px"><button class="btn btn-s">+ Add Column</button></div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px">
+            <span class="err" role="alert">Add at least one column.</span>
+            <div style="display: flex; gap: 10px"><button class="btn">Cancel</button><button class="btn btn-p">Create Section</button></div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="nsh" style="flex: 1 1 320px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+          <h2 id="nsh" class="h2">New Sheet</h2>
+          <div class="field">
+            <label for="st">Title <span class="req">*</span></label>
+            <input id="st" class="input" placeholder="e.g. August 2026 Mixed Rags">
+          </div>
+          <div class="field">
+            <label for="sp">Period <span class="meta">(optional)</span></label>
+            <input id="sp" class="input" type="month">
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px"><button class="btn">Cancel</button><button class="btn btn-p">Create Sheet</button></div>
+          <div style="border-top: 1px solid var(--line); padding-top: 12px">
+            <div class="meta" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 6px">Empty states</div>
+            <p class="lbl" style="margin: 0 0 6px">No sections yet — click "+ New Section" to create one.</p>
+            <p class="lbl" style="margin: 0">No sheets yet in this section. Click "+ New Sheet" to add one.</p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, sec: 0 }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const names = [['Mixed Rags', '4'], ['Bed Sheet Offer', '2'], ['Wiper Costing', '3']];
+    const sections = names.map(([name, n], i) => ({ name, n, cls: this.state.sec === i ? 'on' : '', cur: this.state.sec === i ? 'true' : 'false', pick: () => this.setState({ sec: i }) }));
+    const groups = [
+      { title: 'Load 1 · Container', ctr: 'MSKU 552019-3', w: '44,800', fr: '$2,180.00', total: '$20,996.00', margin: '11.4%', items: [
+        { name: 'Mixed Rag — Grade A', w: '22,400', rate: '$0.42', fr: '$1,090.00', total: '$10,498.00', margin: '12.0%' },
+        { name: 'Mixed Rag — Grade B', w: '15,600', rate: '$0.38', fr: '$759.00', total: '$6,687.00', margin: '10.6%' },
+        { name: 'Cotton cuttings', w: '6,800', rate: '$0.51', fr: '$331.00', total: '$3,799.00', margin: '11.2%' }
+      ] },
+      { title: 'Load 2 · Container', ctr: 'HLXU 873204-1', w: '42,600', fr: '$1,290.00', total: '$18,754.00', margin: '9.8%', items: [
+        { name: 'Mixed Rag — Grade A', w: '30,000', rate: '$0.41', fr: '$908.00', total: '$13,208.00', margin: '10.1%' },
+        { name: 'Shoddy wool', w: '12,600', rate: '$0.41', fr: '$382.00', total: '$5,546.00', margin: '9.1%' }
+      ] }
+    ];
+    return { themeClass: 'th-' + theme, themes, sections, secName: names[this.state.sec][0], groups };
+  }
+}
+</script>
+</body>
+</html>

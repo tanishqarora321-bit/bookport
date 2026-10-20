@@ -8,18 +8,20 @@ const OPTIONS: { value: "light" | "dark" | "system"; label: string }[] = [
   { value: "system", label: "System" },
 ];
 
+// Matches design-v2/SPEC.md's shell markup exactly: a `.seg` radiogroup
+// with one `role="radio"` button per theme.
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="inline-flex rounded-lg border border-line bg-surface p-0.5 text-sm">
+    <div className="seg" role="radiogroup" aria-label="Appearance">
       {OPTIONS.map((o) => (
         <button
           key={o.value}
+          role="radio"
+          aria-checked={theme === o.value}
+          className={theme === o.value ? "on" : ""}
           onClick={() => setTheme(o.value)}
-          className={`px-3 py-1 rounded-md transition-colors ${
-            theme === o.value ? "bg-ink text-surface font-medium" : "text-text-2 hover:text-text"
-          }`}
         >
           {o.label}
         </button>

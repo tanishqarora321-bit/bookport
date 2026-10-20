@@ -3,73 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ClipboardList,
-  Building2,
-  Factory,
-  MapPin,
-  Users,
-  Truck,
-  BarChart3,
-  FileSpreadsheet,
-  TrendingUp,
-  Settings,
-  ShieldCheck,
-  Copy,
-  ChevronsLeft,
-  ChevronsRight,
-  type LucideIcon,
-} from "lucide-react";
 import Logo from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { useYear } from "@/lib/year-context";
-import { LogOut } from "lucide-react";
-
-// Grouped to match the Ship-Sphere Design System v2 nav (Operations /
-// Partners / Commercial / Finance / Admin). Badge is an optional live count
-// fetched separately (see `badgeKey`), not a static value here.
-type NavItem = { label: string; href: string; icon: LucideIcon; badgeKey?: "duplicateBookings" };
-type NavGroup = { heading: string; items: NavItem[] };
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    heading: "Operations",
-    items: [
-      { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
-      { label: "Multiple Bookings", href: "/bookings/multiple", icon: Copy, badgeKey: "duplicateBookings" },
-      { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
-    ],
-  },
-  {
-    heading: "Partners",
-    items: [
-      { label: "Buyers / Customers", href: "/parties", icon: Users },
-      { label: "Forwarders", href: "/forwarders", icon: Building2 },
-      { label: "Suppliers", href: "/suppliers", icon: Factory },
-      { label: "Truckers", href: "/truckers", icon: Truck },
-    ],
-  },
-  {
-    heading: "Commercial",
-    items: [
-      { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
-      { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
-    ],
-  },
-  {
-    heading: "Finance",
-    items: [{ label: "Profit & Loss", href: "/profit-loss", icon: TrendingUp }],
-  },
-  {
-    heading: "Admin",
-    items: [{ label: "Settings & Control", href: "/team", icon: Settings }],
-  },
-];
+import { NAV_GROUPS, NAV_ICON_PATHS, navKeyForPathname } from "@/lib/nav";
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
 
+// Matches design-v2/screens/V2Nav.dc.html exactly: logo, Working Year
+// select, grouped nav with inline-SVG icons (the design's own path
+// data, not an icon library) and a visually-hidden label on the
+// "booking numbers to review" badge, collapse button, user footer.
 export default function Sidebar() {
   const pathname = usePathname();
+  const activeKey = navKeyForPathname(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -139,52 +86,89 @@ export default function Sidebar() {
   // navigation to/from either route.
   if (pathname === "/login" || pathname === "/auth/callback") return null;
 
+  // "Platform Admin" only shows for the platform owner - every other
+  // item is visible to everyone, same as before.
+  const visibleGroups = NAV_GROUPS.map((g) =>
+    g.label === "Admin" ? { ...g, items: g.items.filter((it) => it.key !== "admin" || isPlatformOwner) } : g
+  );
+
   return (
-    <aside
-      className={`${collapsed ? "w-16" : "w-64"} bg-navy text-white h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150`}
+    <nav
+      aria-label="Main"
+      style={{ background: "var(--nav)", color: "var(--navTx)" }}
+      className={`${collapsed ? "w-16" : "w-64"} h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150`}
     >
-      <div className={`flex items-center gap-3 border-b border-white/10 ${collapsed ? "p-3 justify-center" : "p-5"}`}>
+      <div
+        className={`flex items-center gap-3 ${collapsed ? "p-3 justify-center" : "py-[18px] px-[18px] pt-5"}`}
+        style={{ borderBottom: "1px solid var(--navLine)" }}
+      >
         <Logo size={collapsed ? 32 : 36} />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="font-semibold leading-tight">Ship-Sphere</div>
-            <div className="text-xs text-white/50 leading-tight">One Booking. All Connected.</div>
+            <div className="text-[16px] font-bold tracking-tight leading-tight">Ship-Sphere</div>
+            <div className="text-xs leading-tight" style={{ color: "var(--navMut)" }}>
+              One Booking. All Connected.
+            </div>
           </div>
         )}
       </div>
 
       <YearSelector collapsed={collapsed} />
 
-      <nav className="flex-1 py-2">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.heading} className="mb-1">
+      <div className="flex-1 overflow-y-auto px-2.5 py-2 flex flex-col gap-3.5">
+        {visibleGroups.map((group) => (
+          <div key={group.label} className="flex flex-col gap-0.5">
             {!collapsed && (
-              <div className="px-5 pt-3 pb-1 text-[10px] uppercase tracking-wide text-white/40 font-medium">
-                {group.heading}
+              <div
+                className="text-[11px] font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-1"
+                style={{ color: "var(--navMut)", letterSpacing: "0.06em" }}
+              >
+                {group.label}
               </div>
             )}
-            {group.items.map((m) => {
-              const active =
-                pathname === m.href ||
-                (m.href === "/bookings" && pathname?.startsWith("/bookings") && !pathname?.startsWith("/bookings/multiple"));
-              const Icon = m.icon;
-              const badge = m.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
+            {group.items.map((it) => {
+              const active = it.key === activeKey;
+              const badge = it.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
               return (
                 <Link
-                  key={m.href}
-                  href={m.href}
-                  title={collapsed ? m.label : undefined}
-                  className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-                    active ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
+                  key={it.key}
+                  href={it.href}
+                  title={collapsed ? it.label : undefined}
+                  aria-current={active ? "page" : undefined}
+                  className={`nav-a flex items-center gap-2.5 rounded-lg text-sm ${
+                    collapsed ? "justify-center px-2" : "px-2.5"
                   }`}
+                  style={{
+                    minHeight: 38,
+                    background: active ? "var(--navAct)" : "transparent",
+                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.86)",
+                    fontWeight: active ? 600 : 400,
+                  }}
                 >
-                  <Icon className="w-4 h-4 shrink-0" size={16} />
+                  <svg
+                    aria-hidden="true"
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={active ? 1.9 : 1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="shrink-0"
+                  >
+                    <path d={NAV_ICON_PATHS[it.key]} />
+                  </svg>
                   {!collapsed && (
-                    <span className="truncate flex-1 flex items-center justify-between gap-2">
-                      {m.label}
+                    <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                      <span className="truncate">{it.label}</span>
                       {badge > 0 && (
-                        <span className="bg-amend text-white text-[11px] font-semibold rounded-full px-1.5 py-0.5 leading-none">
+                        <span
+                          className="inline-flex items-center justify-center shrink-0 text-xs font-bold rounded-full"
+                          style={{ minWidth: 22, height: 20, padding: "0 7px", background: "#F59E0B", color: "#0C1A3A" }}
+                        >
                           {badge}
+                          <span className="sr">{" booking numbers to review"}</span>
                         </span>
                       )}
                     </span>
@@ -192,61 +176,69 @@ export default function Sidebar() {
                 </Link>
               );
             })}
-            {group.heading === "Admin" && isPlatformOwner && (
-              <Link
-                href="/admin"
-                title={collapsed ? "Platform Admin" : undefined}
-                className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-                  pathname === "/admin" ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 shrink-0" size={16} />
-                {!collapsed && <span className="truncate">Platform Admin</span>}
-              </Link>
-            )}
           </div>
         ))}
-      </nav>
+      </div>
 
       <button
         onClick={toggle}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className={`flex items-center gap-2 py-3 text-xs text-white/50 hover:text-white hover:bg-navyhover border-t border-white/10 ${
-          collapsed ? "justify-center px-2" : "px-5"
+        className={`flex items-center gap-2.5 h-10 mx-2.5 px-2.5 border-0 rounded-lg bg-transparent text-[13px] ${
+          collapsed ? "justify-center" : ""
         }`}
+        style={{ color: "var(--navMut)" }}
       >
-        {collapsed ? <ChevronsRight className="w-4 h-4" size={16} /> : <ChevronsLeft className="w-4 h-4" size={16} />}
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={collapsed ? "M13 7l5 5-5 5M6 7l5 5-5 5" : "M11 17l-5-5 5-5M18 17l-5-5 5-5"} />
+        </svg>
         {!collapsed && <span>Collapse</span>}
       </button>
 
-      <div className={`border-t border-white/10 flex items-center gap-2 text-white/60 text-xs ${collapsed ? "p-3 justify-center" : "p-4"}`}>
-        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/80 font-medium shrink-0">
-          {userEmail ? userEmail[0].toUpperCase() : "A"}
+      <div
+        className={`flex items-center gap-2.5 ${collapsed ? "p-3 justify-center" : "py-3.5 px-4"}`}
+        style={{ borderTop: "1px solid var(--navLine)" }}
+      >
+        <div
+          className="rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
+          style={{ width: 34, height: 34, background: "rgba(255,255,255,0.12)", color: "#FFFFFF" }}
+        >
+          {userEmail ? userEmail[0].toUpperCase() : "T"}
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
             {userEmail ? (
               <>
-                <div className="text-white/90 font-medium truncate" title={companyName ?? undefined}>
+                <div className="text-[13px] font-semibold truncate" title={companyName ?? undefined}>
                   {companyName ?? "—"}
                 </div>
-                <div className="truncate" title={userEmail}>{userEmail}</div>
+                <div className="text-xs truncate" style={{ color: "var(--navMut)" }} title={userEmail}>
+                  {userEmail}
+                </div>
               </>
             ) : (
               <>
-                <div className="text-white/80 truncate">Default Company</div>
-                <div className="truncate">Single-tenant mode - not signed in</div>
+                <div className="text-[13px] font-semibold truncate">Default Company</div>
+                <div className="text-xs truncate" style={{ color: "var(--navMut)" }}>
+                  Single-tenant mode - not signed in
+                </div>
               </>
             )}
           </div>
         )}
         {!collapsed && userEmail && (
-          <button onClick={signOut} title="Sign out" className="text-white/40 hover:text-white shrink-0">
-            <LogOut className="w-4 h-4" size={16} />
+          <button
+            onClick={signOut}
+            aria-label="Sign out"
+            className="rounded-lg flex items-center justify-center shrink-0"
+            style={{ width: 32, height: 32, color: "var(--navMut)" }}
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />
+            </svg>
           </button>
         )}
       </div>
-    </aside>
+    </nav>
   );
 }
 
@@ -262,22 +254,43 @@ function YearSelector({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) {
     return (
-      <div className="px-2 py-2 border-b border-white/10 text-center text-[11px] text-white/50" title={`Year: ${year}`}>
+      <div
+        className="px-2 py-2 text-center text-[11px]"
+        style={{ borderBottom: "1px solid var(--navLine)", color: "var(--navMut)" }}
+        title={`Working year: ${year}`}
+      >
         {year}
       </div>
     );
   }
 
   return (
-    <div className="px-5 py-2.5 border-b border-white/10">
-      <label className="text-[10px] uppercase tracking-wide text-white/40 block mb-1">Year</label>
+    <div className="px-[18px] pt-3.5 pb-1.5 flex flex-col gap-1.5" style={{ borderBottom: "1px solid var(--navLine)" }}>
+      <label
+        htmlFor="v2year"
+        className="text-[11px] font-semibold uppercase"
+        style={{ color: "var(--navMut)", letterSpacing: "0.06em" }}
+      >
+        Working year
+      </label>
       <select
+        id="v2year"
         value={year}
         onChange={(e) => setYear(Number(e.target.value))}
-        className="w-full bg-navyhover text-white text-sm rounded px-2 py-1 border border-white/10"
+        className="text-sm px-2.5"
+        style={{
+          height: 36,
+          borderRadius: 8,
+          border: "1px solid var(--navLine)",
+          background: "var(--navH)",
+          color: "#FFFFFF",
+          colorScheme: "dark",
+        }}
       >
         {years.map((y) => (
-          <option key={y} value={y}>{y}</option>
+          <option key={y} value={y}>
+            {y}
+          </option>
         ))}
       </select>
     </div>

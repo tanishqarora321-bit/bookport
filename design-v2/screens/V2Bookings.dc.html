@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Booking &amp; Instructions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1200px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Booking &amp; Instructions</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Booking &amp; Instructions</h1>
+          <p class="sub">Source of truth — click the pencil icon on any cell to edit</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <button class="btn">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            Export CSV
+          </button>
+          <a class="btn btn-p" href="V2NewBooking.dc.html">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            New Booking
+          </a>
+        </div>
+      </div>
+
+      <sc-if value="{{banner}}" hint-placeholder-val="{{true}}">
+        <div class="banner bn-warn" role="status">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>
+          <span style="flex: 1 1 320px; min-width: 0"><b style="font-weight: 600">3 booking numbers have more than one entry</b> — <a href="V2Multiple.dc.html" style="font-weight: 600">review in Multiple Bookings &amp; Instructions →</a></span>
+          <button class="ib" aria-label="Dismiss banner" onClick="{{dismiss}}">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+      </sc-if>
+
+      <section aria-label="Booking totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+        <div class="card kpi"><span class="lbl">Total Bookings</span><span class="v">321</span><span class="meta">All years · all statuses</span></div>
+        <div class="card kpi"><span class="lbl">Confirmed</span><span class="v">320</span><span class="meta">99.7% of bookings</span></div>
+        <div class="card kpi"><span class="lbl">In Transit</span><span class="v">0</span><span class="meta">Sailed, not delivered</span></div>
+        <div class="card kpi" style="border-color: var(--crit)">
+          <span class="lbl" style="display: flex; align-items: center; gap: 6px; color: var(--crit); font-weight: 600">
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+            Cut-off within 48h</span>
+          <span class="v" style="color: var(--crit)">2</span><span class="meta">next: Mon 10:00</span>
+        </div>
+        <div class="card kpi"><span class="lbl">Delivered</span><span class="v">0</span><span class="meta">This working year</span></div>
+        <div class="card kpi"><span class="lbl">Instructions Sent</span><span class="v">0</span><span class="meta">of 320 confirmed</span></div>
+      </section>
+
+      <section class="card" aria-label="Bookings table" style="overflow: hidden">
+        <div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line)">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+            <label style="flex: 1 1 300px; max-width: 380px; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 9px; background: var(--surf)">
+              <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="2" stroke-linecap="round"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg>
+              <span class="sr">Search bookings</span>
+              <input type="search" placeholder="Search booking #, POL, POD…" style="flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13px; color: var(--tx)">
+            </label>
+            <label class="sr" for="f-status">Status</label>
+            <select id="f-status" class="select select-s" style="width: auto">
+              <option>All Status</option><option>Draft</option><option>Confirmed</option><option>In Transit</option><option>Delivered</option><option>Cancelled</option>
+            </select>
+            <button class="{{cut3Cls}}" aria-pressed="{{cut3Pressed}}" onClick="{{toggleCut3}}">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/></svg>
+              Cut off within 3 days</button>
+            <button class="{{overCls}}" aria-pressed="{{overPressed}}" onClick="{{toggleOver}}">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4"/></svg>
+              Cut-off overdue</button>
+            <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer">
+              <input type="checkbox" style="width: 16px; height: 16px; accent-color: var(--accent)">
+              Only 2026 (by Month of Loading)
+            </label>
+            <div style="flex: 1 1 0"></div>
+            <span class="lbl num" aria-live="polite"><b style="color: var(--tx)">321</b> bookings</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+            <label class="sr" for="f-line">Shipping line</label>
+            <select id="f-line" class="select select-s" style="width: auto"><option>All Lines</option><option>Maersk</option><option>Hapag-Lloyd</option><option>MSC</option><option>CMA CGM</option><option>ONE</option><option>Evergreen</option><option>HMM</option></select>
+            <label class="sr" for="f-dest">Port of delivery</label>
+            <select id="f-dest" class="select select-s" style="width: auto"><option>All Destinations</option><option>Mundra, IN</option><option>Nhava Sheva, IN</option><option>ICD Panipat</option><option>Kandla SEZ</option></select>
+            <label class="sr" for="f-fwd">Forwarder</label>
+            <select id="f-fwd" class="select select-s" style="width: auto"><option>All Forwarders</option><option>UAL</option><option>Walker</option></select>
+            <label class="sr" for="f-trk">Trucker</label>
+            <select id="f-trk" class="select select-s" style="width: auto"><option>All Truckers</option><option>[Trucker name]</option></select>
+            <label class="sr" for="f-sup">Supplier</label>
+            <select id="f-sup" class="select select-s" style="width: auto"><option>All Suppliers</option><option>[Supplier name]</option></select>
+            <label class="sr" for="f-buy">Buyer</label>
+            <select id="f-buy" class="select select-s" style="width: auto"><option>All Buyers</option><option>Jagmohan</option><option>Kuldeep</option><option>LR Traders</option></select>
+            <a href="#" style="font-size: 13px; margin-left: 4px">Clear filters</a>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+            <span class="meta">Active:</span>
+            <button class="chip on" style="height: 28px">Line: Maersk
+              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr">Remove filter</span></button>
+            <button class="chip on" style="height: 28px">Buyer: LR Traders
+              <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr">Remove filter</span></button>
+          </div>
+        </div>
+
+        <div class="tw" style="max-height: 620px">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="stk" style="z-index: 3; width: 56px; min-width: 56px">Sr. No.</th>
+                <th class="stk2" style="z-index: 3" aria-sort="none">Booking Number</th>
+                <th>Month of Loading</th>
+                <th aria-sort="ascending">ERD ↑</th>
+                <th>DOC Cut Off</th>
+                <th>Cargo Cut Off</th>
+                <th>Port of Loading</th>
+                <th>Port of Discharge</th>
+                <th>Port of Delivery</th>
+                <th>B/L Issued At</th>
+                <th>Upload BL</th>
+                <th>Shipping Line</th>
+                <th>Forwarder Name</th>
+                <th>Trucker Name</th>
+                <th>Supplier Name</th>
+                <th>Buyer (Consignee)</th>
+                <th>Container Number</th>
+                <th>Container Size</th>
+                <th>Packing Details</th>
+                <th>Status</th>
+                <th>Send Instructions</th>
+                <th>Instruction Status</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+                <tr>
+                  <td class="stk num meta" style="width: 56px; min-width: 56px">{{r.sr}}</td>
+                  <td class="stk2"><span style="display: inline-flex; align-items: center; gap: 6px"><span class="mono" style="font-weight: 600">{{r.no}}</span><svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></span></td>
+                  <td><span class="{{r.month.c}}">{{r.month.v}}</span></td>
+                  <td class="num"><span style="display: inline-flex; align-items: center; gap: 6px"><span class="{{r.erd.c}}">{{r.erd.v}}</span><svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></span></td>
+                  <td class="num"><span style="display: inline-flex; align-items: center; gap: 6px"><span class="{{r.doc.c}}">{{r.doc.v}}</span><svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></span></td>
+                  <td class="num">
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span class="{{r.cargo.c}}" style="color: {{r.cargoColor}}">{{r.cargo.v}}</span><svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></span>
+                    <sc-if value="{{r.cutT}}" hint-placeholder-val="{{false}}"><div style="margin-top: 4px"><span class="badge {{r.cutB}}">{{r.cutT}}</span></div></sc-if>
+                  </td>
+                  <td><span class="{{r.pol.c}}">{{r.pol.v}}</span></td>
+                  <td><span class="{{r.pod.c}}">{{r.pod.v}}</span></td>
+                  <td><span class="{{r.pdel.c}}">{{r.pdel.v}}</span></td>
+                  <td><span class="{{r.blAt.c}}">{{r.blAt.v}}</span></td>
+                  <td>
+                    <sc-if value="{{r.blNo}}" hint-placeholder-val="{{false}}">
+                      <button class="btn btn-xs" style="border-color: var(--ok); color: var(--ok)"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg><span class="mono">BL: {{r.blNo}}</span></button>
+                    </sc-if>
+                    <sc-if value="{{r.noBl}}" hint-placeholder-val="{{true}}">
+                      <button class="btn btn-xs" style="border-color: var(--accent); color: var(--accent)"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V5M7 10l5-5 5 5M5 20h14"/></svg>Upload BL</button>
+                    </sc-if>
+                  </td>
+                  <td><span class="{{r.line.c}}">{{r.line.v}}</span></td>
+                  <td><span class="{{r.fwd.c}}">{{r.fwd.v}}</span></td>
+                  <td><span class="{{r.trk.c}}">{{r.trk.v}}</span></td>
+                  <td><span class="{{r.sup.c}}">{{r.sup.v}}</span></td>
+                  <td><span class="{{r.buyer.c}}">{{r.buyer.v}}</span></td>
+                  <td>
+                    <span style="display: inline-flex; align-items: center; gap: 6px"><span class="mono {{r.ctr.c}}">{{r.ctr.v}}</span>
+                      <button class="ib" style="width: 24px; height: 24px; border-color: var(--line)" aria-label="Add another container to {{r.no}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></span>
+                  </td>
+                  <td><span class="{{r.size.c}}">{{r.size.v}}</span></td>
+                  <td>
+                    <sc-if value="{{r.pack}}" hint-placeholder-val="{{false}}"><a href="V2CellEditing.dc.html">{{r.pack}}</a></sc-if>
+                    <sc-if value="{{r.noPack}}" hint-placeholder-val="{{true}}"><a href="V2CellEditing.dc.html" style="color: var(--tx2)">+ Packing Details</a></sc-if>
+                  </td>
+                  <td><span class="badge {{r.stB}}">{{r.status}}</span></td>
+                  <td>
+                    <sc-if value="{{r.sent}}" hint-placeholder-val="{{false}}"><a class="btn btn-xs btn-ok" href="V2SendInstructions.dc.html">Resend Instructions</a></sc-if>
+                    <sc-if value="{{r.notSent}}" hint-placeholder-val="{{true}}"><a class="btn btn-xs" href="V2SendInstructions.dc.html" style="border-color: var(--accent); color: var(--accent)">Send Instructions</a></sc-if>
+                  </td>
+                  <td><span class="badge {{r.inB}}">{{r.instr}}</span></td>
+                  <td>
+                    <span style="display: inline-flex; align-items: center; gap: 4px">
+                      <a href="V2BookingDetail.dc.html" style="font-weight: 600">View →</a>
+                      <button class="ib" style="color: var(--crit)" aria-label="Delete booking {{r.no}}"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+                    </span>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line)">
+          <span class="lbl num">Showing 1–10 of 321</span>
+          <div style="display: flex; align-items: center; gap: 10px">
+            <label for="rpp" class="lbl">Rows per page</label>
+            <select id="rpp" class="select select-s" style="width: auto"><option>25</option><option>50</option><option>100</option></select>
+            <button class="btn btn-s" disabled>Previous</button>
+            <button class="btn btn-s">Next</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, banner: true, cut3: false, over: false }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const d = (v) => ({ v: v || '—', c: v ? '' : 'dash' });
+    const ST = { Draft: 'b-neu', Confirmed: 'b-acc', 'In Transit': 'b-info', Delivered: 'b-ok', Cancelled: 'b-crit' };
+    const IN = { '—': 'b-neu', Sent: 'b-ok', 'Not Sent': 'b-crit' };
+    const row = (sr, no, month, erd, doc, cargo, cutT, cutB, pol, pod, pdel, blAt, blNo, line, fwd, trk, sup, buyer, ctr, size, pack, status, instr) => ({
+      sr, no, month: d(month), erd: d(erd), doc: d(doc), cargo: d(cargo), cargoColor: cutB === 'b-crit' ? 'var(--crit)' : 'inherit', cutT, cutB,
+      pol: d(pol), pod: d(pod), pdel: d(pdel), blAt: d(blAt), blNo, noBl: !blNo, line: d(line), fwd: d(fwd), trk: d(trk), sup: d(sup), buyer: d(buyer),
+      ctr: d(ctr), size: d(size), pack, noPack: !pack, status, stB: ST[status], sent: instr === 'Sent', notSent: instr !== 'Sent', instr, inB: IN[instr]
+    });
+    const rows = [
+      row(1, 'HL-11952005', 'October 2026', '15 Oct 2026, 08:00', '18 Oct 2026, 12:00', '19 Oct 2026, 10:00', 'in 15 h', 'b-crit', 'Hamburg', 'Mundra, IN', 'ICD Panipat', 'Hamburg', 'HLCU12345', 'Hapag-Lloyd', 'UAL', '[Trucker name]', '[Supplier name]', 'Jagmohan', 'HLXU 873204-1', "40' HC", '2 lines', 'Confirmed', 'Sent'),
+      row(2, '274502536', 'October 2026', '16 Oct 2026, 09:00', '19 Oct 2026, 12:00', '19 Oct 2026, 18:00', 'in 23 h', 'b-crit', 'Savannah', 'Mundra, IN', 'Kandla SEZ', '', '', 'Maersk', 'Walker', '', '[Supplier name]', 'Kuldeep', 'MSKU 552019-3', "40' HC", '', 'Confirmed', 'Not Sent'),
+      row(3, 'EX471632', 'October 2026', '17 Oct 2026, 08:00', '19 Oct 2026, 12:00', '20 Oct 2026, 09:00', 'in 1 d 14 h', 'b-warn', 'Antwerp', 'Mundra, IN', 'ICD Panipat', '', '', 'Evergreen', 'UAL', '[Trucker name]', '', 'Jagmohan', 'EGHU 812045-6', "40' HC", '3 lines', 'Confirmed', '—'),
+      row(4, '401610299853', 'September 2026', '12 Sep 2026, 08:00', '15 Sep 2026, 12:00', '16 Sep 2026, 17:00', 'Overdue 2 d', 'b-crit', 'Seattle', 'Mundra, IN', 'Mundra, IN', '', '', 'ONE', '', '', '', '', '', '', '', 'Confirmed', 'Not Sent'),
+      row(5, '401610299862', 'September 2026', '12 Sep 2026, 08:00', '', '', '', '', 'Seattle', 'Mundra, IN', '', '', '', 'ONE', 'UAL', '', '', 'LR Traders', 'ONEU 301772-5', "40' HC", '', 'Confirmed', '—'),
+      row(6, '400600270642', 'August 2026', '21 Aug 2026, 08:00', '24 Aug 2026, 12:00', '25 Aug 2026, 17:00', '', '', 'Los Angeles', 'Nhava Sheva, IN', 'ICD Tughlakabad', 'Los Angeles', 'MEDU88120', 'MSC', 'Walker', '[Trucker name]', '[Supplier name]', 'LR Traders', 'MSCU 640118-2', "40'", '1 line', 'Confirmed', 'Sent'),
+      row(7, '400600270749', 'August 2026', '21 Aug 2026, 08:00', '', '', '', '', 'Los Angeles', 'Nhava Sheva, IN', '', '', '', 'MSC', '', '', '', '', '', '', '', 'Draft', '—'),
+      row(8, 'NAM8534819', 'July 2026', '04 Jul 2026, 08:00', '07 Jul 2026, 12:00', '08 Jul 2026, 17:00', '', '', 'Rotterdam', 'Mundra, IN', 'ICD Panipat', 'Rotterdam', 'CMDU55021', 'CMA CGM', 'UAL', '[Trucker name]', '[Supplier name]', 'Kuldeep', 'CMAU 418230-7', "40' HC", '2 lines', 'Confirmed', 'Sent'),
+      row(9, 'NAM8535021', 'July 2026', '04 Jul 2026, 08:00', '', '', '', '', 'Rotterdam', 'Mundra, IN', '', '', '', 'CMA CGM', '', '', '', '', '', '', '', 'Confirmed', '—'),
+      row(10, '400600270684', 'June 2026', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Cancelled', '—')
+    ];
+    const s = this.state;
+    return {
+      themeClass: 'th-' + theme, themes, rows,
+      banner: s.banner, dismiss: () => this.setState({ banner: false }),
+      cut3Cls: s.cut3 ? 'chip on' : 'chip', cut3Pressed: s.cut3 ? 'true' : 'false', toggleCut3: () => this.setState({ cut3: !s.cut3 }),
+      overCls: s.over ? 'chip on-crit' : 'chip', overPressed: s.over ? 'true' : 'false', toggleOver: () => this.setState({ over: !s.over })
+    };
+  }
+}
+</script>
+</body>
+</html>

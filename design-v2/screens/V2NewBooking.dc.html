@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — New Booking</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.choice{display:flex;flex-direction:column;gap:10px;padding:20px;border-radius:12px;border:1.5px solid var(--line);background:var(--surf);color:var(--tx);text-align:left;font:inherit;cursor:pointer;text-decoration:none;min-height:150px}
+.choice:hover{border-color:var(--line2);text-decoration:none}
+.choice.on{border-color:var(--accent);background:var(--accentS);box-shadow:0 0 0 3px var(--accentS)}
+.pg{height:7px;border-radius:2px;background:var(--line)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1300px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <a href="V2Bookings.dc.html">Booking &amp; Instructions</a> <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">New Booking</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <a href="V2Bookings.dc.html" style="font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; align-self: flex-start">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+        Back to Bookings
+      </a>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: -8px">
+        <div>
+          <h1 class="h1">{{title}}</h1>
+          <p class="sub">Choose how to add it. Nothing is saved until you click Save Booking.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span class="meta">Mode</span>
+          <div class="seg" role="radiogroup" aria-label="Entry mode">
+            <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+              <button role="radio" aria-checked="{{m.checked}}" class="{{m.cls}}" onClick="{{m.pick}}">{{m.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{isMultiple}}" hint-placeholder-val="{{false}}">
+        <div class="banner bn-info" role="note">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5"/></svg>
+          <span style="flex: 1 1 400px">Only for an intentional second entry under a Booking Number already in Booking &amp; Instructions — Excel import isn't available here.</span>
+        </div>
+      </sc-if>
+
+      <section aria-labelledby="how" style="display: flex; flex-direction: column; gap: 12px">
+        <h2 id="how" class="h2">1 · How do you want to add it?</h2>
+        <div role="radiogroup" aria-label="Entry method" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px">
+          <button role="radio" aria-checked="false" class="choice">
+            <span style="width: 40px; height: 40px; border-radius: 10px; background: var(--neuS); color: var(--tx2); display: flex; align-items: center; justify-content: center">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </span>
+            <span style="font-size: 16px; font-weight: 600">Type it in</span>
+            <span class="lbl">Fill the Booking &amp; Instructions form by hand.</span>
+          </button>
+          <button role="radio" aria-checked="true" class="choice on">
+            <span style="display: flex; justify-content: space-between; align-items: flex-start">
+              <span style="width: 40px; height: 40px; border-radius: 10px; background: var(--accent); color: var(--onAccent); display: flex; align-items: center; justify-content: center">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3"/></svg>
+              </span>
+              <span class="badge b-acc">Selected</span>
+            </span>
+            <span style="font-size: 16px; font-weight: 600">Upload PDF</span>
+            <span class="lbl">Booking confirmation → AI pre-fills the form, you review.</span>
+          </button>
+          <sc-if value="{{isNormal}}" hint-placeholder-val="{{true}}">
+            <a href="V2Import.dc.html" class="choice">
+              <span style="width: 40px; height: 40px; border-radius: 10px; background: var(--okS); color: var(--ok); display: flex; align-items: center; justify-content: center">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4zM4 10h16M10 4v16"/></svg>
+              </span>
+              <span style="font-size: 16px; font-weight: 600">Import Excel</span>
+              <span class="lbl">Bring in existing bookings from a spreadsheet, in bulk.</span>
+            </a>
+          </sc-if>
+        </div>
+      </section>
+
+      <section aria-labelledby="rev" style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px">
+          <h2 id="rev" class="h2">2 · Review extracted fields</h2>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+            <span class="badge b-neu">booking-401610299853.pdf · 2 pages</span>
+            <span class="lbl"><b style="color: var(--tx)">11 fields read</b> · <span style="color: var(--crit); font-weight: 600">1 needs a check</span></span>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+          <div class="card" style="flex: 2 1 560px; min-width: 0; overflow: hidden">
+            <div class="banner bn-warn" style="margin: 16px 20px 0; border-radius: 10px">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round"><path d="M12 3l10 18H2zM12 10v4M12 17.5v.5"/></svg>
+              <span style="flex: 1 1 300px; font-size: 13px">AI-filled fields are highlighted. Confirm or correct each one before saving.</span>
+            </div>
+            <div style="padding: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 18px">
+              <div class="field">
+                <label for="f1">Booking Number <span class="req">*</span></label>
+                <input id="f1" class="input mono ai" value="401610299853" aria-describedby="f1s">
+                <span id="f1s" class="src">from PDF: "Booking No.: 401610299853"</span>
+              </div>
+              <div class="field">
+                <label for="f2">ERD</label>
+                <input id="f2" class="input ai" type="datetime-local" value="2026-10-14T08:00">
+                <span class="src">from PDF: "Earliest Receiving 14-OCT-2026 08:00"</span>
+              </div>
+              <div class="field">
+                <label for="f3">DOC Cut Off</label>
+                <input id="f3" class="input ai" type="datetime-local" value="2026-10-18T12:00">
+                <span class="src">from PDF: "SI Cut-off 18-OCT 12:00"</span>
+              </div>
+              <div class="field">
+                <label for="f4">Cargo Cut Off</label>
+                <input id="f4" class="input is-err" type="datetime-local" value="2026-10-20T09:00" aria-invalid="true" aria-describedby="f4e">
+                <span id="f4e" class="err">Low confidence — please verify</span>
+              </div>
+              <div class="field">
+                <label for="f5">POL</label>
+                <input id="f5" class="input ai" value="Seattle, WA">
+                <span class="src">from PDF: "Port of Loading: SEATTLE"</span>
+              </div>
+              <div class="field">
+                <label for="f6">Port of Discharge</label>
+                <input id="f6" class="input ai" value="Mundra, IN">
+              </div>
+              <div class="field">
+                <label for="f7">Port of Delivery</label>
+                <input id="f7" class="input ai" value="ICD Patparganj">
+              </div>
+              <div class="field">
+                <label for="f8">B/L Issued At</label>
+                <input id="f8" class="input" placeholder="e.g. Seattle">
+                <span class="help">Not found in PDF</span>
+              </div>
+              <div class="field">
+                <label for="f9">Shipping Line</label>
+                <input id="f9" class="input ai" value="Maersk">
+              </div>
+              <div class="field">
+                <label for="f10">Forwarder Name</label>
+                <input id="f10" class="input ai" value="UAL">
+              </div>
+              <div class="field">
+                <label for="f11">Size Of Container</label>
+                <input id="f11" class="input ai" value="40' HC">
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--surf2)">
+              <span class="meta">Saving creates the booking and its first container row.</span>
+              <div style="display: flex; gap: 10px">
+                <button class="btn">Back</button>
+                <a class="btn btn-p" href="V2BookingDetail.dc.html">Save Booking</a>
+              </div>
+            </div>
+          </div>
+
+          <aside class="card" aria-label="Source PDF" style="flex: 1 1 300px; min-width: 0; padding: 14px; background: var(--surf2)">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 2px 10px">
+              <span class="lbl">Page 1 of 2</span>
+              <div style="display: flex; gap: 4px">
+                <button class="ib" aria-label="Previous page"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg></button>
+                <button class="ib" aria-label="Next page"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
+              </div>
+            </div>
+            <div style="background: var(--surf); border: 1px solid var(--line); border-radius: 6px; padding: 24px 20px; display: flex; flex-direction: column; gap: 9px; min-height: 560px">
+              <div style="display: flex; justify-content: space-between"><div class="pg" style="width: 90px; height: 12px; background: var(--line2)"></div><div class="pg" style="width: 60px"></div></div>
+              <div style="height: 10px"></div>
+              <div style="padding: 6px 8px; border-radius: 6px; background: var(--warnS); outline: 2px solid var(--warnB); display: flex; flex-direction: column; gap: 5px">
+                <span style="font-size: 11px; font-weight: 700; color: var(--warn)">Booking Number</span><div class="pg" style="width: 50%"></div>
+              </div>
+              <div class="pg" style="width: 72%"></div><div class="pg" style="width: 55%"></div>
+              <div style="padding: 6px 8px; border-radius: 6px; background: var(--warnS); display: flex; flex-direction: column; gap: 5px">
+                <div class="pg" style="width: 64%"></div><div class="pg" style="width: 40%"></div>
+              </div>
+              <div class="pg" style="width: 80%"></div>
+              <div style="padding: 6px 8px; border-radius: 6px; background: var(--critS); outline: 2px solid var(--crit); display: flex; flex-direction: column; gap: 5px">
+                <span style="font-size: 11px; font-weight: 700; color: var(--crit)">Cargo Cut Off — two dates found</span><div class="pg" style="width: 58%"></div>
+              </div>
+              <div class="pg" style="width: 76%"></div><div class="pg" style="width: 46%"></div><div class="pg" style="width: 84%"></div>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 8px">
+                <div class="pg"></div><div class="pg"></div><div class="pg"></div><div class="pg"></div>
+                <div class="pg"></div><div class="pg"></div><div class="pg"></div><div class="pg"></div>
+              </div>
+              <div class="pg" style="width: 62%; margin-top: 8px"></div><div class="pg" style="width: 40%"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section aria-labelledby="st" style="display: flex; flex-direction: column; gap: 12px">
+        <h2 id="st" class="h2">3 · States</h2>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+          <div role="dialog" aria-modal="false" aria-labelledby="dupT" class="modal" style="flex: 1 1 440px; max-width: 520px">
+            <div class="mh">
+              <div style="display: flex; gap: 12px">
+                <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--warnS); color: var(--warn); display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h12v12H8zM4 16V4h12"/></svg>
+                </span>
+                <div>
+                  <h3 id="dupT" style="margin: 0; font-size: 17px; font-weight: 600">Booking Number already exists</h3>
+                  <p class="lbl" style="margin: 6px 0 0">Save this as a second, separate entry anyway? Both will move to Multiple Bookings &amp; Instructions for review.</p>
+                </div>
+              </div>
+            </div>
+            <div class="mb" style="padding-top: 0">
+              <div style="display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--surf2); border: 1px solid var(--line); font-size: 13px">
+                <span class="mono" style="font-weight: 600">401610299853</span><span class="dash">·</span><span class="lbl">Maersk · Seattle → Mundra · created 12 Oct</span>
+              </div>
+            </div>
+            <div class="mf">
+              <button class="btn">Cancel</button>
+              <button class="btn btn-p">Save Anyway</button>
+            </div>
+          </div>
+
+          <div class="card" style="flex: 1 1 320px; max-width: 420px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+            <span class="meta" style="font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em">Validation · required field</span>
+            <div class="field">
+              <label for="e1">Booking Number <span class="req">*</span></label>
+              <input id="e1" class="input is-err" placeholder="Required" aria-invalid="true" aria-describedby="e1e">
+              <span id="e1e" class="err" role="alert">Booking Number is required — this field can't be left blank.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, mode: 'normal' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const mode = this.state.mode;
+    const modes = [['normal', 'Normal'], ['multiple', 'Multiple mode']].map(([id, label]) => ({ label, cls: mode === id ? 'on' : '', checked: mode === id ? 'true' : 'false', pick: () => this.setState({ mode: id }) }));
+    return {
+      themeClass: 'th-' + theme, themes, modes,
+      isNormal: mode === 'normal', isMultiple: mode === 'multiple',
+      title: mode === 'normal' ? 'New Booking' : 'New Entry in Multiple Bookings'
+    };
+  }
+}
+</script>
+</body>
+</html>

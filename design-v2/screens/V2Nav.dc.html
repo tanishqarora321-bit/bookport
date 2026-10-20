@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere navigation v2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<nav aria-label="Main" style="width: 100%; min-width: 256px; min-height: 1000px; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: var(--nav, #0C1A3A); color: var(--navTx, #FFFFFF); font-family: 'Geist', system-ui, sans-serif">
+  <div style="display: flex; align-items: center; gap: 12px; padding: 20px 18px 18px; border-bottom: 1px solid var(--navLine, rgba(255,255,255,0.10))">
+    <div style="width: 36px; height: 36px; border-radius: 10px; background: #2F5FE0; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l1.5 5h15L21 15H3zM6 15V9h12v6M10 9V5h4v4"/></svg>
+    </div>
+    <div style="min-width: 0">
+      <div style="font-size: 16px; font-weight: 700; letter-spacing: -0.01em">Ship-Sphere</div>
+      <div style="font-size: 12px; color: var(--navMut, #AAB6CF)">One Booking. All Connected.</div>
+    </div>
+  </div>
+
+  <div style="padding: 14px 18px 6px; display: flex; flex-direction: column; gap: 6px">
+    <label for="v2year" style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--navMut, #AAB6CF)">Working year</label>
+    <select id="v2year" style="height: 36px; border-radius: 8px; border: 1px solid var(--navLine, rgba(255,255,255,0.10)); background: var(--navH, #16264F); color: #FFFFFF; font: inherit; font-size: 14px; padding: 0 10px; color-scheme: dark">
+      <option>2024</option><option>2025</option><option selected>2026</option><option>2027</option><option>2028</option><option>2029</option>
+    </select>
+  </div>
+
+  <div style="flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 14px">
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="5">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--navMut, #AAB6CF); padding: 6px 10px 4px">{{g.label}}</div>
+        <sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+          <sc-if value="{{it.on}}" hint-placeholder-val="{{false}}">
+            <a href="{{it.href}}" aria-current="page" style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: 8px; background: var(--navAct, #2F5FE0); color: #FFFFFF; font-size: 14px; font-weight: 600; text-decoration: none">
+              <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{it.d}}"/></svg>
+              <span style="flex: 1">{{it.label}}</span>
+            </a>
+          </sc-if>
+          <sc-if value="{{it.off}}" hint-placeholder-val="{{true}}">
+            <a class="nav-a" href="{{it.href}}" style="display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border-radius: 8px; color: rgba(255,255,255,0.86); font-size: 14px; text-decoration: none">
+              <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{it.d}}"/></svg>
+              <span style="flex: 1">{{it.label}}</span>
+              <sc-if value="{{it.badge}}" hint-placeholder-val="{{false}}">
+                <span style="min-width: 22px; height: 20px; padding: 0 7px; border-radius: 10px; background: #F59E0B; color: #0C1A3A; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">{{it.badge}}<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)"> {{it.badgeLabel}}</span></span>
+              </sc-if>
+            </a>
+          </sc-if>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+
+  <button style="display: flex; align-items: center; gap: 10px; height: 40px; margin: 0 10px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--navMut, #AAB6CF); font: inherit; font-size: 13px; cursor: pointer">
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg>
+    Collapse
+  </button>
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--navLine, rgba(255,255,255,0.10))">
+    <div style="width: 34px; height: 34px; border-radius: 17px; background: rgba(255,255,255,0.12); color: #FFFFFF; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">T</div>
+    <div style="flex: 1; min-width: 0">
+      <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">CN International</div>
+      <div style="font-size: 12px; color: var(--navMut, #AAB6CF); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">tanishq@company.com</div>
+    </div>
+    <a href="V2Login.dc.html" aria-label="Sign out" style="width: 32px; height: 32px; border-radius: 8px; color: var(--navMut, #AAB6CF); display: flex; align-items: center; justify-content: center">
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></svg>
+    </a>
+  </div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["bookings","multiple","tracking","buyers","forwarders","suppliers","truckers","freight","offers","pl","settings","admin"],"default":"bookings"},"$preview":{"width":256,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'bookings';
+    const I = {
+      bookings: 'M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M8 11h8M8 15h5',
+      multiple: 'M8 8h12v12H8zM4 16V4h12',
+      tracking: 'M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+      buyers: 'M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6',
+      forwarders: 'M4 21V5l8-3 8 3v16M9 21v-5h6v5M8 9h2M14 9h2M8 13h2M14 13h2',
+      suppliers: 'M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17zM7 17h2M12 17h2M17 17h2',
+      truckers: 'M2 6h12v10H2zM14 10h4l3 3v3h-7M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+      freight: 'M5 20V11M11 20V5M17 20v-6M2 20h20',
+      offers: 'M5 3h14v18H5zM5 9h14M5 15h14M12 9v12',
+      pl: 'M3 17l6-6 4 4 8-8M15 7h6v6',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+      admin: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4'
+    };
+    const mk = (id, label, href, badge, badgeLabel) => ({ label, href, d: I[id], badge: badge || '', badgeLabel: badgeLabel || '', on: id === active, off: id !== active });
+    const groups = [
+      { label: 'Operations', items: [mk('bookings', 'Booking & Instructions', 'V2Bookings.dc.html'), mk('multiple', 'Multiple Bookings', 'V2Multiple.dc.html', '3', 'booking numbers to review'), mk('tracking', 'Shipment Tracking', 'V2Tracking.dc.html')] },
+      { label: 'Partners', items: [mk('buyers', 'Buyers / Customers', 'V2Buyers.dc.html'), mk('forwarders', 'Forwarders', 'V2Partners.dc.html'), mk('suppliers', 'Suppliers', 'V2Partners.dc.html'), mk('truckers', 'Truckers', 'V2Partners.dc.html')] },
+      { label: 'Commercial', items: [mk('freight', 'Freight Comparison', 'V2Freight.dc.html'), mk('offers', 'Offer Sheet', 'V2OfferSheets.dc.html')] },
+      { label: 'Finance', items: [mk('pl', 'Profit & Loss', 'V2ProfitLoss.dc.html')] },
+      { label: 'Admin', items: [mk('settings', 'Settings & Control', 'V2Settings.dc.html'), mk('admin', 'Platform Admin', 'V2Admin.dc.html')] }
+    ];
+    return { groups };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,43 +1,54 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class", '[data-theme="dark"]'],
+  darkMode: ["class", ".th-dark"],
   content: ["./app/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        // Legacy tokens, now theme-reactive via CSS vars (see globals.css)
-        // instead of fixed hex - existing class usage (text-ink, bg-accent,
-        // bg-navy, etc.) keeps working and gets dark-mode support for free.
-        ink: "var(--color-text)",
+        // Mapped onto the approved design-v2/SPEC.md TOKENS (see
+        // app/globals.css) - these Tailwind utility names are our own
+        // abstraction so existing className usage (bg-surface, text-ink,
+        // etc.) keeps working; the CSS variable VALUES are what actually
+        // have to match the approved spec exactly.
+        bg: "var(--bg)",
+        surface: "var(--surf)",
+        "surface-2": "var(--surf2)",
+        elevated: "var(--elev)",
+        ink: "var(--tx)",
+        "text-2": "var(--tx2)",
+        muted: "var(--mut)",
+        line: "var(--line)",
+        "line-2": "var(--line2)",
+        accent: "var(--accent)",
+        "accent-hover": "var(--accentH)",
+        "on-accent": "var(--onAccent)",
+        "accent-soft": "var(--accentS)",
+        success: "var(--ok)",
+        "success-soft": "var(--okS)",
+        warning: "var(--warn)",
+        "warning-soft": "var(--warnS)",
+        "ai-border": "var(--warnB)",
+        critical: "var(--crit)",
+        "critical-soft": "var(--critS)",
+        info: "var(--info)",
+        "info-soft": "var(--infoS)",
+        neutral2: "var(--neu)",
+        "neutral-soft": "var(--neuS)",
+        focus: "var(--focus)",
+        navy: "var(--nav)",
+        navyhover: "var(--navH)",
+        "nav-text": "var(--navTx)",
+        "nav-muted": "var(--navMut)",
+        "nav-active": "var(--navAct)",
+
+        // Legacy fixed destructive/warn accents kept for any not-yet-
+        // reskinned screen still referencing them.
         cutoff: "#dc2626",
         amend: "#d97706",
-        navy: "var(--color-nav)",
-        navyhover: "var(--color-nav-hover)",
-        accent: "var(--color-accent)",
-
-        // Ship-Sphere Design System v2 tokens
-        bg: "var(--color-bg)",
-        surface: "var(--color-surface)",
-        "surface-2": "var(--color-surface-2)",
-        elevated: "var(--color-elevated)",
-        text: "var(--color-text)",
-        "text-2": "var(--color-text-2)",
-        muted: "var(--color-muted)",
-        line: "var(--color-line)",
-        "line-2": "var(--color-line-2)",
-        "accent-hover": "var(--color-accent-hover)",
-        "accent-soft": "var(--color-accent-soft)",
-        success: "var(--color-success)",
-        "success-soft": "var(--color-success-soft)",
-        warning: "var(--color-warning)",
-        "warning-soft": "var(--color-warning-soft)",
-        critical: "var(--color-critical)",
-        "critical-soft": "var(--color-critical-soft)",
-        info: "var(--color-info)",
-        "info-soft": "var(--color-info-soft)",
-        "ai-border": "var(--color-ai-border)",
-        "nav-active": "var(--color-nav-active)",
-        "nav-muted": "var(--color-nav-muted)",
+      },
+      fontFamily: {
+        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
     },
   },

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Freight Comparison</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.best{background:var(--okS)!important;color:var(--ok);font-weight:700}
+.grp{text-align:center!important;border-left:1px solid var(--line)}
+.gl{border-left:1px solid var(--line)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1200px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="freight" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Commercial <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Freight Comparison</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Freight Comparison</h1>
+          <p class="sub">October 2026 — Mundra, IN</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <button class="btn">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            Export CSV
+          </button>
+          <button class="btn btn-p">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Upload Rate Sheet
+          </button>
+        </div>
+      </div>
+
+      <section class="card" style="overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line)">
+          <div class="field" style="width: 150px">
+            <label for="fy">Year</label>
+            <select id="fy" class="select select-s"><option>All Years</option><option selected>2026</option><option>2025</option></select>
+          </div>
+          <div class="field" style="width: 180px">
+            <label for="fm">Month</label>
+            <select id="fm" class="select select-s"><option selected>October 2026</option><option>September 2026</option><option>August 2026</option><option>July 2026</option></select>
+          </div>
+          <div class="field" style="width: 180px">
+            <label for="fd">Destination</label>
+            <select id="fd" class="select select-s"><option selected>Mundra, IN</option><option>Nhava Sheva, IN</option><option>Kandla, IN</option></select>
+          </div>
+          <div style="flex: 1"></div>
+          <div style="display: flex; gap: 16px; align-items: center; padding-bottom: 6px" class="lbl">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 4px; background: var(--okS); border: 1px solid var(--ok)"></span>Cheapest per origin</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span class="dash">—</span> no rate</span>
+          </div>
+        </div>
+        <div class="tw">
+          <table class="tbl" style="min-width: 900px">
+            <caption class="sr">Ocean freight per container to Mundra, IN, October 2026, by origin, shipping line and forwarder</caption>
+            <thead>
+              <tr>
+                <th rowspan="2" class="stk" style="z-index: 3; min-width: 160px; vertical-align: bottom">Origin</th>
+                <sc-for list="{{lines}}" as="l" hint-placeholder-count="4">
+                  <th colspan="{{l.span}}" class="grp" style="color: var(--tx); font-size: 13px">{{l.name}}</th>
+                </sc-for>
+              </tr>
+              <tr>
+                <sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+                  <th class="r gl" style="top: 37px; font-weight: 500"><div style="color: var(--tx); font-weight: 600">{{c.fwd}}</div><div class="meta">{{c.fd}} free days</div></th>
+                </sc-for>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+                <tr>
+                  <td class="stk" style="font-weight: 600">{{r.origin}}</td>
+                  <sc-for list="{{r.cells}}" as="x" hint-placeholder-count="5">
+                    <td class="r num gl {{x.cls}}">
+                      <sc-if value="{{x.best}}" hint-placeholder-val="{{false}}">
+                        <span style="display: inline-flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>{{x.txt}}<span class="sr"> (cheapest)</span></span>
+                      </sc-if>
+                      <sc-if value="{{x.plain}}" hint-placeholder-val="{{true}}">{{x.txt}}</sc-if>
+                      <sc-if value="{{x.none}}" hint-placeholder-val="{{false}}"><span class="dash" aria-label="No rate">—</span></sc-if>
+                    </td>
+                  </sc-for>
+                </tr>
+              </sc-for>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="stk">Free days</td>
+                <sc-for list="{{cols}}" as="c" hint-placeholder-count="5">
+                  <td class="r num gl">{{c.fd}}</td>
+                </sc-for>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <button aria-expanded="{{sheetsOpenStr}}" onClick="{{toggleSheets}}" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 16px 18px; border: 0; background: transparent; color: var(--tx); font: inherit; cursor: pointer; text-align: left">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{sheetsChevron}}"/></svg>
+          <span class="h2" style="flex: 1">Manage uploaded rate sheets (4)</span>
+          <span class="lbl">{{sheetsHint}}</span>
+        </button>
+        <sc-if value="{{sheetsOpen}}" hint-placeholder-val="{{true}}">
+          <div style="padding: 0 18px 18px; display: flex; flex-direction: column; gap: 10px">
+            <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; background: var(--surf2)">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4"/></svg>
+                <span style="flex: 1; min-width: 200px"><b style="font-weight: 600">UAL</b> <span class="lbl">— 18 rates — ual-oct-rates.pdf</span></span>
+                <button class="btn btn-s btn-g btn-d">Delete Sheet</button>
+              </div>
+              <div class="tw">
+                <table class="tbl">
+                  <thead><tr><th>Origin</th><th>Shipping Line</th><th class="r">Rate</th><th class="r">Free Days</th><th><span class="sr">Remove</span></th></tr></thead>
+                  <tbody>
+                    <tr><td>Seattle</td><td>Maersk</td><td class="r num">$2,180 <svg class="pen" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></td><td class="r num">14</td><td class="r"><button class="ib" aria-label="Remove Seattle Maersk rate"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                    <tr><td>Savannah</td><td>Maersk</td><td class="r num">$2,240</td><td class="r num">14</td><td class="r"><button class="ib" aria-label="Remove Savannah Maersk rate"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                    <tr><td>Los Angeles</td><td>ONE</td><td class="r"><input class="input input-s num" aria-label="Rate for Los Angeles ONE" value="2390" style="width: 110px; text-align: right; border-color: var(--accent)"></td><td class="r num">10</td><td class="r"><button class="ib" aria-label="Remove Los Angeles ONE rate"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px">
+              <span style="flex: 1; min-width: 200px"><b style="font-weight: 600">Walker</b> <span class="lbl">— 15 rates — walker-october.pdf</span></span>
+              <button class="btn btn-s btn-g btn-d">Delete Sheet</button>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px">
+              <span style="flex: 1; min-width: 200px"><b style="font-weight: 600">UAL</b> <span class="lbl">— 6 rates — manual entry</span></span>
+              <button class="btn btn-s btn-g btn-d">Delete Sheet</button>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px">
+              <span style="flex: 1; min-width: 200px"><b style="font-weight: 600">Walker</b> <span class="lbl">— 9 rates — walker-hapag-oct.pdf</span></span>
+              <button class="btn btn-s btn-g btn-d">Delete Sheet</button>
+            </div>
+            <p class="meta" style="margin: 0">Deleting asks first: “Delete the entire "UAL" rate sheet? This removes all 18 rate rows.”</p>
+          </div>
+        </sc-if>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" aria-labelledby="up" style="flex: 3 1 560px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px">
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px">
+            <h2 id="up" class="h2">Upload rate sheet</h2>
+            <div class="seg" role="radiogroup" aria-label="Upload method">
+              <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+                <button role="radio" aria-checked="{{m.checked}}" class="{{m.cls}}" onClick="{{m.pick}}">{{m.label}}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px">
+            <div class="field">
+              <label for="fwn">Forwarder Name <span class="req">*</span></label>
+              <input id="fwn" class="input is-err" placeholder="e.g. UAL, Walker" aria-describedby="fwn-e">
+              <span id="fwn-e" class="err">Forwarder name is required.</span>
+            </div>
+            <div class="field"><label for="dst">Destination</label><input id="dst" class="input" value="Mundra, IN"></div>
+            <div class="field"><label for="rm">Rate Month</label><input id="rm" class="input" type="month" value="2026-10"></div>
+            <div class="field"><label for="cur">Currency</label><select id="cur" class="select"><option selected>USD</option><option>EUR</option><option>INR</option></select></div>
+          </div>
+          <sc-if value="{{pdfMode}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <label class="drop" style="cursor: pointer">
+                <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3"/></svg>
+                <span style="font-weight: 600">Choose one or more rate-sheet PDFs</span>
+                <span class="meta">Each PDF becomes its own sheet · rates are read automatically</span>
+                <input type="file" multiple accept="application/pdf" class="sr">
+              </label>
+              <div role="log" aria-label="Extraction log" style="border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; background: var(--surf2)">
+                <span style="color: var(--ok); font-weight: 500">✓ ual-oct.pdf: 18 rates extracted</span>
+                <span style="color: var(--ok); font-weight: 500">✓ walker-october.pdf: 15 rates extracted</span>
+                <span style="color: var(--tx2)">Reading walker-hapag-oct.pdf…</span>
+              </div>
+              <p class="help" style="margin: 0">No file chosen? You'll see: “Choose at least one PDF file.”</p>
+            </div>
+          </sc-if>
+          <sc-if value="{{manualMode}}" hint-placeholder-val="{{false}}">
+            <div style="border: 1px solid var(--line); border-radius: 10px; overflow: hidden">
+              <div style="padding: 10px 14px; font-weight: 600; background: var(--surf2); border-bottom: 1px solid var(--line)">Rate Rows</div>
+              <table class="tbl">
+                <thead><tr><th>Origin</th><th>Shipping Line</th><th class="r">Rate</th><th class="r">Free Days</th><th><span class="sr">Remove</span></th></tr></thead>
+                <tbody>
+                  <tr><td><input class="input input-s" aria-label="Origin row 1" value="Seattle"></td><td><input class="input input-s" aria-label="Shipping line row 1" value="Maersk"></td><td><input class="input input-s num" aria-label="Rate row 1" value="2180" style="text-align: right"></td><td><input class="input input-s num" aria-label="Free days row 1" value="14" style="text-align: right"></td><td><button class="ib" aria-label="Remove row 1"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                  <tr><td><input class="input input-s" aria-label="Origin row 2" placeholder="Origin"></td><td><input class="input input-s" aria-label="Shipping line row 2" placeholder="Shipping Line"></td><td><input class="input input-s" aria-label="Rate row 2" placeholder="Rate"></td><td><input class="input input-s" aria-label="Free days row 2" placeholder="Free Days"></td><td><button class="ib" aria-label="Remove row 2"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td></tr>
+                </tbody>
+              </table>
+              <div style="padding: 10px 14px"><button class="btn btn-s">+ Add Row</button></div>
+            </div>
+          </sc-if>
+          <div style="display: flex; justify-content: flex-end; gap: 10px">
+            <button class="btn">Cancel</button>
+            <button class="btn btn-p">Save Rate Sheet</button>
+          </div>
+        </section>
+
+        <aside class="card" aria-label="Empty state example" style="flex: 1 1 280px; min-width: 0; padding: 28px 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+          <div style="width: 48px; height: 48px; border-radius: 24px; background: var(--neuS); color: var(--neu); display: flex; align-items: center; justify-content: center">
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 20V11M11 20V5M17 20v-6M2 20h20"/></svg>
+          </div>
+          <div class="meta" style="text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600">Empty state</div>
+          <div style="font-weight: 600">No rate sheets yet</div>
+          <p class="lbl" style="margin: 0">No rate sheets uploaded yet for November 2026 / Mundra, IN. Click "+ Upload Rate Sheet" to add one.</p>
+          <button class="btn btn-s btn-p">+ Upload Rate Sheet</button>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, mode: 'pdf', sheets: true }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const cols = [
+      { line: 'Maersk', fwd: 'UAL', fd: 14 }, { line: 'Maersk', fwd: 'Walker', fd: 10 },
+      { line: 'MSC', fwd: 'UAL', fd: 14 }, { line: 'Hapag-Lloyd', fwd: 'Walker', fd: 7 }, { line: 'ONE', fwd: 'UAL', fd: 10 }
+    ];
+    const lines = [{ name: 'Maersk', span: 2 }, { name: 'MSC', span: 1 }, { name: 'Hapag-Lloyd', span: 1 }, { name: 'ONE', span: 1 }];
+    const data = [
+      ['Seattle', [2180, 2240, 2310, null, 2295]],
+      ['Savannah', [2240, 2190, 2260, 2410, null]],
+      ['Los Angeles', [2520, 2480, 2440, null, 2390]],
+      ['Antwerp', [1420, 1395, 1350, 1380, null]],
+      ['Hamburg', [1510, 1460, 1360, 1290, 1395]],
+      ['Rotterdam', [1460, 1430, 1395, 1330, 1350]],
+      ['Durban', [1180, null, 1060, null, 1140]]
+    ];
+    const fmt = (n) => '$' + n.toLocaleString('en-US');
+    const rows = data.map(([origin, vals]) => {
+      const present = vals.filter((v) => v != null);
+      const min = Math.min.apply(null, present);
+      const cells = vals.map((v) => v == null ? { none: true, best: false, plain: false, txt: '', cls: '' } : { none: false, best: v === min, plain: v !== min, txt: fmt(v), cls: v === min ? 'best' : '' });
+      return { origin, cells };
+    });
+    const mode = this.state.mode;
+    const modes = [['pdf', 'Upload PDF(s)'], ['manual', 'Manual Entry (Excel / email source)']].map(([id, label]) => ({ label, cls: mode === id ? 'on' : '', checked: mode === id ? 'true' : 'false', pick: () => this.setState({ mode: id }) }));
+    const open = this.state.sheets;
+    return {
+      themeClass: 'th-' + theme, themes, cols, lines, rows, modes,
+      pdfMode: mode === 'pdf', manualMode: mode === 'manual',
+      sheetsOpen: open, sheetsOpenStr: open ? 'true' : 'false', sheetsHint: open ? 'Hide' : 'Show',
+      sheetsChevron: open ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6',
+      toggleSheets: () => this.setState({ sheets: !open })
+    };
+  }
+}
+</script>
+</body>
+</html>

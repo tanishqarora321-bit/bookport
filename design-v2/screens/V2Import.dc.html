@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Import Bookings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.stp{display:flex;align-items:center;gap:8px;color:var(--tx2)}
+.stp .n{width:24px;height:24px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--neuS);color:var(--tx2)}
+.stp.done .n{background:var(--okS);color:var(--ok)}
+.stp.cur{color:var(--tx);font-weight:600}
+.stp.cur .n{background:var(--accent);color:var(--onAccent)}
+.stp-line{width:40px;height:1px;background:var(--line2)}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1000px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <a href="V2Bookings.dc.html">Booking &amp; Instructions</a> <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Import</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+        <div>
+          <h1 class="h1">Import Bookings from Excel</h1>
+          <p class="sub">Bring existing bookings in bulk. Each step can be undone with Back until you import.</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span class="meta">Preview step</span>
+          <div class="seg" role="radiogroup" aria-label="Preview step">
+            <sc-for list="{{views}}" as="v" hint-placeholder-count="4">
+              <button role="radio" aria-checked="{{v.checked}}" class="{{v.cls}}" onClick="{{v.pick}}">{{v.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <ol aria-label="Import steps" class="steps" style="list-style: none; margin: 0; padding: 14px 18px; background: var(--surf); border: 1px solid var(--line); border-radius: 12px">
+        <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+          <li class="stp {{s.cls}}" aria-current="{{s.cur}}">
+            <span class="n">{{s.mark}}</span>{{s.label}}
+            <sc-if value="{{s.more}}" hint-placeholder-val="{{true}}"><span class="stp-line" aria-hidden="true" style="margin-left: 8px"></span></sc-if>
+          </li>
+        </sc-for>
+      </ol>
+
+      <sc-if value="{{isUpload}}" hint-placeholder-val="{{false}}">
+        <section class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 760px">
+          <h2 class="h2">Upload</h2>
+          <label class="drop" style="cursor: pointer">
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
+            <span style="font-weight: 600">Click to choose a file</span>
+            <span class="meta">.xlsx — first sheet, first row must be headers</span>
+            <input type="file" accept=".xlsx" class="sr">
+          </label>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px">
+            <span style="width: 34px; height: 34px; border-radius: 8px; background: var(--okS); color: var(--ok); display: flex; align-items: center; justify-content: center">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4zM4 10h16M10 4v16"/></svg>
+            </span>
+            <div style="flex: 1"><div style="font-weight: 600">bookings-oct.xlsx</div><div class="meta">128 rows · 16 columns · sheet "Sheet1"</div></div>
+            <button class="ib" aria-label="Remove file"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px"><a class="btn" href="V2NewBooking.dc.html">Cancel</a><button class="btn btn-p">Continue</button></div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{isMap}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+          <section class="card" aria-labelledby="mp" style="flex: 1 1 460px; min-width: 0; overflow: hidden">
+            <div style="padding: 16px 18px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap">
+              <div><h2 id="mp" class="h2">Match your columns</h2><div class="meta" style="margin-top: 3px">12 auto-matched · 3 skipped · Booking Number is required</div></div>
+              <span class="badge b-ok">Ready to import</span>
+            </div>
+            <div class="tw" style="max-height: 560px">
+              <table class="tbl">
+                <thead><tr><th scope="col">Ship-Sphere field</th><th scope="col">Column in your file</th><th scope="col"><span class="sr">Match</span></th></tr></thead>
+                <tbody>
+                  <sc-for list="{{maps}}" as="m" hint-placeholder-count="15">
+                    <tr>
+                      <td style="font-weight: 500">{{m.f}}<sc-if value="{{m.req}}" hint-placeholder-val="{{false}}"> <span class="req">*</span></sc-if></td>
+                      <td style="width: 55%">
+                        <label class="sr" for="{{m.id}}">Column for {{m.f}}</label>
+                        <select id="{{m.id}}" class="select select-s"><option>{{m.h}}</option><option>— Skip —</option><option>Booking #</option><option>ERD Date</option><option>Line</option><option>POL</option><option>POD</option><option>Final Dest</option><option>Ctr No</option></select>
+                      </td>
+                      <td>
+                        <sc-if value="{{m.ok}}" hint-placeholder-val="{{true}}"><span class="badge b-ok">Matched</span></sc-if>
+                        <sc-if value="{{m.skip}}" hint-placeholder-val="{{false}}"><span class="badge b-neu">Skipped</span></sc-if>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section class="card" aria-labelledby="pv" style="flex: 1 1 480px; min-width: 0; overflow: hidden">
+            <div style="padding: 16px 18px 12px"><h2 id="pv" class="h2">Preview (first 3 rows)</h2><div class="meta" style="margin-top: 3px">How the rows will land in Booking &amp; Instructions</div></div>
+            <div class="tw">
+              <table class="tbl">
+                <thead><tr><th>Booking Number</th><th>ERD</th><th>Cargo Cut Off</th><th>POL</th><th>Port of Discharge</th><th>Shipping Line</th><th>Container Number</th><th>Buyer / Consignee</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">401610299853</td><td class="num">14 Oct 2026</td><td class="num">20 Oct 2026, 09:00</td><td>Seattle</td><td>Mundra, IN</td><td>Maersk</td><td class="mono">MSKU 552019-3</td><td>LR Traders</td></tr>
+                  <tr><td class="mono">400600270642</td><td class="num">16 Oct 2026</td><td class="num">22 Oct 2026, 12:00</td><td>Savannah</td><td>Nhava Sheva</td><td>MSC</td><td class="mono">MSCU 771020-4</td><td>Jagmohan</td></tr>
+                  <tr><td class="mono">NAM8534819</td><td class="num">18 Oct 2026</td><td><span class="dash">—</span></td><td>Los Angeles</td><td>Mundra, IN</td><td>CMA CGM</td><td><span class="dash">—</span></td><td>Kuldeep</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surf2)">
+              <span class="meta">bookings-oct.xlsx · 128 rows</span>
+              <div style="display: flex; gap: 10px"><button class="btn">Back</button><button class="btn btn-p">Import 128 Rows</button></div>
+            </div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDup}}" hint-placeholder-val="{{false}}">
+        <section class="card" aria-labelledby="dp" style="overflow: hidden">
+          <div style="padding: 16px 18px 12px; display: flex; gap: 12px; align-items: flex-start">
+            <span style="width: 34px; height: 34px; border-radius: 9px; background: var(--warnS); color: var(--warn); display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h12v12H8zM4 16V4h12"/></svg></span>
+            <div><h2 id="dp" class="h2">Some Booking Numbers already exist</h2><div class="lbl" style="margin-top: 3px">4 rows match bookings already in Ship-Sphere. Choose what to do with each.</div></div>
+          </div>
+          <div class="tw">
+            <table class="tbl">
+              <thead><tr><th>Booking Number</th><th>Existing entry</th><th>In file</th><th>Action</th></tr></thead>
+              <tbody>
+                <sc-for list="{{dups}}" as="d" hint-placeholder-count="4">
+                  <tr>
+                    <td class="mono" style="font-weight: 600">{{d.no}}</td>
+                    <td class="lbl">{{d.ex}}</td>
+                    <td class="lbl">{{d.file}}</td>
+                    <td style="width: 240px"><label class="sr" for="{{d.id}}">Action for {{d.no}}</label><select id="{{d.id}}" class="select select-s"><option>Ignore</option><option>Add to Multiple Bookings</option></select></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surf2)"><button class="btn">Ignore All</button><button class="btn btn-p">Continue</button></div>
+        </section>
+      </sc-if>
+
+      <sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+        <section class="card" style="padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; max-width: 640px">
+          <span style="width: 52px; height: 52px; border-radius: 26px; background: var(--okS); color: var(--ok); display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600">Import complete</h2>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center"><span class="badge b-ok">124 imported</span><span class="badge b-neu">4 ignored</span></div>
+          <a class="btn btn-p" href="V2Bookings.dc.html" style="margin-top: 6px">Go to Booking &amp; Instructions</a>
+        </section>
+      </sc-if>
+
+      <section class="card" aria-labelledby="reuse" style="overflow: hidden">
+        <div style="padding: 16px 18px 12px"><h2 id="reuse" class="h2">Same 4-step wizard, reused everywhere</h2><div class="meta" style="margin-top: 3px">Upload → Match columns → Conflicts (where relevant) → Done. Only the field list changes.</div></div>
+        <div class="tw">
+          <table class="tbl">
+            <thead><tr><th>Import</th><th>Fields to match</th><th>Conflict step</th></tr></thead>
+            <tbody>
+              <tr><td style="font-weight: 600">Buyers / Customers</td><td style="white-space: normal">Buyer / Company Name*, Address Line 1–4, GST No., IEC Code, Mobile No., Email ID, Description of Goods, H.S. Code</td><td><span class="dash">—</span></td></tr>
+              <tr><td style="font-weight: 600">Forwarders · Suppliers · Truckers</td><td style="white-space: normal">Name*, Short Code, Country, Address</td><td><span class="dash">—</span></td></tr>
+              <tr><td style="font-weight: 600">Buyer invoices</td><td style="white-space: normal">Invoice Number*, Invoice Date, BL Date, Due Date, Container Number, Location, Booking Number, Weight, Invoice Value, Freight, Trucking, Commission</td><td><span class="dash">—</span></td></tr>
+              <tr><td style="font-weight: 600">Forwarder invoice charges</td><td style="white-space: normal">Booking Number*, Container Number, POL / Port of Discharge / Port of Delivery / Shipping Line (new bookings only), Invoice Number, Invoice Date, Due Date, Freight, BL Fees, AES Fees, Extra, Correction, Demurrage, Currency · unmapped → "+ Add as charge column"</td><td class="lbl">Add as separate booking · Reassign</td></tr>
+              <tr><td style="font-weight: 600">Trucker invoice charges</td><td style="white-space: normal">Booking Number*, Container Number, Location (new bookings only), Invoice Number, Invoice Date, Due Date, Trucking, Fuel Surcharge, Chassis Rental, Stop Off, Chassis Split, Other/Misc Charges, Currency</td><td class="lbl">Add as separate booking · Reassign</td></tr>
+              <tr><td style="font-weight: 600">Supplier invoices</td><td style="white-space: normal">Booking Number*, Container Number, Forwarder (FF), Consignee, Invoice Number, Invoice Date, Description, Weight (KG), Unit Price, Amount</td><td><span class="dash">—</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, step: 'map' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const order = ['upload', 'map', 'dup', 'done'];
+    const step = this.state.step;
+    const idx = order.indexOf(step);
+    const labels = { upload: 'Upload', map: 'Match columns', dup: 'Duplicates', done: 'Done' };
+    const views = order.map((id) => ({ label: labels[id], cls: step === id ? 'on' : '', checked: step === id ? 'true' : 'false', pick: () => this.setState({ step: id }) }));
+    const steps = order.map((id, i) => ({ label: labels[id], cls: i < idx ? 'done' : (i === idx ? 'cur' : ''), cur: i === idx ? 'step' : 'false', mark: i < idx ? '✓' : String(i + 1), more: i < order.length - 1 }));
+    const F = [
+      ['Booking Number', 'Booking #', true], ['ERD', 'ERD Date'], ['DOC Cut Off', 'Doc Cutoff'], ['Cargo Cut Off', 'Cargo Cutoff'],
+      ['Port of Loading (POL)', 'POL'], ['Port of Discharge', 'POD'], ['Port of Delivery', 'Final Dest'], ['B/L Issued At', '— Skip —'],
+      ['Shipping Line', 'Line'], ['Vessel', '— Skip —'], ['Container Number', 'Ctr No'], ['Forwarder', 'FF'],
+      ['Trucker', '— Skip —'], ['Supplier', 'Supplier'], ['Buyer / Consignee', 'Consignee']
+    ];
+    const maps = F.map(([f, h, req], i) => ({ id: 'm' + i, f, h, req: !!req, ok: h !== '— Skip —', skip: h === '— Skip —' }));
+    const dups = [
+      ['401610299853', 'Maersk · Seattle → Mundra · 12 Oct', 'Row 4 · Maersk · Seattle'],
+      ['400600270642', 'MSC · Savannah → Nhava Sheva · 9 Oct', 'Row 17 · MSC · Savannah'],
+      ['NAM8534819', 'CMA CGM · Los Angeles → Mundra · 3 Oct', 'Row 52 · CMA CGM'],
+      ['HL-11952005', 'Hapag-Lloyd · Hamburg → Mundra · 1 Oct', 'Row 88 · Hapag-Lloyd']
+    ].map(([no, ex, file], i) => ({ id: 'd' + i, no, ex, file }));
+    return {
+      themeClass: 'th-' + theme, themes, views, steps, maps, dups,
+      isUpload: step === 'upload', isMap: step === 'map', isDup: step === 'dup', isDone: step === 'done'
+    };
+  }
+}
+</script>
+</body>
+</html>
