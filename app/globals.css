@@ -93,4 +93,21 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .sw.on{background:var(--accent);justify-content:flex-end}
 .drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
 .steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.stp{display:flex;align-items:center;gap:8px;color:var(--tx2)}
+.stp .n{width:24px;height:24px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--neuS);color:var(--tx2)}
+.stp.done .n{background:var(--okS);color:var(--ok)}
+.stp.cur{color:var(--tx);font-weight:600}
+.stp.cur .n{background:var(--accent);color:var(--onAccent)}
+.stp-line{width:40px;height:1px;background:var(--line2)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ch{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
+.cico{width:36px;height:36px;border-radius:10px;background:var(--accentS);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cb{padding:18px 22px;display:flex;flex-direction:column;gap:16px}
+.idx{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:8px;color:var(--tx2);font-size:14px}
+.idx.on{background:var(--accentS);color:var(--tx);font-weight:600}
+.cmp{background:var(--surf2)!important;color:var(--tx2)}
+.fx{display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 4px;border-radius:4px;background:var(--accentS);color:var(--accent);font-size:10px;font-weight:700;margin-left:4px;font-style:italic}
+.gh td{background:var(--accentS)!important;font-weight:600}
+.gs td{background:var(--surf2)!important;font-weight:600}
+.secbtn{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--tx);font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.secbtn.on{background:var(--accentS);font-weight:600}

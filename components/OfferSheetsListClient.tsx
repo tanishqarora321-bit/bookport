@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CloseIcon } from "@/components/EditableCell";
 
 type ColumnDef = { key: string; label: string; kind: string; hidden?: boolean };
 type OfferSheetType = { id: string; name: string; columns: ColumnDef[]; created_at: string };
@@ -25,29 +26,86 @@ export default function OfferSheetsListClient({
   const router = useRouter();
   const [creatingSection, setCreatingSection] = useState(false);
   const [creatingSheet, setCreatingSheet] = useState(false);
+  const selectedType = types.find((t) => t.id === selectedTypeId);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">Offer Sheet</h1>
-        <button onClick={() => setCreatingSection(true)} className="text-sm border px-3 py-1.5 rounded">
-          + New Section
+    <div className="flex flex-col" style={{ gap: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
+        <div>
+          <h1 className="h1">Offer Sheet</h1>
+          <p className="sub">Costing sections you define — each with its own columns and formulas</p>
+        </div>
+        <button onClick={() => setCreatingSection(true)} className="btn btn-p">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          New Section
         </button>
       </div>
 
-      <div className="flex gap-1 border-b mb-4 flex-wrap">
-        {types.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => router.push(`/offer-sheets?type=${t.id}`)}
-            className={`text-sm px-3 py-2 -mb-px border-b-2 ${
-              t.id === selectedTypeId ? "border-accent text-accent font-medium" : "border-transparent text-ink/50 hover:text-ink"
-            }`}
-          >
-            {t.name}
-          </button>
-        ))}
-        {types.length === 0 && <p className="text-sm text-ink/40 py-2">No sections yet — click "+ New Section" to create one.</p>}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+        <section className="card" aria-labelledby="secs" style={{ flex: "1 1 240px", minWidth: 0, padding: 12 }}>
+          <h2 id="secs" className="meta" style={{ margin: "4px 8px 8px", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>
+            Sections
+          </h2>
+          {types.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => router.push(`/offer-sheets?type=${t.id}`)}
+              aria-current={t.id === selectedTypeId}
+              className={`secbtn${t.id === selectedTypeId ? " on" : ""}`}
+            >
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3h14v18H5zM5 9h14M5 15h14M12 9v12" />
+              </svg>
+              <span style={{ flex: 1 }}>{t.name}</span>
+            </button>
+          ))}
+          {types.length === 0 && <p className="lbl" style={{ padding: "8px" }}>No sections yet — click &quot;+ New Section&quot; to create one.</p>}
+        </section>
+
+        {selectedTypeId && (
+          <section className="card" aria-labelledby="sheets" style={{ flex: "3 1 560px", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 18px" }}>
+              <div>
+                <h2 id="sheets" className="h2">{selectedType?.name ?? ""}</h2>
+                <div className="meta" style={{ marginTop: 2 }}>Sheets in this section</div>
+              </div>
+              <button onClick={() => setCreatingSheet(true)} className="btn btn-s">+ New Sheet</button>
+            </div>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Period</th>
+                  <th className="r">Rows</th>
+                  <th><span className="sr">Open</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sheets.map((s) => (
+                  <tr key={s.id}>
+                    <td style={{ fontWeight: 600 }}>{s.title}</td>
+                    <td className={s.period ? "" : "dash"}>{fmtPeriod(s.period)}</td>
+                    <td className="r num">{s.row_count}</td>
+                    <td className="r">
+                      <Link href={`/offer-sheets/sheet/${s.id}`} style={{ fontSize: 13 }}>
+                        Open →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {sheets.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="meta" style={{ textAlign: "center", padding: "32px 12px" }}>
+                      No sheets yet in this section. Click &quot;+ New Sheet&quot; to add one.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+        )}
       </div>
 
       {creatingSection && (
@@ -61,55 +119,12 @@ export default function OfferSheetsListClient({
         />
       )}
 
-      {selectedTypeId && (
-        <>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium text-ink/60">Sheets in this section</h2>
-            <button onClick={() => setCreatingSheet(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
-              + New Sheet
-            </button>
-          </div>
-
-          {creatingSheet && (
-            <NewSheetPanel
-              offerSheetTypeId={selectedTypeId}
-              onClose={() => setCreatingSheet(false)}
-              onCreated={(sheet) => router.push(`/offer-sheets/sheet/${sheet.id}`)}
-            />
-          )}
-
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-ink/50 border-b">
-                <th className="px-3 py-2">Title</th>
-                <th className="px-3 py-2">Period</th>
-                <th className="px-3 py-2">Rows</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sheets.map((s) => (
-                <tr key={s.id} className="border-b hover:bg-blue-50/40">
-                  <td className="px-3 py-2 font-medium">{s.title}</td>
-                  <td className="px-3 py-2 text-ink/60">{fmtPeriod(s.period)}</td>
-                  <td className="px-3 py-2 text-ink/60">{s.row_count}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Link href={`/offer-sheets/sheet/${s.id}`} className="text-xs text-accent underline">
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {sheets.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-8 text-center text-ink/40">
-                    No sheets yet in this section. Click "+ New Sheet" to add one.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </>
+      {creatingSheet && selectedTypeId && (
+        <NewSheetPanel
+          offerSheetTypeId={selectedTypeId}
+          onClose={() => setCreatingSheet(false)}
+          onCreated={(sheet) => router.push(`/offer-sheets/sheet/${sheet.id}`)}
+        />
       )}
     </div>
   );
@@ -181,64 +196,56 @@ function NewSectionPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="mb-3">
-        <div className="text-xs text-ink/40 mb-0.5">Section Name *</div>
-        <input className="border rounded px-2 py-1.5 text-sm w-full" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Partly Offer Sheet" />
+    <section className="card" aria-labelledby="ns" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <h2 id="ns" className="h2">New Section</h2>
+      <div className="field" style={{ maxWidth: 420 }}>
+        <label htmlFor="section-name">Section Name <span className="req">*</span></label>
+        <input id="section-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Partly Offer Sheet" />
+      </div>
+      <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", fontWeight: 600, background: "var(--surf2)", borderBottom: "1px solid var(--line)" }}>Columns</div>
+        <table className="tbl">
+          <thead>
+            <tr><th>Column Key</th><th>Label</th><th>Type</th><th><span className="sr">Remove</span></th></tr>
+          </thead>
+          <tbody>
+            {columns.map((c, i) => (
+              <tr key={i}>
+                <td><input className="input input-s mono" aria-label={`Column key ${i + 1}`} value={c.key} onChange={(e) => updateColumn(i, { key: e.target.value })} placeholder="e.g. weight" /></td>
+                <td><input className="input input-s" aria-label={`Label ${i + 1}`} value={c.label} onChange={(e) => updateColumn(i, { label: e.target.value })} placeholder="e.g. Weight (lbs)" /></td>
+                <td>
+                  <select className="select select-s" aria-label={`Type ${i + 1}`} value={c.kind} onChange={(e) => updateColumn(i, { kind: e.target.value as any })}>
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                  </select>
+                </td>
+                <td>
+                  {columns.length > 1 && (
+                    <button onClick={() => removeColumn(i)} aria-label={`Remove column ${i + 1}`} className="ib">
+                      <CloseIcon />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ padding: "10px 14px" }}>
+          <button onClick={addColumn} className="btn btn-s">+ Add Column</button>
+        </div>
       </div>
 
-      <div className="text-xs font-medium text-ink/60 mb-2">Columns</div>
-      <table className="w-full text-sm mb-2">
-        <thead>
-          <tr className="text-left text-ink/40">
-            <th className="pb-1 pr-2 font-normal">Column Key</th>
-            <th className="pb-1 pr-2 font-normal">Label</th>
-            <th className="pb-1 pr-2 font-normal w-28">Type</th>
-            <th className="pb-1 w-8"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {columns.map((c, i) => (
-            <tr key={i}>
-              <td className="pr-2 pb-1">
-                <input className="border rounded px-2 py-1 text-sm w-full" value={c.key} onChange={(e) => updateColumn(i, { key: e.target.value })} placeholder="e.g. weight" />
-              </td>
-              <td className="pr-2 pb-1">
-                <input className="border rounded px-2 py-1 text-sm w-full" value={c.label} onChange={(e) => updateColumn(i, { label: e.target.value })} placeholder="e.g. Weight (lbs)" />
-              </td>
-              <td className="pr-2 pb-1">
-                <select className="border rounded px-2 py-1 text-sm w-full" value={c.kind} onChange={(e) => updateColumn(i, { kind: e.target.value as any })}>
-                  <option value="text">Text</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date</option>
-                </select>
-              </td>
-              <td className="pb-1 text-center">
-                {columns.length > 1 && (
-                  <button onClick={() => removeColumn(i)} className="text-cutoff text-xs">
-                    ✕
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <button onClick={addColumn} className="text-xs text-accent underline">
-        + Add Column
-      </button>
-
-      {error && <div className="text-xs text-cutoff mt-3">{error}</div>}
-
-      <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50">
-          {saving ? "Saving…" : "Create Section"}
-        </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
-          Cancel
-        </button>
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        {error && <span className="err" role="alert">{error}</span>}
+        <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
+          <button onClick={onClose} className="btn">Cancel</button>
+          <button onClick={save} disabled={saving} className="btn btn-p">
+            {saving ? "Saving…" : "Create Section"}
+          </button>
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -286,24 +293,23 @@ function NewSheetPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-2 gap-3">
-      <div>
-        <div className="text-xs text-ink/40 mb-0.5">Title *</div>
-        <input className="border rounded px-2 py-1.5 text-sm w-full" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. August 2026 Mixed Rags" />
+    <section className="card" aria-labelledby="nsh" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14, maxWidth: 480 }}>
+      <h2 id="nsh" className="h2">New Sheet</h2>
+      <div className="field">
+        <label htmlFor="sheet-title">Title <span className="req">*</span></label>
+        <input id="sheet-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. August 2026 Mixed Rags" />
       </div>
-      <div>
-        <div className="text-xs text-ink/40 mb-0.5">Period (optional)</div>
-        <input type="month" className="border rounded px-2 py-1.5 text-sm w-full" value={period} onChange={(e) => setPeriod(e.target.value)} />
+      <div className="field">
+        <label htmlFor="sheet-period">Period <span className="meta">(optional)</span></label>
+        <input id="sheet-period" type="month" className="input" value={period} onChange={(e) => setPeriod(e.target.value)} />
       </div>
-      {error && <div className="col-span-2 text-xs text-cutoff">{error}</div>}
-      <div className="col-span-2 flex gap-2">
-        <button onClick={save} disabled={saving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+      {error && <span className="err">{error}</span>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button onClick={onClose} className="btn">Cancel</button>
+        <button onClick={save} disabled={saving} className="btn btn-p">
           {saving ? "Saving…" : "Create Sheet"}
         </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
-          Cancel
-        </button>
       </div>
-    </div>
+    </section>
   );
 }
