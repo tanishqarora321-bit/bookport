@@ -17,7 +17,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  */
 export async function extractRateSheetFromPdf(fileBase64: string) {
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
       // @ts-expect-error - responseSchema accepts a plain JSON-schema object

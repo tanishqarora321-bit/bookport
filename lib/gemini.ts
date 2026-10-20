@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  */
 export async function extractBookingFromPdf(fileBase64: string) {
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
       // @ts-expect-error - responseSchema accepts a plain JSON-schema object
@@ -106,7 +106,7 @@ match the meaning, not the literal words):
  */
 export async function extractBLFromPdf(fileBase64: string) {
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
       // @ts-expect-error - responseSchema accepts a plain JSON-schema object
@@ -201,7 +201,7 @@ export async function suggestMapping(
   subjectLabel: string
 ): Promise<Record<string, string | null>> {
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
+    model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 }
   });
 

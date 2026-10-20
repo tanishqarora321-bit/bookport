@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       file_path: path,
       extraction_status: "extracted",
       extracted_json: extracted,
-      model_used: process.env.GEMINI_MODEL || "gemini-flash-lite-latest"
+      model_used: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"
     })
     .select()
     .single();
