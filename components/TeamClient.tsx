@@ -114,13 +114,13 @@ export default function TeamClient({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">Manage Users — {companyName}</h1>
-          <p className="text-sm text-ink/40">Invited teammates sign in with email + the password they set from the invite email.</p>
+          <p className="text-sm text-muted">Invited teammates sign in with email + the password they set from the invite email.</p>
         </div>
         {isAdmin && (
           <button
             onClick={() => setInviting(!inviting)}
             disabled={seatsLeft <= 0}
-            className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-40"
+            className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40"
             title={seatsLeft <= 0 ? "No seats left - remove a teammate or upgrade the plan" : undefined}
           >
             + Invite Teammate
@@ -134,22 +134,22 @@ export default function TeamClient({
       </div>
 
       {isAdmin && inviting && (
-        <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-3 gap-3">
+        <div className="border border-line bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-3 gap-3">
           <input
             placeholder="Email *"
             type="email"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
           <input
             placeholder="Full name"
-            className="border rounded px-2 py-1.5 text-sm"
+            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           />
           <select
-            className="border rounded px-2 py-1.5 text-sm"
+            className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink"
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value })}
           >
@@ -159,20 +159,20 @@ export default function TeamClient({
           </select>
           {error && <div className="col-span-3 text-xs text-cutoff">{error}</div>}
           <div className="col-span-3 flex gap-2">
-            <button onClick={invite} disabled={saving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+            <button onClick={invite} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
               {saving ? "Sending invite…" : "Send Invite"}
             </button>
-            <button onClick={() => setInviting(false)} className="text-sm border px-3 py-1.5 rounded">
+            <button onClick={() => setInviting(false)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      <div className="bg-surface rounded-xl shadow-sm">
+      <div className="bg-surface border border-line rounded-xl overflow-hidden">
         <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-ink/50 border-b">
+          <thead className="bg-surface-2">
+            <tr className="text-left text-muted border-b border-line">
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Role</th>
@@ -182,12 +182,12 @@ export default function TeamClient({
           </thead>
           <tbody>
             {teammates.map((t) => (
-              <tr key={t.id} className={`border-b last:border-0 ${!t.is_active ? "opacity-40" : ""}`}>
-                <td className="px-3 py-2">{t.email}</td>
-                <td className="px-3 py-2 text-ink/70">{t.full_name || "—"}</td>
-                <td className="px-3 py-2 text-ink/70">{t.role}</td>
+              <tr key={t.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!t.is_active ? "opacity-40" : ""}`}>
+                <td className="px-3 py-2 text-ink">{t.email}</td>
+                <td className="px-3 py-2 text-text-2">{t.full_name || "—"}</td>
+                <td className="px-3 py-2 text-text-2">{t.role}</td>
                 <td className="px-3 py-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-surface-2 text-text-2"}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? "bg-success-soft text-success" : "bg-surface-2 text-text-2"}`}>
                     {t.is_active ? "Active" : "Removed"}
                   </span>
                 </td>
@@ -196,8 +196,8 @@ export default function TeamClient({
                     <button
                       onClick={() => toggleActive(t)}
                       disabled={!t.is_active && seatsLeft <= 0}
-                      className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${
-                        t.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
+                      className={`text-xs px-2 py-1 rounded-lg disabled:opacity-40 ${
+                        t.is_active ? "text-critical hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
                       }`}
                     >
                       {t.is_active ? "Remove" : "Restore"}
@@ -214,41 +214,41 @@ export default function TeamClient({
       </div>
 
       {isPlatformOwner && (
-        <div className="mt-8 pt-6 border-t border-ink/10">
+        <div className="mt-8 pt-6 border-t border-line">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                 <Building2 className="w-4 h-4" size={16} /> Platform Owner: Onboard a New Client Company
               </h2>
-              <p className="text-xs text-ink/40 mt-0.5">Creates the company and invites its first admin in one step. Only you can see this section.</p>
+              <p className="text-xs text-muted mt-0.5">Creates the company and invites its first admin in one step. Only you can see this section.</p>
             </div>
             {!onboarding && (
-              <button onClick={() => setOnboarding(true)} className="text-sm border px-3 py-1.5 rounded font-medium">
+              <button onClick={() => setOnboarding(true)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
                 + New Company
               </button>
             )}
           </div>
 
-          {companySuccess && <div className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 mb-3">{companySuccess}</div>}
+          {companySuccess && <div className="text-sm text-success bg-success-soft rounded-lg px-3 py-2 mb-3">{companySuccess}</div>}
 
           {onboarding && (
-            <div className="border border-ink/10 bg-surface-2 rounded p-4 grid grid-cols-4 gap-3">
+            <div className="border border-line bg-surface-2 rounded-xl p-4 grid grid-cols-4 gap-3">
               <input
                 placeholder="Company name *"
-                className="border rounded px-2 py-1.5 text-sm"
+                className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
                 value={companyForm.companyName}
                 onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })}
               />
               <input
                 placeholder="Admin email *"
                 type="email"
-                className="border rounded px-2 py-1.5 text-sm"
+                className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
                 value={companyForm.adminEmail}
                 onChange={(e) => setCompanyForm({ ...companyForm, adminEmail: e.target.value })}
               />
               <input
                 placeholder="Admin name"
-                className="border rounded px-2 py-1.5 text-sm"
+                className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
                 value={companyForm.adminName}
                 onChange={(e) => setCompanyForm({ ...companyForm, adminName: e.target.value })}
               />
@@ -256,16 +256,16 @@ export default function TeamClient({
                 placeholder="Seats allowed"
                 type="number"
                 min={1}
-                className="border rounded px-2 py-1.5 text-sm"
+                className="bg-surface border border-line rounded-lg px-2 py-1.5 text-sm text-ink placeholder:text-muted"
                 value={companyForm.seatLimit}
                 onChange={(e) => setCompanyForm({ ...companyForm, seatLimit: e.target.value })}
               />
               {companyError && <div className="col-span-4 text-xs text-cutoff">{companyError}</div>}
               <div className="col-span-4 flex gap-2">
-                <button onClick={createCompany} disabled={companySaving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+                <button onClick={createCompany} disabled={companySaving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
                   {companySaving ? "Creating…" : "Create Company & Invite Admin"}
                 </button>
-                <button onClick={() => setOnboarding(false)} className="text-sm border px-3 py-1.5 rounded">
+                <button onClick={() => setOnboarding(false)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
                   Cancel
                 </button>
               </div>

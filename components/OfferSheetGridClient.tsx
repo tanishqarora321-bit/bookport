@@ -124,27 +124,27 @@ export default function OfferSheetGridClient({
 
   return (
     <div className="h-full flex flex-col">
-      <Link href="/offer-sheets" className="text-sm text-accent mb-2 w-fit">
+      <Link href="/offer-sheets" className="text-sm text-accent hover:text-accent-hover mb-2 w-fit">
         ← Back to Offer Sheet
       </Link>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div>
           <h1 className="text-xl font-semibold text-ink">{sheetTitle}</h1>
-          <p className="text-xs text-ink/50">{sectionName}</p>
+          <p className="text-xs text-muted">{sectionName}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setSettingsOpen(!settingsOpen)} className="text-sm border px-3 py-1.5 rounded">
+          <button onClick={() => setSettingsOpen(!settingsOpen)} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
             ⚙ Sheet Settings
           </button>
-          <button onClick={exportCsv} className="text-sm border px-3 py-1.5 rounded">
+          <button onClick={exportCsv} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
             ⬇ Export CSV
           </button>
           {hasGrouping ? (
-            <button onClick={() => setAddingGroup(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
+            <button onClick={() => setAddingGroup(true)} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium">
               + New Group
             </button>
           ) : (
-            <button onClick={() => addRow(null)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
+            <button onClick={() => addRow(null)} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium">
               + Add Row
             </button>
           )}
@@ -166,13 +166,20 @@ export default function OfferSheetGridClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto border rounded">
+      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
         <table className="text-sm border-collapse min-w-max">
           <thead className="sticky top-0 bg-surface-2 z-10">
-            <tr className="text-left text-ink/50 border-b">
+            <tr className="text-left text-muted border-b border-line">
               {visibleColumns.map((c) => (
                 <th key={c.key} className="px-3 py-2 font-medium whitespace-nowrap">
-                  {c.label}
+                  <span className="inline-flex items-center gap-1.5">
+                    {c.label}
+                    {c.kind === "computed" && (
+                      <span className="text-[10px] font-semibold text-accent bg-accent-soft px-1 py-0.5 rounded" title="Computed column, read-only">
+                        fx
+                      </span>
+                    )}
+                  </span>
                 </th>
               ))}
               <th className="px-3 py-2 w-16"></th>
@@ -193,7 +200,7 @@ export default function OfferSheetGridClient({
             ))}
             {groups.length === 0 && (
               <tr>
-                <td colSpan={visibleColumns.length + 1} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={visibleColumns.length + 1} className="px-3 py-10 text-center text-muted">
                   No rows yet. Click "{hasGrouping ? "+ New Group" : "+ Add Row"}" to start entering costs.
                 </td>
               </tr>
@@ -201,9 +208,9 @@ export default function OfferSheetGridClient({
           </tbody>
           {rows.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 font-semibold bg-surface-2">
+              <tr className="border-t-2 border-line font-semibold bg-surface-2">
                 {visibleColumns.map((c, i) => (
-                  <td key={c.key} className="px-3 py-2 whitespace-nowrap">
+                  <td key={c.key} className="px-3 py-2 whitespace-nowrap text-ink">
                     {i === 0 ? "GRAND TOTAL" : c.kind === "number" || c.kind === "computed" ? formatValue(c, sumColumn(rows, c.key)) : ""}
                   </td>
                 ))}
@@ -239,13 +246,13 @@ function GroupBlock({
   return (
     <>
       {groupRows.map((row, i) => (
-        <tr key={row.id} className="border-b hover:bg-blue-50/20">
+        <tr key={row.id} className="border-b border-line hover:bg-surface-2">
           {visibleColumns.map((c) => {
             const isGroupScoped = c.scope === "group";
             const showEditable = c.kind !== "computed" && (!isGroupScoped || i === 0);
             if (!showEditable) {
               return (
-                <td key={c.key} className="px-3 py-2 whitespace-nowrap text-ink/40">
+                <td key={c.key} className="px-3 py-2 whitespace-nowrap text-muted">
                   {c.kind === "computed" ? formatValue(c, row[c.key]) : isGroupScoped ? "" : formatValue(c, row[c.key])}
                 </td>
               );
@@ -260,23 +267,23 @@ function GroupBlock({
             );
           })}
           <td className="px-3 py-2">
-            <button onClick={() => onDeleteRow(row.id)} className="text-cutoff text-xs">
+            <button onClick={() => onDeleteRow(row.id)} className="text-critical hover:bg-critical-soft rounded-lg px-1.5 py-0.5 text-xs">
               ✕
             </button>
           </td>
         </tr>
       ))}
       {onAddItem && (
-        <tr className="border-b bg-surface-2">
+        <tr className="border-b border-line bg-surface-2">
           <td colSpan={visibleColumns.length + 1} className="px-3 py-1">
-            <button onClick={onAddItem} className="text-xs text-accent underline">
+            <button onClick={onAddItem} className="text-xs text-accent hover:text-accent-hover underline">
               + Add Item to This Group
             </button>
           </td>
         </tr>
       )}
       {showGroupTotal && (
-        <tr className="border-b bg-surface-2 text-xs font-medium text-ink/60">
+        <tr className="border-b border-line bg-surface-2 text-xs font-medium text-text-2">
           {visibleColumns.map((c, i) => (
             <td key={c.key} className="px-3 py-1 whitespace-nowrap">
               {i === 0 ? "Subtotal" : numericColumns.includes(c) ? formatValue(c, sumColumn(groupRows, c.key)) : ""}
@@ -321,7 +328,7 @@ function EditableCell({
   if (!editing) {
     return (
       <td className="px-3 py-2 whitespace-nowrap">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-surface-2 px-1 rounded-lg block text-ink">
           {formatValue(column, value)}
         </span>
       </td>
@@ -335,16 +342,16 @@ function EditableCell({
           autoFocus
           type={column.kind === "date" ? "date" : column.kind === "number" ? "number" : "text"}
           step={column.kind === "number" ? "any" : undefined}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-28"
+          className="bg-surface border border-accent rounded-lg px-1.5 py-0.5 text-sm w-28 text-ink"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
+        <button onClick={save} disabled={saving} className="text-xs bg-accent text-white hover:bg-accent-hover px-1.5 py-0.5 rounded-lg">
           {saving ? "…" : "✓"}
         </button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
+        <button onClick={() => setEditing(false)} className="text-xs border border-line bg-surface hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
           ✕
         </button>
         {error && <span className="text-xs text-cutoff">{error}</span>}
@@ -382,18 +389,18 @@ function NewGroupPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="text-xs font-medium text-ink/60 mb-2">
+    <div className="border border-line bg-accent-soft rounded-xl p-4 mb-4">
+      <div className="text-xs font-medium text-text-2 mb-2">
         New shipment/load — fill the shared fields plus its first item. Use "+ Add Item to This Group" afterward for more items in the
         same shipment.
       </div>
       <div className="grid grid-cols-4 gap-3">
         {inputColumns.map((c) => (
           <div key={c.key}>
-            <div className="text-xs text-ink/40 mb-0.5">{c.label}</div>
+            <div className="text-xs text-muted mb-0.5">{c.label}</div>
             <input
               type={c.kind === "date" ? "date" : c.kind === "number" ? "number" : "text"}
-              className="border rounded px-2 py-1 text-sm w-full"
+              className="bg-surface border border-line rounded-lg px-2 py-1 text-sm w-full text-ink"
               value={form[c.key]}
               onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
             />
@@ -402,10 +409,10 @@ function NewGroupPanel({
       </div>
       {error && <div className="text-xs text-cutoff mt-3">{error}</div>}
       <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50">
+        <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">
           {saving ? "Saving…" : "Create"}
         </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
+        <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
           Cancel
         </button>
       </div>
@@ -448,30 +455,30 @@ function SettingsPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="text-xs font-medium text-ink/60 mb-2">Sheet Settings</div>
+    <div className="border border-line bg-accent-soft rounded-xl p-4 mb-4">
+      <div className="text-xs font-medium text-text-2 mb-2">Sheet Settings</div>
       {neededKeys.length === 0 ? (
-        <p className="text-xs text-ink/40">This section's formulas don't use any sheet-level constants.</p>
+        <p className="text-xs text-muted">This section's formulas don't use any sheet-level constants.</p>
       ) : (
         <div className="flex gap-3 flex-wrap">
           {neededKeys.map((key) => (
             <div key={key} className="flex items-end gap-2">
               <div>
-                <div className="text-xs text-ink/40 mb-0.5">{key}</div>
+                <div className="text-xs text-muted mb-0.5">{key}</div>
                 <input
-                  className="border rounded px-2 py-1 text-sm w-28"
+                  className="bg-surface border border-line rounded-lg px-2 py-1 text-sm w-28 text-ink"
                   value={vals[key]}
                   onChange={(e) => setVals({ ...vals, [key]: e.target.value })}
                 />
               </div>
-              <button onClick={() => save(key)} disabled={saving === key} className="text-xs bg-ink text-white px-2 py-1 rounded">
+              <button onClick={() => save(key)} disabled={saving === key} className="text-xs bg-accent text-white hover:bg-accent-hover px-2 py-1 rounded-lg">
                 {saving === key ? "…" : "Save"}
               </button>
             </div>
           ))}
         </div>
       )}
-      <button onClick={onClose} className="text-xs border px-2 py-1 rounded mt-3">
+      <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 text-xs px-2 py-1 rounded-lg mt-3">
         Close
       </button>
     </div>
