@@ -44,6 +44,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
 .input::placeholder,.textarea::placeholder{color:var(--mut)}
 .input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.select-filter{width:auto;max-width:170px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field>label{font-size:13px;font-weight:500;color:var(--tx)}
 .req{color:var(--crit)}
@@ -71,8 +72,9 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .tbl tbody tr:hover td{background:var(--surf2)}
 .tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
 .tbl .r{text-align:right}
-.stk{position:sticky;left:0;z-index:2}
-.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.stk{position:sticky;left:0;z-index:2;background:var(--surf);will-change:transform}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line);background:var(--surf);will-change:transform}
+.tbl tbody tr:hover .stk,.tbl tbody tr:hover .stk2{background:var(--surf2)}
 .pen{color:var(--mut);opacity:0}
 .tbl tr:hover .pen{opacity:1}
 .dash{color:var(--mut)}

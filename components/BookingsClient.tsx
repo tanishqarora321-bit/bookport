@@ -157,6 +157,8 @@ export default function BookingsClient({
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
 
   const lines = useMemo(() => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[], [rows]);
   // "All Destinations" means Port of Delivery (final_destination), not Port
@@ -198,6 +200,16 @@ export default function BookingsClient({
       return true;
     });
   }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, year, cutoffSoonOnly, overdueOnly, search]);
+
+  // Any filter change jumps back to page 1 - staying on, say, page 4 after
+  // narrowing the result set down to one page would just show an empty grid.
+  useEffect(() => {
+    setPage(0);
+  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, cutoffSoonOnly, overdueOnly, search, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = page * pageSize;
+  const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -394,37 +406,37 @@ export default function BookingsClient({
             </span>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: "auto" }}>
+            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s select-filter">
               <option value="all">All Lines</option>
               {lines.map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>
-            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s" style={{ width: "auto" }}>
+            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s select-filter">
               <option value="all">All Destinations</option>
               {destinations.map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s" style={{ width: "auto" }}>
+            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s select-filter">
               <option value="all">All Forwarders</option>
               {forwarderOptions.map((f) => (
                 <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
               ))}
             </select>
-            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s" style={{ width: "auto" }}>
+            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s select-filter">
               <option value="all">All Truckers</option>
               {truckerOptions.map((t) => (
                 <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
               ))}
             </select>
-            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s" style={{ width: "auto" }}>
+            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s select-filter">
               <option value="all">All Suppliers</option>
               {supplierOptions.map((s) => (
                 <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
               ))}
             </select>
-            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s" style={{ width: "auto" }}>
+            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s select-filter">
               <option value="all">All Buyers</option>
               {buyerOptions.map((b) => (
                 <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
@@ -469,12 +481,12 @@ export default function BookingsClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r, idx) => {
+            {paginated.map((r, idx) => {
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
                 <tr key={rowKey(r)}>
-                  <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>{idx + 1}</td>
-                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky />
+                  <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>{pageStart + idx + 1}</td>
+                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky bold />
                   <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
                   <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
@@ -613,7 +625,25 @@ export default function BookingsClient({
       </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--line)" }}>
-          <span className="lbl num">Showing {filtered.length} of {totalBookings}</span>
+          <span className="lbl num">
+            {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="lbl">Rows per page</span>
+              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="select select-s" style={{ width: "auto" }}>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="btn btn-s">
+              Previous
+            </button>
+            <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="btn btn-s">
+              Next
+            </button>
+          </div>
         </div>
       </section>
     </div>

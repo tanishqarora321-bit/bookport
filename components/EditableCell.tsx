@@ -16,8 +16,8 @@ function formatDate(value: string, isDateTime: boolean) {
 // pencil icon that only shows on hover -- editing opens ONLY from clicking
 // that pencil, never from clicking the cell itself.
 export default function EditableCell({
-  bookingId, column, value, isDate = false, highlight = false, sticky = false
-}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean; sticky?: boolean }) {
+  bookingId, column, value, isDate = false, highlight = false, sticky = false, bold = false
+}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean; sticky?: boolean; bold?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -60,7 +60,7 @@ export default function EditableCell({
   if (!editing) {
     return (
       <td className={`${stickyClass} ${highlight ? "num" : ""}`.trim()} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
-        <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: bold ? 700 : undefined }}>
           {display}
           <button onClick={() => setEditing(true)} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
             <PencilIcon />
