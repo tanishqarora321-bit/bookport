@@ -58,12 +58,18 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const res = NextResponse.json({ ok: true, hadOtherDevice });
+  // "Remember me" unchecked -> a session cookie (cleared when the browser
+  // closes) instead of the normal 30-day one. Defaults to remembering
+  // (remember !== false, not remember === true) so the invite/recovery
+  // flow in app/auth/callback, which calls this endpoint without a
+  // `remember` field at all, keeps its existing persistent-login behavior.
+  const remember = body?.remember !== false;
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
   return res;
 }
