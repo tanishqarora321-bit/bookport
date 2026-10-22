@@ -2,14 +2,17 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Container, MapPinned, FileCheck2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Inter } from "next/font/google";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
+
 const FEATURES = [
-  { icon: Container, text: "One booking, every party kept in sync" },
-  { icon: MapPinned, text: "Shipment milestones from cutoff to delivery" },
-  { icon: FileCheck2, text: "Documents, invoices and P&L in one place" },
+  { icon: "◇", text: "One booking, every party kept in sync" },
+  { icon: "⌖", text: "Shipment milestones from cutoff to delivery" },
+  { icon: "▤", text: "Documents, invoices and P&L in one place" },
 ];
 
 // useSearchParams() opts the page out of static rendering unless it's
@@ -143,225 +146,155 @@ function LoginForm() {
   }
 
   return (
-    <div className="h-screen flex bg-surface overflow-hidden">
+    <div className={`shell ${inter.className}`}>
       {/* Brand panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-navy">
-        <div className="relative z-10 flex flex-col justify-between p-12 text-nav-text w-full">
-          <div className="flex items-center gap-3">
-            <Logo size={44} />
-            <div>
-              <div className="font-semibold text-lg leading-tight">Ship-Sphere</div>
-              <div className="text-xs text-nav-muted leading-tight">One Booking. All Connected.</div>
-            </div>
-          </div>
-
-          <div className="max-w-md my-auto py-10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-nav-text/70 mb-[18px]">
-              Freight operations, connected
-            </p>
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight mb-[22px]">
-              Freight forwarding, without the spreadsheet chaos.
-            </h1>
-            <p className="text-nav-text/80 text-[15px] leading-relaxed">
-              Bookings, tracking, documents and invoicing for your whole team — kept in sync, in one
-              place, for every client you manage.
-            </p>
-            <div className="flex flex-col gap-[17px] mt-[30px]">
-              {FEATURES.map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3">
-                  <div
-                    className="flex items-center justify-center shrink-0"
-                    style={{ width: 30, height: 30, borderRadius: 9, border: "1px solid rgba(255,255,255,0.21)", background: "rgba(255,255,255,0.04)" }}
-                  >
-                    <Icon size={14} className="text-nav-text/80" />
-                  </div>
-                  <span className="text-[13px] text-nav-text/95">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 text-[11px] text-nav-text/50">
-            <span>© {new Date().getFullYear()} Ship-Sphere</span>
-            <span>Built for freight teams</span>
+      <section className="brand" aria-label="Ship-Sphere introduction">
+        <div className="lockup">
+          <Logo size={44} />
+          <div>
+            <p className="brandname">Ship-Sphere</p>
+            <p className="tagline">One booking. All connected.</p>
           </div>
         </div>
-      </div>
+
+        <div className="pitch">
+          <p className="eyebrow">Freight operations, connected</p>
+          <h1>Freight forwarding, without the spreadsheet chaos.</h1>
+          <p className="desc">
+            Bring bookings, tracking, documents and invoicing into one dependable workspace for your whole team.
+          </p>
+          <ul className="features">
+            {FEATURES.map(({ icon, text }) => (
+              <li key={text}>
+                <span className="feat-icon" aria-hidden="true">{icon}</span>
+                {text}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <footer className="footer">
+          <span>© {new Date().getFullYear()} Ship-Sphere</span>
+          <span>Built for freight teams</span>
+        </footer>
+      </section>
 
       {/* Form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-        <div className="w-full max-w-[410px] py-6">
-          <div className="flex items-center gap-3 mb-8 justify-center lg:hidden">
-            <Logo size={40} />
-            <div>
-              <div className="font-semibold text-lg leading-tight text-ink">Ship-Sphere</div>
-              <div className="text-xs text-muted leading-tight">One Booking. All Connected.</div>
-            </div>
-          </div>
-
+      <section className="panel" aria-labelledby="title">
+        <div className="form">
           {searchParams.get("reason") === "elsewhere" && (
-            <div className="banner bn-info mb-4" role="status" style={{ fontSize: 13, alignItems: "flex-start" }}>
-              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
-              </svg>
-              <span style={{ flex: 1 }}>
-                You&apos;ve been signed out because this account signed in on another device. Ship-Sphere only allows one active session at a time.
-              </span>
+            <div className="alert alert-info" role="status">
+              You&apos;ve been signed out because this account signed in on another device. Ship-Sphere only allows
+              one active session at a time.
             </div>
           )}
 
           {mode === "signin" ? (
             <>
-              <p className="text-[12px] font-bold text-accent uppercase tracking-[0.08em] mb-3">Your operations workspace</p>
-              <div className="mb-6">
-                <h1 className="h1">Welcome back</h1>
-                <p className="sub">Sign in to continue to your Ship-Sphere workspace.</p>
-              </div>
+              <p className="kicker">Your operations workspace</p>
+              <h2 id="title">Welcome back</h2>
+              <p className="intro">Sign in to continue to your Ship-Sphere workspace.</p>
 
-              <form onSubmit={signIn} className="flex flex-col gap-4">
+              <form onSubmit={signIn}>
                 <div className="field">
                   <label htmlFor="login-email">Work email</label>
                   <input
                     id="login-email"
+                    name="email"
                     type="email"
+                    autoComplete="username"
+                    placeholder="you@company.com"
                     required
                     autoFocus
-                    autoComplete="username"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="input"
-                    style={{ height: 48, borderRadius: 10 }}
-                    placeholder="you@company.com"
                   />
                 </div>
 
                 <div className="field">
                   <label htmlFor="login-password">Password</label>
-                  <div style={{ position: "relative" }}>
+                  <div className="pw-wrap">
                     <input
                       id="login-password"
+                      name="password"
                       type={showPassword ? "text" : "password"}
-                      required
                       autoComplete="current-password"
+                      placeholder="Enter your password"
+                      required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="input"
-                      placeholder="Enter your password"
-                      style={{ height: 48, borderRadius: 10, paddingRight: 44 }}
                     />
                     <button
+                      className="toggle"
                       type="button"
-                      onClick={() => setShowPassword((v) => !v)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       aria-pressed={showPassword}
-                      className="ib"
-                      style={{ position: "absolute", right: 5, top: "50%", transform: "translateY(-50%)" }}
+                      onClick={() => setShowPassword((v) => !v)}
                     >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                     </button>
                   </div>
-                  {error && (
-                    <span className="err" role="alert">
-                      {error}
-                    </span>
-                  )}
-                  {notice && (
-                    <span className="help" role="status" style={{ color: "var(--ok)" }}>
-                      {notice}
-                    </span>
-                  )}
+                  {error && <p className="field-err" role="alert">{error}</p>}
+                  {notice && <p className="field-ok" role="status">{notice}</p>}
                 </div>
 
-                <div className="flex items-center justify-between gap-3" style={{ margin: "2px 0 4px", fontSize: 13 }}>
-                  <label className="flex items-center gap-2 text-muted" style={{ cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      style={{ width: 15, height: 15, accentColor: "var(--accent)" }}
-                    />
-                    Remember me
+                <div className="meta">
+                  <label className="remember">
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => { setMode("reset"); setError(null); }}
-                    style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontSize: 13 }}
-                  >
+                  <button type="button" className="link-btn" onClick={() => { setMode("reset"); setError(null); }}>
                     Forgot password?
                   </button>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn btn-p w-full"
-                  style={{ height: 48, fontSize: 15 }}
-                >
+                <button className="submit" type="submit" disabled={saving}>
                   {saving ? "Signing in…" : "Sign in to Ship-Sphere"}
                 </button>
-
-                <p className="lbl" style={{ margin: 0, textAlign: "center" }}>
-                  Need access? Ask your admin to invite you from Settings &amp; Control.
-                </p>
               </form>
 
-              <p className="meta" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 24 }}>
-                <ShieldCheck size={13} />
-                Your workspace is protected by secure sign-in.
+              <p className="note">
+                Need access? <strong>Ask your admin</strong> to invite you from Settings &amp; Control.
               </p>
+              <p className="security">▣ Your workspace is protected by secure sign-in.</p>
             </>
           ) : (
             <>
-              <div className="mb-6">
-                <h1 className="h1">Reset your password</h1>
-                <p className="sub">
-                  {resetSent
-                    ? "If an account exists for that email, a reset link is on its way."
-                    : "Enter your work email and we'll send you a link to set a new password."}
-                </p>
-              </div>
+              <h2>Reset your password</h2>
+              <p className="intro">
+                {resetSent
+                  ? "If an account exists for that email, a reset link is on its way."
+                  : "Enter your work email and we'll send you a link to set a new password."}
+              </p>
 
               {resetSent ? (
-                <div className="flex flex-col gap-4">
-                  <div className="banner bn-ok" role="status" style={{ fontSize: 13 }}>
-                    <span style={{ flex: 1 }}>Check your inbox for the reset link. It may take a minute to arrive.</span>
+                <>
+                  <div className="alert alert-ok" role="status">
+                    Check your inbox for the reset link. It may take a minute to arrive.
                   </div>
-                  <button type="button" onClick={backToSignIn} className="btn w-full" style={{ height: 48 }}>
+                  <button type="button" className="submit submit-secondary" onClick={backToSignIn}>
                     Back to sign in
                   </button>
-                </div>
+                </>
               ) : (
-                <form onSubmit={sendResetLink} className="flex flex-col gap-4">
+                <form onSubmit={sendResetLink}>
                   <div className="field">
                     <label htmlFor="reset-email">Work email</label>
                     <input
                       id="reset-email"
                       type="email"
+                      autoComplete="username"
+                      placeholder="you@company.com"
                       required
                       autoFocus
-                      autoComplete="username"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="input"
-                      style={{ height: 48, borderRadius: 10 }}
-                      placeholder="you@company.com"
                     />
-                    {resetError && (
-                      <span className="err" role="alert">
-                        {resetError}
-                      </span>
-                    )}
+                    {resetError && <p className="field-err" role="alert">{resetError}</p>}
                   </div>
-
-                  <button type="submit" disabled={resetSending} className="btn btn-p w-full" style={{ height: 48, fontSize: 15 }}>
+                  <button className="submit" type="submit" disabled={resetSending}>
                     {resetSending ? "Sending…" : "Send reset link"}
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={backToSignIn}
-                    style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontWeight: 600, fontSize: 13, textAlign: "center" }}
-                  >
+                  <button type="button" className="link-btn link-btn-center" onClick={backToSignIn}>
                     Back to sign in
                   </button>
                 </form>
@@ -369,7 +302,430 @@ function LoginForm() {
             </>
           )}
         </div>
-      </div>
+      </section>
+
+      <style jsx>{`
+        .shell {
+          --navy: #0b1735;
+          --blue: #2f5fe8;
+          --ink: #14213b;
+          --muted: #65738b;
+          --line: #dce4ef;
+          --field: #f8faff;
+          width: 100%;
+          height: 100vh;
+          height: 100dvh;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          overflow: hidden;
+          color: var(--ink);
+          background: #fff;
+          -webkit-font-smoothing: antialiased;
+        }
+        .brand {
+          min-width: 0;
+          min-height: 0;
+          background: var(--navy);
+          color: #fff;
+          padding: clamp(28px, 4.2vw, 64px);
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          overflow: hidden;
+        }
+        .lockup {
+          display: flex;
+          align-items: center;
+          gap: 13px;
+        }
+        .brandname {
+          margin: 0;
+          font-size: 19px;
+          font-weight: 750;
+          letter-spacing: -0.035em;
+        }
+        .tagline {
+          margin: 3px 0 0;
+          color: #bdcbed;
+          font-size: 12px;
+        }
+        .pitch {
+          width: min(100%, 550px);
+          margin: auto 0;
+          padding: 40px 0;
+        }
+        .eyebrow {
+          color: #a9c0ff;
+          font-size: 11px;
+          text-transform: uppercase;
+          font-weight: 750;
+          letter-spacing: 0.16em;
+          margin: 0 0 18px;
+        }
+        .pitch h1 {
+          max-width: 540px;
+          margin: 0;
+          font-size: clamp(32px, 3.25vw, 48px);
+          line-height: 1.12;
+          letter-spacing: -0.055em;
+          font-weight: 730;
+        }
+        .desc {
+          color: #d0d9ec;
+          max-width: 480px;
+          margin: 22px 0 0;
+          font-size: 15px;
+          line-height: 1.75;
+        }
+        .features {
+          list-style: none;
+          padding: 0;
+          margin: 30px 0 0;
+          display: grid;
+          gap: 17px;
+        }
+        .features li {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: #f3f6ff;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .feat-icon {
+          width: 30px;
+          height: 30px;
+          flex: 0 0 auto;
+          display: grid;
+          place-items: center;
+          border: 1px solid #ffffff35;
+          border-radius: 9px;
+          color: #bcd0ff;
+          background: #ffffff0b;
+        }
+        .footer {
+          color: #aebbd5;
+          font-size: 11px;
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .panel {
+          min-width: 0;
+          min-height: 0;
+          background: #fff;
+          display: grid;
+          place-items: center;
+          padding: clamp(24px, 5vw, 72px);
+          overflow: auto;
+        }
+        .form {
+          width: min(100%, 410px);
+          margin: auto;
+        }
+        .kicker {
+          margin: 0 0 12px;
+          color: var(--blue);
+          font-size: 12px;
+          font-weight: 750;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .form h2 {
+          margin: 0;
+          font-size: clamp(28px, 2.4vw, 34px);
+          line-height: 1.18;
+          letter-spacing: -0.045em;
+          font-weight: 750;
+        }
+        .intro {
+          color: var(--muted);
+          margin: 10px 0 28px;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+        .field {
+          margin-top: 18px;
+        }
+        .field label {
+          display: block;
+          font-size: 13px;
+          font-weight: 650;
+          color: #263650;
+          margin-bottom: 8px;
+        }
+        .field input[type="email"],
+        .field input[type="password"],
+        .field input[type="text"] {
+          width: 100%;
+          height: 48px;
+          border: 1px solid var(--line);
+          border-radius: 10px;
+          background: var(--field);
+          color: var(--ink);
+          padding: 0 14px;
+          outline: none;
+          font: inherit;
+        }
+        .field input:focus {
+          border-color: #80a4ff;
+          background: #fff;
+          box-shadow: 0 0 0 3px #507df526;
+        }
+        .pw-wrap {
+          position: relative;
+        }
+        .pw-wrap input {
+          padding-right: 52px !important;
+        }
+        .toggle {
+          position: absolute;
+          right: 6px;
+          top: 50%;
+          transform: translateY(-50%);
+          height: 36px;
+          width: 38px;
+          border: 0;
+          border-radius: 8px;
+          background: transparent;
+          color: #64748b;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .toggle:hover {
+          background: #edf2fb;
+        }
+        .field-err {
+          color: #c81e1e;
+          font-size: 12px;
+          font-weight: 500;
+          margin: 8px 0 0;
+        }
+        .field-ok {
+          color: #047857;
+          font-size: 12px;
+          font-weight: 500;
+          margin: 8px 0 0;
+        }
+        .meta {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          margin: 13px 0 22px;
+          font-size: 12px;
+        }
+        .remember {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: var(--muted);
+          font-weight: 400;
+          cursor: pointer;
+        }
+        .remember input {
+          accent-color: var(--blue);
+          margin: 0;
+        }
+        .link-btn {
+          background: none;
+          border: 0;
+          padding: 0;
+          cursor: pointer;
+          color: #2857d8;
+          text-decoration: none;
+          font-weight: 650;
+          font-size: 12px;
+          font-family: inherit;
+        }
+        .link-btn:hover {
+          text-decoration: underline;
+        }
+        .link-btn-center {
+          display: block;
+          width: 100%;
+          text-align: center;
+          margin-top: 18px;
+          font-size: 13px;
+        }
+        .submit {
+          width: 100%;
+          min-height: 49px;
+          border: 0;
+          border-radius: 10px;
+          background: var(--blue);
+          color: #fff;
+          font-weight: 700;
+          font-size: 15px;
+          cursor: pointer;
+          box-shadow: 0 5px 12px #2f5fe826;
+          font-family: inherit;
+        }
+        .submit:hover {
+          background: #244dcc;
+        }
+        .submit:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .submit-secondary {
+          margin-top: 14px;
+          background: #eef2fb;
+          color: var(--ink);
+          box-shadow: none;
+        }
+        .submit-secondary:hover {
+          background: #e2e9f8;
+        }
+        .note {
+          color: var(--muted);
+          font-size: 12px;
+          line-height: 1.65;
+          text-align: center;
+          margin: 20px 0 0;
+        }
+        .note strong {
+          color: #263650;
+        }
+        .security {
+          display: flex;
+          justify-content: center;
+          gap: 7px;
+          color: #7c8799;
+          font-size: 11px;
+          margin-top: 26px;
+        }
+        .alert {
+          border-radius: 9px;
+          padding: 12px 14px;
+          font-size: 13px;
+          line-height: 1.55;
+          margin-bottom: 22px;
+        }
+        .alert-info {
+          background: #e5f2fa;
+          color: #0369a1;
+          border: 1px solid #bae1f3;
+        }
+        .alert-ok {
+          background: #e6f6ef;
+          color: #047857;
+          border: 1px solid #b9e8d2;
+          margin-bottom: 0;
+        }
+        button:focus-visible,
+        .toggle:focus-visible,
+        .link-btn:focus-visible {
+          outline: 3px solid #80a4ff;
+          outline-offset: 3px;
+        }
+        @media (max-width: 820px) {
+          .brand {
+            padding: 28px;
+          }
+          .panel {
+            padding: 28px;
+          }
+          .desc {
+            font-size: 14px;
+          }
+          .features li {
+            font-size: 12px;
+          }
+        }
+        @media (max-width: 640px) {
+          .shell {
+            height: auto;
+            min-height: 100vh;
+            min-height: 100dvh;
+            grid-template-columns: minmax(0, 1fr);
+            overflow: visible;
+          }
+          .brand {
+            padding: 22px;
+            overflow: visible;
+          }
+          .pitch {
+            padding: 28px 0 8px;
+            margin: 0;
+          }
+          .eyebrow {
+            margin-bottom: 11px;
+          }
+          .pitch h1 {
+            font-size: 29px;
+          }
+          .desc {
+            margin-top: 12px;
+            font-size: 13px;
+            line-height: 1.6;
+          }
+          .features {
+            margin-top: 18px;
+            gap: 10px;
+          }
+          .feat-icon {
+            width: 28px;
+            height: 28px;
+          }
+          .footer {
+            margin-top: 24px;
+            font-size: 10px;
+          }
+          .panel {
+            padding: 34px 22px 40px;
+            overflow: visible;
+          }
+          .form {
+            width: min(100%, 420px);
+          }
+          .intro {
+            margin-bottom: 22px;
+          }
+        }
+        @media (max-height: 650px) and (min-width: 641px) {
+          .brand {
+            padding-top: 22px;
+            padding-bottom: 22px;
+          }
+          .pitch {
+            padding: 18px 0;
+          }
+          .pitch h1 {
+            font-size: clamp(27px, 3vw, 38px);
+          }
+          .desc {
+            margin-top: 12px;
+            line-height: 1.5;
+          }
+          .features {
+            margin-top: 16px;
+            gap: 9px;
+          }
+          .panel {
+            padding-top: 18px;
+            padding-bottom: 18px;
+          }
+          .intro {
+            margin-bottom: 16px;
+          }
+          .field {
+            margin-top: 13px;
+          }
+          .meta {
+            margin-bottom: 15px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .shell * {
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
