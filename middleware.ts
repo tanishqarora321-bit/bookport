@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Stage 2: now that real accounts exist and login/invite has been
@@ -14,6 +15,22 @@ const SESSION_COOKIE = "bp_session";
 const SESSION_CHECK_EXEMPT = ["/api/session/register"];
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // /api/session/register does its own auth entirely, from the access_token
+  // the client just got back from signInWithPassword - it has to, since this
+  // device's session cookie hasn't necessarily propagated to this very
+  // request yet. Nothing below would use the result of a getUser() call for
+  // this path (isApi short-circuits the redirect, and the active_sessions
+  // check explicitly skips it), so doing it anyway was a second wasted
+  // round trip to Supabase on every single login.
+  if (SESSION_CHECK_EXEMPT.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next({ request: { headers: request.headers } });
+  }
+
+  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isApi = pathname.startsWith("/api");
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
@@ -38,10 +55,49 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Single-device login, checked by SESSION_COOKIE's own token rather than
+  // by user id: whichever device last called /api/session/register (on
+  // sign-in, or on setting a password from an invite/recovery link) is the
+  // one "active" session for this account, and its token is the only one
+  // left in active_sessions once it overwrites the previous row - every
+  // other device's cookie stops matching anything there on its very next
+  // request and gets signed out here. Checking by token (via a service-role
+  // client, so it doesn't depend on RLS seeing an already-authenticated
+  // request) rather than by user id means this doesn't need a verified user
+  // first: it was previously gated behind a successful getUser() call,
+  // which meant any hiccup there (a slow or flaky response from Supabase's
+  // Auth server) surfaced as a bare "please sign in" instead of the actual,
+  // more helpful reason. A request with no SESSION_COOKIE at all (never
+  // signed in, or signed in before this feature shipped) is left alone
+  // rather than locked out - it's handled by the ordinary
+  // signed-out-entirely check below instead.
+  if (!isPublic) {
+    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+    if (sessionToken) {
+      const service = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { data: owner } = await service.from("active_sessions").select("session_token").eq("session_token", sessionToken).maybeSingle();
+      if (!owner) {
+        await supabase.auth.signOut();
+        if (isApi) {
+          return NextResponse.json(
+            { error: "You've been signed out because this account signed in on another device." },
+            { status: 401 }
+          );
+        }
+        const loginUrl = request.nextUrl.clone();
+        loginUrl.pathname = "/login";
+        loginUrl.searchParams.set("reason", "elsewhere");
+        const redirectResponse = NextResponse.redirect(loginUrl);
+        for (const cookie of response.cookies.getAll()) {
+          redirectResponse.cookies.set(cookie);
+        }
+        redirectResponse.cookies.delete(SESSION_COOKIE);
+        return redirectResponse;
+      }
+    }
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  const isApi = pathname.startsWith("/api");
 
   if (!user && !isPublic && !isApi) {
     const loginUrl = request.nextUrl.clone();
@@ -55,33 +111,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
-  // Single-device login: whichever device last called /api/session/register
-  // (on sign-in, or on setting a password from an invite/recovery link) is
-  // the one "active" session for this account - every other device's
-  // cookie stops matching active_sessions.session_token on its very next
-  // request and gets signed out here. A user with no active_sessions row
-  // yet (already signed in before this shipped) is left alone rather than
-  // locked out - they get enrolled the next time they actually log in.
-  if (user && !isPublic && !SESSION_CHECK_EXEMPT.some((p) => pathname.startsWith(p))) {
-    const { data: activeSession } = await supabase
-      .from("active_sessions")
-      .select("session_token")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (activeSession && activeSession.session_token !== request.cookies.get(SESSION_COOKIE)?.value) {
-      await supabase.auth.signOut();
-      if (isApi) {
-        return NextResponse.json(
-          { error: "You've been signed out because this account signed in on another device." },
-          { status: 401 }
-        );
-      }
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      loginUrl.searchParams.set("reason", "elsewhere");
-      return NextResponse.redirect(loginUrl);
+  // Hand the already-verified user down to getCurrentProfile() (used by
+  // nearly every page/route) via a request header, so it doesn't have to
+  // make its own redundant getUser() round trip to Supabase for a token
+  // this middleware just finished verifying - that was doubling the Auth
+  // latency on every single page load. Rebuilt on the final request
+  // headers (not the original request.headers) so it reflects whatever
+  // the cookie get/set/remove callbacks above last settled on; cookies
+  // already queued on `response` are carried over since they still need
+  // to reach the browser.
+  if (user) {
+    const headersWithUser = new Headers(request.headers);
+    headersWithUser.set("x-bp-user-id", user.id);
+    headersWithUser.set("x-bp-user-email", user.email ?? "");
+    const finalResponse = NextResponse.next({ request: { headers: headersWithUser } });
+    for (const cookie of response.cookies.getAll()) {
+      finalResponse.cookies.set(cookie);
     }
+    return finalResponse;
   }
 
   return response;

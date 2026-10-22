@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Container, MapPinned, FileCheck2 } from "lucide-react";
+import { Container, MapPinned, FileCheck2, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
@@ -28,8 +28,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // An invite/recovery link's #access_token lands here instead of
   // /auth/callback whenever its redirectTo isn't (yet) on Supabase's
@@ -47,10 +49,15 @@ function LoginForm() {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setNotice(null);
     try {
       const supabase = createClient();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        // Supabase's own message ("Invalid login credentials") deliberately
+        // doesn't say whether the email or the password was wrong - that's
+        // intentional (it stops someone from using this form to find out
+        // which emails have accounts) and shows up instantly either way.
         setError(error.message);
         return;
       }
@@ -68,10 +75,18 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ access_token: data.session?.access_token }),
       });
+      const registerJson = await registerRes.json().catch(() => ({}));
       if (!registerRes.ok) {
-        const json = await registerRes.json().catch(() => ({}));
-        setError(json.error || "Signed in, but couldn't finish setting up your session. Please try again.");
+        setError(registerJson.error || "Signed in, but couldn't finish setting up your session. Please try again.");
         return;
+      }
+      if (registerJson.hadOtherDevice) {
+        // Brief, visible confirmation that the other device was actually
+        // signed out - the alternative is silence here and that device
+        // finding out on its own next click, which reads as a bug rather
+        // than the intended one-session-at-a-time behavior.
+        setNotice("Signed in. You were logged out of your other device.");
+        await new Promise((resolve) => setTimeout(resolve, 700));
       }
       router.push("/bookings");
       router.refresh();
@@ -166,18 +181,35 @@ function LoginForm() {
 
             <div className="field">
               <label htmlFor="login-password">Password</label>
-              <input
-                id="login-password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="••••••••"
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input"
+                  placeholder="••••••••"
+                  style={{ paddingRight: 40 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="ib"
+                  style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)" }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               {error && (
                 <span className="err" role="alert">
                   {error}
+                </span>
+              )}
+              {notice && (
+                <span className="help" role="status" style={{ color: "var(--ok)" }}>
+                  {notice}
                 </span>
               )}
             </div>
