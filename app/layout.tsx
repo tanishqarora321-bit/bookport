@@ -1,8 +1,7 @@
 import "./globals.css";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import Sidebar from "@/components/Sidebar";
-import Header from "@/components/Header";
+import AppShell from "@/components/AppShell";
 import { YearProvider } from "@/lib/year-context";
 import { ThemeProvider } from "@/lib/theme-context";
 
@@ -23,13 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-bg text-ink min-h-screen">
         <ThemeProvider>
           <YearProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Header />
-                <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-              </div>
-            </div>
+            <AppShell>{children}</AppShell>
           </YearProvider>
         </ThemeProvider>
       </body>
