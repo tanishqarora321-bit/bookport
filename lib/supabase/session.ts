@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { createClient as createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 
@@ -23,16 +24,33 @@ export type CurrentProfile = {
 // company, they'd also be able to onboard new client companies. Revisit
 // this if that's ever a real scenario, not just a today's-scale shortcut.
 export async function getCurrentProfile(): Promise<CurrentProfile | null> {
-  const supabase = createServerClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
-  if (!user) return null;
+  // middleware.ts already called getUser() to verify this exact request's
+  // token and hands the result down via this header - reusing it here
+  // skips a second, redundant round trip to Supabase's Auth server on
+  // every single page/route that looks up the current profile (nearly all
+  // of them). Falls back to checking directly in the one case this header
+  // wouldn't be set: a request that didn't go through middleware at all.
+  const hdrs = headers();
+  const headerUserId = hdrs.get("x-bp-user-id");
+  let userId: string;
+  let userEmail: string;
+
+  if (headerUserId) {
+    userId = headerUserId;
+    userEmail = hdrs.get("x-bp-user-email") ?? "";
+  } else {
+    const supabase = createServerClient();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return null;
+    userId = userData.user.id;
+    userEmail = userData.user.email ?? "";
+  }
 
   const service = createServiceClient();
   const { data: profile } = await service
     .from("profiles")
     .select("id, full_name, role, company_id, is_active, companies(name, subscription_status)")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!profile || !profile.is_active) return null;
@@ -50,7 +68,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
 
   return {
     id: profile.id,
-    email: user.email ?? "",
+    email: userEmail,
     full_name: profile.full_name,
     role: profile.role,
     company_id: profile.company_id,

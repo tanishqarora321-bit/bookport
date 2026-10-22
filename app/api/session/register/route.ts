@@ -12,7 +12,7 @@ const SESSION_COOKIE = "bp_session";
 // registers here last wins, and every other device gets kicked out.
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
-  let { data: { user } } = await supabase.auth.getUser();
+  const body = await req.json().catch(() => ({}));
 
   // Cookie-based auth can momentarily miss a session that was JUST
   // issued by signInWithPassword/updateUser on the client a few
@@ -21,21 +21,31 @@ export async function POST(req: NextRequest) {
   // treated as "not signed in" here, which in turn left the OLD device's
   // active_sessions row in place, which then looked like an active
   // session on another device and signed the real new login right back
-  // out. The caller can pass the access_token it already has from its
-  // own signInWithPassword/updateUser call so this doesn't depend on
-  // cookie timing at all.
-  if (!user) {
-    const body = await req.json().catch(() => ({}));
-    if (body?.access_token) {
-      const { data } = await supabase.auth.getUser(body.access_token);
-      user = data.user;
-    }
-  }
+  // out. The caller always has the access_token from its own
+  // signInWithPassword/updateUser call, so check that FIRST and skip the
+  // cookie-based lookup entirely instead of trying it, expecting it to
+  // miss, and falling back - that was a second wasted round trip to
+  // Supabase on every single login.
+  const { data } = body?.access_token
+    ? await supabase.auth.getUser(body.access_token)
+    : await supabase.auth.getUser();
+  const user = data.user;
 
   if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
   const token = crypto.randomUUID();
   const service = createServiceClient();
+  // Was this account already active on a different device? Has to be read
+  // BEFORE the upsert overwrites it - running it in parallel instead
+  // (to save a round trip) seemed safe since it's purely informational,
+  // but under real network latency the select routinely resolved AFTER
+  // the upsert had already landed, making hadOtherDevice false even when
+  // another device really had just been signed out. Telling the person
+  // that happened is the whole point of this flag, so correctness here
+  // matters more than the one extra sequential round trip.
+  const { data: previous } = await service.from("active_sessions").select("session_token").eq("user_id", user.id).maybeSingle();
+  const hadOtherDevice = !!previous && previous.session_token !== token;
+
   const { error } = await service.from("active_sessions").upsert(
     {
       user_id: user.id,
@@ -47,13 +57,19 @@ export async function POST(req: NextRequest) {
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true, hadOtherDevice });
+  // "Remember me" unchecked -> a session cookie (cleared when the browser
+  // closes) instead of the normal 30-day one. Defaults to remembering
+  // (remember !== false, not remember === true) so the invite/recovery
+  // flow in app/auth/callback, which calls this endpoint without a
+  // `remember` field at all, keeps its existing persistent-login behavior.
+  const remember = body?.remember !== false;
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}),
   });
   return res;
 }

@@ -1,5 +1,5 @@
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 import { YearProvider } from "@/lib/year-context";
 
 export const metadata = { title: "Ship-Sphere" };
@@ -9,10 +9,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="bg-slate-50 text-ink min-h-screen">
         <YearProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-          </div>
+          <AppShell>{children}</AppShell>
         </YearProvider>
       </body>
     </html>
