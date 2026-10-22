@@ -35,25 +35,26 @@ export async function POST(req: NextRequest) {
 
   const token = crypto.randomUUID();
   const service = createServiceClient();
-  // Was this account already active on a different device? This is purely
-  // informational (so the caller can tell the person who just signed in
-  // that it happened) - not a security gate, the new login always wins
-  // either way - so it's safe to run alongside the upsert instead of
-  // waiting on it first: the rare race where it reads after the upsert
-  // already landed just under-reports hadOtherDevice, it never over-reports.
-  const [{ data: previous }, { error }] = await Promise.all([
-    service.from("active_sessions").select("session_token").eq("user_id", user.id).maybeSingle(),
-    service.from("active_sessions").upsert(
-      {
-        user_id: user.id,
-        session_token: token,
-        device_label: req.headers.get("user-agent")?.slice(0, 200) ?? null,
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    ),
-  ]);
+  // Was this account already active on a different device? Has to be read
+  // BEFORE the upsert overwrites it - running it in parallel instead
+  // (to save a round trip) seemed safe since it's purely informational,
+  // but under real network latency the select routinely resolved AFTER
+  // the upsert had already landed, making hadOtherDevice false even when
+  // another device really had just been signed out. Telling the person
+  // that happened is the whole point of this flag, so correctness here
+  // matters more than the one extra sequential round trip.
+  const { data: previous } = await service.from("active_sessions").select("session_token").eq("user_id", user.id).maybeSingle();
   const hadOtherDevice = !!previous && previous.session_token !== token;
+
+  const { error } = await service.from("active_sessions").upsert(
+    {
+      user_id: user.id,
+      session_token: token,
+      device_label: req.headers.get("user-agent")?.slice(0, 200) ?? null,
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const res = NextResponse.json({ ok: true, hadOtherDevice });
