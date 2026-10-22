@@ -101,7 +101,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex bg-surface">
+    <div className="h-screen flex bg-surface overflow-hidden">
       {/* Brand panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-navy">
         <div className="relative z-10 flex flex-col justify-between p-12 text-nav-text w-full">
