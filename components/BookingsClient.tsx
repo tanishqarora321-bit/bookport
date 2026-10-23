@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail } from "lucide-react";
-import EditableCell from "@/components/EditableCell";
+import EditableCell, { CloseIcon } from "@/components/EditableCell";
 import PartyPickerCell from "@/components/PartyPickerCell";
 import ContainerCell from "@/components/ContainerCell";
 import StatCard from "@/components/ui/StatCard";
+import EmptyState from "@/components/ui/EmptyState";
 import StatusCell from "@/components/StatusCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
@@ -41,6 +43,11 @@ type Row = {
   packing_items: PackingItem[];
 };
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 function monthOfLoading(erd: string | null): string {
   if (!erd) return "—";
   const d = new Date(erd);
@@ -64,7 +71,7 @@ function toCsv(rows: Row[]) {
     "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
     "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
     "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-    "Container Number", "Vessel", "Seal No", "Weight", "Bales", "Status", "Instruction Status",
+    "Container Number", "Container Size", "Seal No", "Weight", "Bales", "Status", "Instruction Status",
   ];
   const lines = rows.map((r) => {
     const firstPacking = r.packing_items[0];
@@ -108,20 +115,30 @@ export default function BookingsClient({
   // entries, for the banner linking over to the Multiple page.
   duplicateGroupCount?: number;
 }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [forwarderOptions, setForwarderOptions] = useState(forwarders);
   const [truckerOptions, setTruckerOptions] = useState(truckers);
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
 
-  // The sidebar's Year selector - off by default here (a booking with no
-  // ERD yet has no determinable year, and defaulting this ON could
-  // silently hide a grid full of real bookings the moment someone picks
-  // a year), opt in with the checkbox below. A booking's year always
-  // comes from its own Month of Loading (ERD), never a separately
-  // entered field.
+  // router.refresh() re-runs this page's server-side data fetch and hands
+  // this component fresh props without a browser navigation - this is
+  // what actually applies it, since useState(initialRows) only reads that
+  // prop once on mount and otherwise ignores later prop changes.
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
+
+  // The sidebar's Year selector is the one working-year filter for this
+  // grid - always on, no separate opt-in toggle, since having both was
+  // redundant with the sidebar already being "the" year control. A
+  // booking's year always comes from its own Month of Loading (ERD),
+  // never a separately entered field; a booking with no ERD yet can't
+  // belong to any year, so it won't show until it has one. The Month
+  // filter below narrows further within whichever year is selected.
   const { year } = useYear();
-  const [filterByYear, setFilterByYear] = useState(false);
+  const [monthFilter, setMonthFilter] = useState("all");
 
   // The duplicate-numbers banner is a one-time heads-up, not a permanent
   // fixture - once dismissed for the current count, it stays hidden until
@@ -156,6 +173,8 @@ export default function BookingsClient({
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
 
   const lines = useMemo(() => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[], [rows]);
   // "All Destinations" means Port of Delivery (final_destination), not Port
@@ -177,7 +196,14 @@ export default function BookingsClient({
       if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
       if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
-      if (filterByYear && r.erd && new Date(r.erd).getFullYear() !== year) return false;
+      // The working year (sidebar) always filters this grid - a booking
+      // with no Month of Loading/ERD yet can't belong to any year, so it
+      // drops out until it has one. The Month filter then narrows further
+      // within that year.
+      if (!r.erd) return false;
+      const erdDate = new Date(r.erd);
+      if (erdDate.getFullYear() !== year) return false;
+      if (monthFilter !== "all" && erdDate.getMonth() !== Number(monthFilter)) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -196,7 +222,17 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, year, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
+
+  // Any filter change jumps back to page 1 - staying on, say, page 4 after
+  // narrowing the result set down to one page would just show an empty grid.
+  useEffect(() => {
+    setPage(0);
+  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = page * pageSize;
+  const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -257,6 +293,29 @@ export default function BookingsClient({
     setRows((prev) => prev.filter((r) => r.booking_id !== bookingId));
   }
 
+  function clearFilters() {
+    setLine("all");
+    setDestination("all");
+    setStatus("all");
+    setForwarderFilter("all");
+    setTruckerFilter("all");
+    setSupplierFilter("all");
+    setBuyerFilter("all");
+    setCutoffSoonOnly(false);
+    setOverdueOnly(false);
+    setSearch("");
+  }
+
+  const activeChips: { label: string; clear: () => void }[] = [
+    line !== "all" ? { label: `Line: ${line}`, clear: () => setLine("all") } : null,
+    destination !== "all" ? { label: `Destination: ${destination}`, clear: () => setDestination("all") } : null,
+    status !== "all" ? { label: `Status: ${status}`, clear: () => setStatus("all") } : null,
+    forwarderFilter !== "all" ? { label: `Forwarder: ${forwarderFilter}`, clear: () => setForwarderFilter("all") } : null,
+    truckerFilter !== "all" ? { label: `Trucker: ${truckerFilter}`, clear: () => setTruckerFilter("all") } : null,
+    supplierFilter !== "all" ? { label: `Supplier: ${supplierFilter}`, clear: () => setSupplierFilter("all") } : null,
+    buyerFilter !== "all" ? { label: `Buyer: ${buyerFilter}`, clear: () => setBuyerFilter("all") } : null,
+  ].filter((c): c is { label: string; clear: () => void } => c !== null);
+
   function exportCsv() {
     const csv = toCsv(filtered);
     const blob = new Blob([csv], { type: "text/csv" });
@@ -269,149 +328,191 @@ export default function BookingsClient({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center mb-6 shrink-0">
+    <div className="flex flex-col h-full" style={{ gap: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
         <div>
-          <h1 className="text-2xl font-semibold text-ink">
+          <h1 className="h1">
             {variant === "multiple" ? "Multiple Bookings & Instructions" : "Booking & Instructions"}
           </h1>
-          <p className="text-sm text-ink/40">
+          <p className="sub">
             {variant === "multiple"
               ? "Booking numbers with more than one entry — delete the ones that don't belong here, or edit them directly. Once only one entry is left for a number, it moves back to Booking & Instructions on its own."
               : "Source of truth — click the pencil icon on any cell to edit"}
           </p>
         </div>
-        <Link
-          href={variant === "multiple" ? "/bookings/new?forMultiple=1" : "/bookings/new"}
-          className="bg-accent text-white px-4 py-2.5 rounded-lg text-sm font-medium shrink-0"
-        >
-          + New Booking
-        </Link>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button onClick={exportCsv} className="btn">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+            </svg>
+            Export CSV
+          </button>
+          <Link href={variant === "multiple" ? "/bookings/new?forMultiple=1" : "/bookings/new"} className="btn btn-p">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            New Booking
+          </Link>
+        </div>
       </div>
 
       {variant === "single" && duplicateGroupCount > 0 && dismissedDuplicateCount !== null && duplicateGroupCount > dismissedDuplicateCount && (
-        <div className="flex items-center gap-2 mb-4 shrink-0 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-2.5">
-          <AlertTriangle className="w-4 h-4 shrink-0" size={16} />
-          <Link href="/bookings/multiple" className="flex-1 hover:underline">
-            {duplicateGroupCount} booking number{duplicateGroupCount === 1 ? "" : "s"} {duplicateGroupCount === 1 ? "has" : "have"} more than one entry — review in Multiple Bookings & Instructions →
-          </Link>
-          <button onClick={dismissDuplicateBanner} className="text-amber-800/60 hover:text-amber-800 shrink-0" title="Dismiss">
-            ✕
+        <div className="banner bn-warn" role="status">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3l10 18H2zM12 10v4M12 17v.5" />
+          </svg>
+          <span style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <b style={{ fontWeight: 600 }}>
+              {duplicateGroupCount} booking number{duplicateGroupCount === 1 ? "" : "s"} {duplicateGroupCount === 1 ? "has" : "have"} more than one entry
+            </b>{" "}
+            — <Link href="/bookings/multiple" style={{ fontWeight: 600 }}>review in Multiple Bookings & Instructions →</Link>
+          </span>
+          <button onClick={dismissDuplicateBanner} aria-label="Dismiss banner" className="ib">
+            <CloseIcon />
           </button>
         </div>
       )}
 
       {variant === "single" && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 shrink-0">
+        <section aria-label="Booking totals" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 9 }}>
           <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
           <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
           <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
           <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
           <StatCard icon={PackageCheck} label="Delivered" value={deliveredCount} tone="success" />
           <StatCard icon={Mail} label="Instructions Sent" value={instructionsSentCount} tone="success" />
-        </div>
+        </section>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-4 shrink-0">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search booking #, POL, POD…"
-            className="border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-sm bg-white w-56"
-          />
-        </div>
-        <select value={line} onChange={(e) => setLine(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Lines</option>
-          {lines.map((l) => (
-            <option key={l} value={l}>{l}</option>
-          ))}
-        </select>
-        <select value={destination} onChange={(e) => setDestination(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Destinations</option>
-          {destinations.map((d) => (
-            <option key={d} value={d}>{d}</option>
-          ))}
-        </select>
-        <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Forwarders</option>
-          {forwarderOptions.map((f) => (
-            <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
-          ))}
-        </select>
-        <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Truckers</option>
-          {truckerOptions.map((t) => (
-            <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
-          ))}
-        </select>
-        <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Suppliers</option>
-          {supplierOptions.map((s) => (
-            <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
-          ))}
-        </select>
-        <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Buyers</option>
-          {buyerOptions.map((b) => (
-            <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
-          ))}
-        </select>
-        <label className="flex items-center gap-1.5 text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 cursor-pointer">
-          <input type="checkbox" checked={filterByYear} onChange={(e) => setFilterByYear(e.target.checked)} />
-          Only {year} (by Month of Loading)
-        </label>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-          <option value="all">All Status</option>
-          <option value="draft">Draft</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="in_transit">In Transit</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <button
-          onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)}
-          className={`border rounded-lg px-3 py-2 text-sm ${cutoffSoonOnly ? "bg-accent text-white border-accent" : "bg-white border-slate-200"}`}
-        >
-          Cut off within 3 days
-        </button>
-        <button
-          onClick={() => setOverdueOnly(!overdueOnly)}
-          className={`border rounded-lg px-3 py-2 text-sm ${overdueOnly ? "bg-cutoff text-white border-cutoff" : "bg-white border-slate-200"}`}
-        >
-          Cut-off overdue
-        </button>
-        <button onClick={exportCsv} className="ml-auto border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white hover:bg-slate-50">
-          ⬇ Export CSV
-        </button>
-      </div>
-
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
-      <div className="bg-white rounded-xl border border-slate-200 flex-1 overflow-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead className="text-left text-ink/50 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+      <section className="card" aria-label="Bookings table" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+            <label style={{ flex: "1 1 300px", maxWidth: 380, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
+              <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
+              <span className="sr">Search bookings</span>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search booking #, POL, POD…"
+                style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
+              />
+            </label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="select select-s" style={{ width: "auto" }}>
+              <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="in_transit">In Transit</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
+              </svg>
+              Cut off within 3 days
+            </button>
+            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l10 18H2zM12 10v4" />
+              </svg>
+              Cut-off overdue
+            </button>
+            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: "auto" }}>
+              <option value="all">All Months ({year})</option>
+              {MONTH_NAMES.map((m, i) => (
+                <option key={m} value={i}>{m} {year}</option>
+              ))}
+            </select>
+            <div style={{ flex: "1 1 0" }} />
+            <span className="lbl num" aria-live="polite">
+              <b style={{ color: "var(--tx)" }}>{filtered.length}</b> bookings
+            </span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s select-filter">
+              <option value="all">All Lines</option>
+              {lines.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s select-filter">
+              <option value="all">All Destinations</option>
+              {destinations.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s select-filter">
+              <option value="all">All Forwarders</option>
+              {forwarderOptions.map((f) => (
+                <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
+              ))}
+            </select>
+            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s select-filter">
+              <option value="all">All Truckers</option>
+              {truckerOptions.map((t) => (
+                <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
+              ))}
+            </select>
+            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s select-filter">
+              <option value="all">All Suppliers</option>
+              {supplierOptions.map((s) => (
+                <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
+              ))}
+            </select>
+            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s select-filter">
+              <option value="all">All Buyers</option>
+              {buyerOptions.map((b) => (
+                <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
+              ))}
+            </select>
+            {activeChips.length > 0 && (
+              <button onClick={clearFilters} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13, marginLeft: 4 }}>
+                Clear filters
+              </button>
+            )}
+          </div>
+          {activeChips.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <span className="meta">Active:</span>
+              {activeChips.map((c) => (
+                <button key={c.label} onClick={c.clear} className="chip on" style={{ height: 28 }}>
+                  {c.label}
+                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                  <span className="sr">Remove filter</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+      <div className="tw" style={{ flex: 1, minHeight: 0 }}>
+        <table className="tbl">
+          <thead>
             <tr>
               {[
                 "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At", "Upload BL",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-                "Container Number", "Vessel", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
+                "Container Number", "Container Size", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
-                <th key={i} className="px-3 py-2.5 font-semibold uppercase tracking-wide text-[11px] whitespace-nowrap">
+                <th key={i} className={i === 0 ? "stk" : i === 1 ? "stk2" : undefined} style={i === 0 ? { zIndex: 3, width: 56, minWidth: 56 } : i === 1 ? { zIndex: 3 } : undefined}>
                   {label}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r, idx) => {
+            {paginated.map((r, idx) => {
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
-                <tr key={rowKey(r)} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70">
-                  <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{idx + 1}</td>
-                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} />
-                  <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/60">{monthOfLoading(r.erd)}</td>
+                <tr key={rowKey(r)}>
+                  <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>{pageStart + idx + 1}</td>
+                  <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky bold />
+                  <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
                   <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
                   <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} />
@@ -423,10 +524,15 @@ export default function BookingsClient({
                     bookingId={r.booking_id}
                     blNumber={r.bl_number}
                     // A BL can update fields across every container on this
-                    // booking at once (not just this row's own) - simplest
-                    // to just reload rather than patch N rows' worth of
-                    // scattered state by hand.
-                    onApplied={() => window.location.reload()}
+                    // booking at once (not just this row's own), so patching
+                    // local state by hand for every affected row/container
+                    // risked missing one - router.refresh() re-fetches this
+                    // page's data server-side and hands it back down via
+                    // the initialRows-sync effect above, which is correct
+                    // for all of them at once without a full browser
+                    // navigation (a plain reload briefly showed a blank
+                    // white page while the whole document reloaded).
+                    onApplied={() => router.refresh()}
                   />
                   <EditableCell bookingId={r.booking_id} column="carrier" value={r.carrier} />
                   <PartyPickerCell
@@ -502,33 +608,74 @@ export default function BookingsClient({
                     value={r.instruction_status}
                     onChanged={(v) => updateRowsForBooking(r.booking_id, { instruction_status: v })}
                   />
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-3">
-                      <Link href={`/bookings/${r.booking_id}`} className="text-accent hover:underline text-sm whitespace-nowrap">
+                  <td>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <Link href={`/bookings/${r.booking_id}`} style={{ fontWeight: 600 }}>
                         View →
                       </Link>
                       <button
                         onClick={() => deleteBooking(r.booking_id, r.carrier_booking_no)}
-                        className="text-cutoff hover:underline text-sm whitespace-nowrap"
-                        title="Delete booking"
+                        aria-label={`Delete booking ${r.carrier_booking_no ?? ""}`}
+                        className="ib"
+                        style={{ color: "var(--crit)" }}
                       >
-                        Delete
+                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                        </svg>
                       </button>
-                    </div>
+                    </span>
                   </td>
                 </tr>
               );
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={24} className="p-8 text-center text-ink/40">
-                  {rows.length === 0 ? "No bookings yet. Upload a PDF or add one manually." : "No bookings match these filters."}
+                <td colSpan={24} className="p-0">
+                  {rows.length === 0 && variant === "multiple" ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                      <CheckCircle2 className="w-8 h-8 text-success" size={32} />
+                      <div className="text-sm font-medium text-ink">No duplicate booking numbers</div>
+                      <div className="text-xs text-muted max-w-sm">Every booking number has a single entry.</div>
+                      <Link href="/bookings" className="btn btn-s" style={{ marginTop: 4 }}>
+                        Back to Booking & Instructions
+                      </Link>
+                    </div>
+                  ) : (
+                    <EmptyState
+                      icon={ClipboardList}
+                      title={rows.length === 0 ? "No bookings yet" : "No bookings match these filters"}
+                      hint={rows.length === 0 ? "Upload a PDF or add one manually." : undefined}
+                    />
+                  )}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px", borderTop: "1px solid var(--line)" }}>
+          <span className="lbl num">
+            {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="lbl">Rows per page</span>
+              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="select select-s" style={{ width: "auto" }}>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="btn btn-s">
+              Previous
+            </button>
+            <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="btn btn-s">
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -538,9 +685,9 @@ export default function BookingsClient({
 // have gone out to the carrier yet. Blank (unset) has no color, matching
 // how every other optional field in this grid reads "—" rather than a
 // colored pill until someone actually sets it.
-const INSTRUCTION_STATUS_COLORS: Record<string, string> = {
-  sent: "bg-emerald-100 text-emerald-700",
-  not_sent: "bg-red-100 text-red-700",
+const INSTRUCTION_STATUS_BADGE: Record<string, string> = {
+  sent: "b-ok",
+  not_sent: "b-crit",
 };
 const INSTRUCTION_STATUS_LABELS: Record<string, string> = {
   sent: "Sent",
@@ -574,21 +721,23 @@ function InstructionStatusCell({
     }
   }
 
-  const colorClass = value ? INSTRUCTION_STATUS_COLORS[value] ?? "bg-slate-100 text-slate-600" : "bg-white border border-slate-200 text-ink/60";
+  const badgeClass = value ? INSTRUCTION_STATUS_BADGE[value] ?? "b-neu" : "b-neu";
 
   return (
-    <td className="px-3 py-2 min-w-[140px]">
+    <td style={{ minWidth: 140 }}>
       <select
         value={value ?? ""}
         onChange={(e) => handleChange(e.target.value)}
         disabled={saving}
-        className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
+        aria-label="Instruction Status"
+        className={`badge ${badgeClass}`}
+        style={{ border: 0, cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 600 }}
       >
         <option value="">—</option>
         <option value="sent">{INSTRUCTION_STATUS_LABELS.sent}</option>
         <option value="not_sent">{INSTRUCTION_STATUS_LABELS.not_sent}</option>
       </select>
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );
 }

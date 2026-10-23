@@ -6,8 +6,8 @@ import { Ship } from "lucide-react";
 export default function Logo({ size = 36 }: { size?: number }) {
   return (
     <div
-      className="rounded-lg bg-accent flex items-center justify-center shrink-0"
-      style={{ width: size, height: size }}
+      className="flex items-center justify-center shrink-0"
+      style={{ width: size, height: size, borderRadius: 10, background: "#2F5FE0" }}
     >
       <Ship className="text-white" size={size * 0.58} strokeWidth={2.25} />
     </div>

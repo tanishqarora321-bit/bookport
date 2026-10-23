@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function formatDate(value: string, isDateTime: boolean) {
   const d = new Date(value);
@@ -16,12 +16,24 @@ function formatDate(value: string, isDateTime: boolean) {
 // pencil icon that only shows on hover -- editing opens ONLY from clicking
 // that pencil, never from clicking the cell itself.
 export default function EditableCell({
-  bookingId, column, value, isDate = false, highlight = false
-}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean }) {
+  bookingId, column, value, isDate = false, highlight = false, sticky = false, bold = false
+}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean; sticky?: boolean; bold?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Owns the displayed value locally after a successful save instead of
+  // reloading the whole page to pick up the new value from the server -
+  // that reload (there purely because this cell has no way to tell its
+  // parent what changed) briefly showed a blank white page on every
+  // single edit anywhere this component is used (40+ call sites). Synced
+  // back to the `value` prop below so an update from elsewhere (e.g. a
+  // sibling action's router.refresh()) still overrides this once fresh
+  // data actually arrives, rather than this cell clinging to a stale save.
+  const [savedValue, setSavedValue] = useState(value);
+  useEffect(() => {
+    setSavedValue(value);
+  }, [value]);
 
   async function save() {
     setSaving(true);
@@ -40,32 +52,32 @@ export default function EditableCell({
       let json: any = {};
       try { json = text ? JSON.parse(text) : {}; } catch { /* non-JSON body, fall through to status */ }
       if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
-      window.location.reload();
+      setSavedValue(val);
+      setEditing(false);
     } catch (err: any) {
-      setSaving(false);
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
   function cancel() {
-    setVal(value ?? "");
+    setVal(savedValue ?? "");
     setEditing(false);
     setError(null);
   }
 
-  const display = value ? (isDate ? formatDate(value, value.includes("T")) : value) : "—";
+  const display = savedValue ? (isDate ? formatDate(savedValue, savedValue.includes("T")) : savedValue) : "—";
+
+  const stickyClass = sticky ? "stk2" : "";
 
   if (!editing) {
     return (
-      <td className={`px-3 py-2 text-sm whitespace-nowrap group ${highlight ? "text-cutoff font-medium" : "text-ink/80"}`}>
-        <span className="inline-flex items-center gap-1.5">
+      <td className={`${stickyClass} ${highlight ? "num" : ""}`.trim()} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
+        <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: bold ? 700 : undefined }}>
           {display}
-          <button
-            onClick={() => setEditing(true)}
-            title="Edit"
-            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
-          >
-            ✎
+          <button onClick={() => { setVal(savedValue ?? ""); setEditing(true); }} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
+            <PencilIcon />
           </button>
         </span>
       </td>
@@ -73,25 +85,50 @@ export default function EditableCell({
   }
 
   return (
-    <td className="px-3 py-2 min-w-[180px]">
-      <div className="flex items-center gap-1">
+    <td className={stickyClass} style={{ minWidth: 180 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           autoFocus
           type={isDate ? "datetime-local" : "text"}
-          className="w-full border border-accent rounded px-1.5 py-1 text-sm"
+          className="input input-s"
+          style={{ width: "auto", flex: 1, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
           value={isDate && val ? val.slice(0, 16) : val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
-          {saving ? "…" : "✓"}
+        <button onClick={save} disabled={saving} aria-label="Save" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
+          <CheckIcon />
         </button>
-        <button onClick={cancel} disabled={saving} title="Close" className="text-xs border px-2 py-1 rounded shrink-0">
-          ✕
+        <button onClick={cancel} disabled={saving} aria-label="Cancel" className="ib">
+          <CloseIcon />
         </button>
       </div>
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
+  );
+}
+
+// Shared tiny icons matching design-v2/SPEC.md's cell-editing reference
+// (16px stroke 1.8-2.6 inline SVG, aria-hidden).
+export function PencilIcon() {
+  return (
+    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />
+    </svg>
+  );
+}
+export function CheckIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12l5 5 9-10" />
+    </svg>
+  );
+}
+export function CloseIcon() {
+  return (
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   );
 }

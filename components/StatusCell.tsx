@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import StatusPill from "@/components/ui/StatusPill";
+import { PencilIcon, CheckIcon, CloseIcon } from "@/components/EditableCell";
 
 // Must match the bookings.status check constraint (migration 0001) and
 // the "All Status" filter list already in BookingsClient.tsx.
@@ -43,15 +44,16 @@ export default function StatusCell({
 
   if (!editing) {
     return (
-      <td className="px-3 py-2 text-sm whitespace-nowrap group">
-        <span className="inline-flex items-center gap-1.5">
+      <td>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <StatusPill value={value} />
           <button
             onClick={() => { setVal(value); setEditing(true); }}
-            title="Edit status"
-            className="opacity-0 group-hover:opacity-100 text-ink/30 hover:text-accent transition-opacity"
+            aria-label="Edit status"
+            className="pen"
+            style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}
           >
-            ✎
+            <PencilIcon />
           </button>
         </span>
       </td>
@@ -59,11 +61,12 @@ export default function StatusCell({
   }
 
   return (
-    <td className="px-3 py-2 min-w-[170px]">
-      <div className="flex items-center gap-1">
+    <td style={{ minWidth: 170 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <select
           autoFocus
-          className="border border-accent rounded px-1.5 py-1 text-sm flex-1"
+          className="select select-s"
+          style={{ width: "auto", flex: 1, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
           value={val}
           onChange={(e) => setVal(e.target.value)}
           disabled={saving}
@@ -72,14 +75,14 @@ export default function StatusCell({
             <option key={s} value={s}>{label(s)}</option>
           ))}
         </select>
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded shrink-0">
-          {saving ? "…" : "✓"}
+        <button onClick={save} disabled={saving} aria-label="Save" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
+          <CheckIcon />
         </button>
-        <button onClick={() => setEditing(false)} disabled={saving} title="Close" className="text-xs border px-2 py-1 rounded shrink-0">
-          ✕
+        <button onClick={() => setEditing(false)} disabled={saving} aria-label="Close" className="ib">
+          <CloseIcon />
         </button>
       </div>
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );
 }

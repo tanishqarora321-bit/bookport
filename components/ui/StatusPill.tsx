@@ -1,21 +1,50 @@
-// Maps known status strings to a colour. `release_status` and similar
-// fields are free text (a carrier or ops person can type anything), so
-// this is intentionally a best-effort lookup with a neutral fallback
-// rather than a fixed enum - it must never fail to render unknown text.
-const KNOWN: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600",
-  confirmed: "bg-blue-100 text-blue-700",
-  in_transit: "bg-amber-100 text-amber-700",
-  "in transit": "bg-amber-100 text-amber-700",
-  delivered: "bg-emerald-100 text-emerald-700",
-  released: "bg-emerald-100 text-emerald-700",
-  "on water": "bg-sky-100 text-sky-700",
-  cancelled: "bg-red-100 text-red-700",
-  awaiting: "bg-amber-100 text-amber-700",
-  pending: "bg-amber-100 text-amber-700",
-  sent: "bg-emerald-100 text-emerald-700",
-  unpaid: "bg-red-100 text-red-700",
-  paid: "bg-emerald-100 text-emerald-700",
+// Ship-Sphere Design System v2 status badges: "Dot + text, never color
+// alone. Same meaning = same color everywhere." `release_status` and
+// similar fields are free text (a carrier or ops person can type
+// anything), so this is intentionally a best-effort lookup with a
+// neutral fallback rather than a fixed enum - it must never fail to
+// render unknown text.
+const TONE: Record<string, "muted" | "info" | "warning" | "success" | "critical"> = {
+  draft: "muted",
+  confirmed: "info",
+  in_transit: "warning",
+  "in transit": "warning",
+  delivered: "success",
+  released: "success",
+  "on water": "info",
+  on_water: "info",
+  "— set —": "muted",
+  cancelled: "critical",
+  removed: "muted",
+  awaiting: "warning",
+  pending: "warning",
+  sent: "success",
+  "not sent": "muted",
+  not_sent: "muted",
+  unpaid: "critical",
+  paid: "success",
+  active: "success",
+  trial: "info",
+  suspended: "warning",
+  missing: "warning",
+  y: "success",
+  n: "critical",
+};
+
+const DOT_CLASS: Record<string, string> = {
+  muted: "bg-muted",
+  info: "bg-info",
+  warning: "bg-warning",
+  success: "bg-success",
+  critical: "bg-critical",
+};
+
+const TEXT_CLASS: Record<string, string> = {
+  muted: "text-muted",
+  info: "text-info",
+  warning: "text-warning",
+  success: "text-success",
+  critical: "text-critical",
 };
 
 function label(value: string) {
@@ -23,10 +52,11 @@ function label(value: string) {
 }
 
 export default function StatusPill({ value }: { value: string | null | undefined }) {
-  if (!value) return <span className="text-slate-300">—</span>;
-  const classes = KNOWN[value.toLowerCase()] ?? "bg-slate-100 text-slate-600";
+  if (!value) return <span className="text-muted">—</span>;
+  const tone = TONE[value.toLowerCase()] ?? "muted";
   return (
-    <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${classes}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ${TEXT_CLASS[tone]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_CLASS[tone]}`} />
       {label(value)}
     </span>
   );

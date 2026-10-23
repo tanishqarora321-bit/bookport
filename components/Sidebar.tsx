@@ -3,67 +3,44 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ClipboardList,
-  Building2,
-  Factory,
-  MapPin,
-  Users,
-  Truck,
-  BarChart3,
-  FileSpreadsheet,
-  Receipt,
-  TrendingUp,
-  LayoutDashboard,
-  Settings,
-  ShieldCheck,
-  Copy,
-  ChevronsLeft,
-  ChevronsRight,
-  type LucideIcon,
-} from "lucide-react";
 import Logo from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { useYear } from "@/lib/year-context";
-import { LogOut } from "lucide-react";
-
-// Only Booking & Instructions is real right now. Everything else routes to
-// the shared "Work in Progress" page - flip an item's `href` to its real
-// route as each module gets built (P1-P4 in the README).
-const MODULES: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Booking & Instructions", href: "/bookings", icon: ClipboardList },
-  { label: "Multiple Bookings & Instructions", href: "/bookings/multiple", icon: Copy },
-  { label: "Forwarders", href: "/forwarders", icon: Building2 },
-  { label: "Suppliers", href: "/suppliers", icon: Factory },
-  { label: "Shipment Tracking", href: "/tracking", icon: MapPin },
-  { label: "Buyers / Customers", href: "/parties", icon: Users },
-  { label: "Truckers", href: "/truckers", icon: Truck },
-  { label: "Freight Comparison", href: "/freight-comparison", icon: BarChart3 },
-  { label: "Offer Sheet", href: "/offer-sheets", icon: FileSpreadsheet },
-  { label: "Invoices & Statement", href: "/soon/invoices-statement", icon: Receipt },
-  { label: "Profit & Loss", href: "/profit-loss", icon: TrendingUp },
-  { label: "Dashboard & Reports", href: "/soon/dashboard-reports", icon: LayoutDashboard },
-  { label: "Settings & Control", href: "/team", icon: Settings },
-];
+import { NAV_GROUPS, NAV_ICON_PATHS, navKeyForPathname } from "@/lib/nav";
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
 
+// Matches design-v2/screens/V2Nav.dc.html exactly: logo, Working Year
+// select, grouped nav with inline-SVG icons (the design's own path
+// data, not an icon library) and a visually-hidden label on the
+// "booking numbers to review" badge, collapse button, user footer.
 export default function Sidebar() {
   const pathname = usePathname();
+  const activeKey = navKeyForPathname(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
+  const [duplicateBookings, setDuplicateBookings] = useState(0);
+  // Which nav groups are expanded. Always kept in sync with the active
+  // route below (the current section is never collapsed out from under
+  // you), otherwise left to whatever the user has clicked open.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
-  // expanded) HTML and trigger a hydration warning.
+  // expanded) HTML and trigger a hydration warning. With no saved
+  // preference yet, default to the icon rail on tablet-width viewports
+  // (<1280px) and expanded on desktop, matching the redesign spec.
   useEffect(() => {
     try {
-      if (localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "1") { setCollapsed(true); return; }
+      if (stored === "0") return;
+      if (window.matchMedia("(max-width: 1279px)").matches) setCollapsed(true);
     } catch {
-      // localStorage can throw in a private window or with site data
-      // blocked - falling back to the default (expanded) is fine.
+      // localStorage/matchMedia can throw in a private window or with
+      // site data blocked - falling back to the default (expanded) is fine.
     }
   }, []);
 
@@ -89,6 +66,22 @@ export default function Sidebar() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    fetch("/api/bookings/duplicate-count")
+      .then((r) => r.json())
+      .then(({ count }) => setDuplicateBookings(count ?? 0))
+      .catch(() => {});
+  }, [pathname]);
+
+  // The group containing whatever page you're on is always expanded -
+  // added to whatever's already open, never replacing it, so a group you
+  // opened yourself doesn't snap shut on an unrelated navigation.
+  useEffect(() => {
+    const activeGroup = NAV_GROUPS.find((g) => g.items.some((it) => it.key === activeKey));
+    if (!activeGroup) return;
+    setOpenGroups((prev) => (prev.has(activeGroup.label) ? prev : new Set(prev).add(activeGroup.label)));
+  }, [activeKey]);
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -105,101 +98,199 @@ export default function Sidebar() {
     });
   }
 
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
   // /login and /auth/callback are pre-auth screens that render their own
   // centered layout - no app chrome around them. Checked after all hooks
   // above so their call order never changes across a client-side
   // navigation to/from either route.
   if (pathname === "/login" || pathname === "/auth/callback") return null;
 
+  // "Platform Admin" only shows for the platform owner - every other
+  // item is visible to everyone, same as before.
+  const visibleGroups = NAV_GROUPS.map((g) =>
+    g.label === "Workspace" ? { ...g, items: g.items.filter((it) => it.key !== "admin" || isPlatformOwner) } : g
+  );
+
   return (
-    <aside
-      className={`${collapsed ? "w-16" : "w-64"} bg-navy text-white h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150`}
+    <nav
+      aria-label="Main"
+      style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 238 }}
+      className="h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150"
     >
-      <div className={`flex items-center gap-3 border-b border-white/10 ${collapsed ? "p-3 justify-center" : "p-5"}`}>
+      <div
+        className={`flex items-center gap-3 ${collapsed ? "justify-center" : "px-[18px]"}`}
+        style={{ height: 64, borderBottom: "1px solid var(--navLine)" }}
+      >
         <Logo size={collapsed ? 32 : 36} />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="font-semibold leading-tight">Ship-Sphere</div>
-            <div className="text-xs text-white/50 leading-tight">One Booking. All Connected.</div>
+            <div className="text-[16px] font-bold tracking-tight leading-tight">Ship-Sphere</div>
+            <div className="text-xs leading-tight" style={{ color: "var(--navMut)" }}>
+              One Booking. All Connected.
+            </div>
           </div>
         )}
       </div>
 
       <YearSelector collapsed={collapsed} />
 
-      <nav className="flex-1 py-2">
-        {MODULES.map((m) => {
-          const active =
-            pathname === m.href ||
-            (m.href === "/bookings" && pathname?.startsWith("/bookings") && !pathname?.startsWith("/bookings/multiple"));
-          const Icon = m.icon;
+      <div className="flex-1 overflow-y-auto px-2.5 py-2 flex flex-col gap-2.5">
+        {visibleGroups.map((group) => {
+          const isOpen = collapsed || openGroups.has(group.label);
           return (
-            <Link
-              key={m.href}
-              href={m.href}
-              title={collapsed ? m.label : undefined}
-              className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-                active ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
-              }`}
-            >
-              <Icon className="w-4 h-4 shrink-0" size={16} />
-              {!collapsed && <span className="truncate">{m.label}</span>}
-            </Link>
+          <div key={group.label} className="flex flex-col gap-0.5">
+            {!collapsed && (
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                aria-expanded={isOpen}
+                aria-controls={`navgroup-${group.label}`}
+                className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-1 border-0 bg-transparent w-full cursor-pointer"
+                style={{ color: "var(--navMut)", letterSpacing: "0.06em" }}
+              >
+                {group.label}
+                <svg
+                  aria-hidden="true"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 150ms", flexShrink: 0 }}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            )}
+            {isOpen && (
+            <div id={`navgroup-${group.label}`} className="flex flex-col gap-0.5">
+            {group.items.map((it) => {
+              const active = it.key === activeKey;
+              const badge = it.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
+              return (
+                <Link
+                  key={it.key}
+                  href={it.href}
+                  title={collapsed ? it.label : undefined}
+                  aria-current={active ? "page" : undefined}
+                  className={`nav-a flex items-center gap-2.5 rounded-lg text-sm ${
+                    collapsed ? "justify-center px-2" : "px-2.5"
+                  }`}
+                  style={{
+                    minHeight: 33,
+                    background: active ? "var(--navAct)" : "transparent",
+                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.86)",
+                    fontWeight: active ? 600 : 400,
+                  }}
+                >
+                  <svg
+                    aria-hidden="true"
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={active ? 1.9 : 1.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="shrink-0"
+                  >
+                    <path d={NAV_ICON_PATHS[it.key]} />
+                  </svg>
+                  {!collapsed && (
+                    <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                      <span className="truncate">{it.label}</span>
+                      {badge > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center shrink-0 text-xs font-bold rounded-full"
+                          style={{ minWidth: 22, height: 20, padding: "0 7px", background: "#F59E0B", color: "#0C1A3A" }}
+                        >
+                          {badge}
+                          <span className="sr">{" booking numbers to review"}</span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+            </div>
+            )}
+          </div>
           );
         })}
-        {isPlatformOwner && (
-          <Link
-            href="/admin"
-            title={collapsed ? "Platform Admin" : undefined}
-            className={`flex items-center gap-3 py-2.5 text-sm ${collapsed ? "justify-center px-2" : "px-5"} ${
-              pathname === "/admin" ? "bg-accent text-white font-medium" : "text-white/70 hover:bg-navyhover hover:text-white"
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 shrink-0" size={16} />
-            {!collapsed && <span className="truncate">Platform Admin</span>}
-          </Link>
-        )}
-      </nav>
+      </div>
 
       <button
         onClick={toggle}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className={`flex items-center gap-2 py-3 text-xs text-white/50 hover:text-white hover:bg-navyhover border-t border-white/10 ${
-          collapsed ? "justify-center px-2" : "px-5"
+        className={`flex items-center gap-2.5 h-10 mx-2.5 px-2.5 border-0 rounded-lg bg-transparent text-[13px] ${
+          collapsed ? "justify-center" : ""
         }`}
+        style={{ color: "var(--navMut)" }}
       >
-        {collapsed ? <ChevronsRight className="w-4 h-4" size={16} /> : <ChevronsLeft className="w-4 h-4" size={16} />}
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={collapsed ? "M13 7l5 5-5 5M6 7l5 5-5 5" : "M11 17l-5-5 5-5M18 17l-5-5 5-5"} />
+        </svg>
         {!collapsed && <span>Collapse</span>}
       </button>
 
-      <div className={`border-t border-white/10 flex items-center gap-2 text-white/60 text-xs ${collapsed ? "p-3 justify-center" : "p-4"}`}>
-        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/80 font-medium shrink-0">
-          {userEmail ? userEmail[0].toUpperCase() : "A"}
+      <div
+        className={`flex items-center gap-2.5 ${collapsed ? "p-3 justify-center" : "py-3.5 px-4"}`}
+        style={{ borderTop: "1px solid var(--navLine)" }}
+      >
+        <div
+          className="rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
+          style={{ width: 34, height: 34, background: "rgba(255,255,255,0.12)", color: "#FFFFFF" }}
+        >
+          {userEmail ? userEmail[0].toUpperCase() : "T"}
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
             {userEmail ? (
               <>
-                <div className="text-white/90 font-medium truncate" title={companyName ?? undefined}>
+                <div className="text-[13px] font-semibold truncate" title={companyName ?? undefined}>
                   {companyName ?? "—"}
                 </div>
-                <div className="truncate" title={userEmail}>{userEmail}</div>
+                <div className="text-xs truncate" style={{ color: "var(--navMut)" }} title={userEmail}>
+                  {userEmail}
+                </div>
               </>
             ) : (
               <>
-                <div className="text-white/80 truncate">Default Company</div>
-                <div className="truncate">Single-tenant mode - not signed in</div>
+                <div className="text-[13px] font-semibold truncate">Default Company</div>
+                <div className="text-xs truncate" style={{ color: "var(--navMut)" }}>
+                  Single-tenant mode - not signed in
+                </div>
               </>
             )}
           </div>
         )}
         {!collapsed && userEmail && (
-          <button onClick={signOut} title="Sign out" className="text-white/40 hover:text-white shrink-0">
-            <LogOut className="w-4 h-4" size={16} />
+          <button
+            onClick={signOut}
+            aria-label="Sign out"
+            className="rounded-lg flex items-center justify-center shrink-0"
+            style={{ width: 32, height: 32, color: "var(--navMut)" }}
+          >
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" />
+            </svg>
           </button>
         )}
       </div>
-    </aside>
+    </nav>
   );
 }
 
@@ -215,22 +306,43 @@ function YearSelector({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) {
     return (
-      <div className="px-2 py-2 border-b border-white/10 text-center text-[11px] text-white/50" title={`Year: ${year}`}>
+      <div
+        className="px-2 py-2 text-center text-[11px]"
+        style={{ borderBottom: "1px solid var(--navLine)", color: "var(--navMut)" }}
+        title={`Working year: ${year}`}
+      >
         {year}
       </div>
     );
   }
 
   return (
-    <div className="px-5 py-2.5 border-b border-white/10">
-      <label className="text-[10px] uppercase tracking-wide text-white/40 block mb-1">Year</label>
+    <div className="px-[18px] pt-3.5 pb-1.5 flex flex-col gap-1.5" style={{ borderBottom: "1px solid var(--navLine)" }}>
+      <label
+        htmlFor="v2year"
+        className="text-[11px] font-semibold uppercase"
+        style={{ color: "var(--navMut)", letterSpacing: "0.06em" }}
+      >
+        Working year
+      </label>
       <select
+        id="v2year"
         value={year}
         onChange={(e) => setYear(Number(e.target.value))}
-        className="w-full bg-navyhover text-white text-sm rounded px-2 py-1 border border-white/10"
+        className="text-sm px-2.5"
+        style={{
+          height: 32,
+          borderRadius: 8,
+          border: "1px solid var(--navLine)",
+          background: "var(--navH)",
+          color: "#FFFFFF",
+          colorScheme: "dark",
+        }}
       >
         {years.map((y) => (
-          <option key={y} value={y}>{y}</option>
+          <option key={y} value={y}>
+            {y}
+          </option>
         ))}
       </select>
     </div>

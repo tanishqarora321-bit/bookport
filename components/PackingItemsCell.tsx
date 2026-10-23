@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { CloseIcon } from "@/components/EditableCell";
 
 export type PackingItem = {
   id: string;
@@ -30,7 +31,7 @@ export default function PackingItemsCell({
   const [open, setOpen] = useState(false);
 
   if (!containerId) {
-    return <td className="px-3 py-2 text-sm whitespace-nowrap text-ink/30">—</td>;
+    return <td className="dash">—</td>;
   }
 
   const summary =
@@ -39,8 +40,8 @@ export default function PackingItemsCell({
       : `${items.length} line${items.length > 1 ? "s" : ""}`;
 
   return (
-    <td className="px-3 py-2 whitespace-nowrap relative">
-      <button onClick={() => setOpen(!open)} className="text-xs text-accent underline">
+    <td style={{ position: "relative" }}>
+      <button onClick={() => setOpen(!open)} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: items.length === 0 ? "var(--tx2)" : "var(--accent)", textDecoration: "underline", font: "inherit", fontSize: 13 }}>
         {summary}
       </button>
       {open && (
@@ -134,123 +135,126 @@ function PackingPopover({
   }
 
   return (
-    <div className="absolute z-30 mt-1 w-[26rem] bg-white border rounded-lg shadow-lg p-3 text-left">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-ink/60">Seal No / Weight / Bales</span>
-        <button onClick={onClose} title="Close" className="text-ink/40 hover:text-ink text-sm">
-          ✕
+    <div className="menu" role="dialog" aria-label="Packing details" style={{ position: "absolute", zIndex: 30, marginTop: 4, width: "26rem", padding: 14, display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <b style={{ fontSize: 14 }}>Seal No / Weight / Bales</b>
+        <button onClick={onClose} aria-label="Close packing details" className="ib">
+          <CloseIcon />
         </button>
       </div>
 
-      <ul className="space-y-1 mb-2 max-h-48 overflow-auto">
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4, maxHeight: 192, overflow: "auto" }}>
         {items.map((it) => (
-          <li key={it.id} className="grid grid-cols-[1fr_1fr_50px_1fr_auto] gap-1 items-center text-xs bg-slate-50 rounded px-2 py-1.5">
+          <li key={it.id} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 0.7fr 0.7fr 1.6fr 32px", gap: 6, alignItems: "center", background: "var(--surf2)", borderRadius: 7, padding: "6px 8px" }}>
             <input
               defaultValue={it.seal_no ?? ""}
               placeholder="Seal No"
-              className="border rounded px-1 py-0.5 text-xs w-full"
+              aria-label="Seal No"
+              className="input input-s mono"
               onBlur={(e) => e.target.value !== (it.seal_no ?? "") && updateItem(it.id, { seal_no: e.target.value })}
             />
-            <div className="flex gap-0.5">
-              <input
-                defaultValue={it.weight ?? ""}
-                placeholder="Weight"
-                className="border rounded px-1 py-0.5 text-xs w-full"
-                onBlur={(e) => Number(e.target.value || 0) !== (it.weight ?? 0) && updateItem(it.id, { weight: e.target.value as any })}
-              />
-              <select
-                value={it.weight_unit}
-                onChange={(e) => updateItem(it.id, { weight_unit: e.target.value as any })}
-                className="border rounded text-xs"
-              >
-                <option value="LBS">LBS</option>
-                <option value="KG">KG</option>
-              </select>
-            </div>
+            <input
+              defaultValue={it.weight ?? ""}
+              placeholder="Weight"
+              aria-label="Weight"
+              className="input input-s num"
+              onBlur={(e) => Number(e.target.value || 0) !== (it.weight ?? 0) && updateItem(it.id, { weight: e.target.value as any })}
+            />
+            <select
+              value={it.weight_unit}
+              onChange={(e) => updateItem(it.id, { weight_unit: e.target.value as any })}
+              aria-label="Unit"
+              className="select select-s"
+            >
+              <option value="LBS">LBS</option>
+              <option value="KG">KG</option>
+            </select>
             <input
               defaultValue={it.bales ?? ""}
               placeholder="Bales"
-              className="border rounded px-1 py-0.5 text-xs w-full"
+              aria-label="Bales"
+              className="input input-s num"
               onBlur={(e) => Number(e.target.value || 0) !== (it.bales ?? 0) && updateItem(it.id, { bales: e.target.value as any })}
             />
             <input
               defaultValue={it.description ?? ""}
               placeholder="Description"
-              className="border rounded px-1 py-0.5 text-xs w-full"
+              aria-label="Description"
+              className="input input-s"
               onBlur={(e) => e.target.value !== (it.description ?? "") && updateItem(it.id, { description: e.target.value })}
             />
-            <button onClick={() => removeItem(it.id)} className="text-cutoff text-xs shrink-0">
-              ✕
+            <button onClick={() => removeItem(it.id)} aria-label="Remove line" className="ib">
+              <CloseIcon />
             </button>
           </li>
         ))}
-        {items.length === 0 && <li className="text-xs text-ink/40">No lines yet.</li>}
+        {items.length === 0 && <li className="meta">No lines yet.</li>}
       </ul>
 
-      <div className="mb-2 border border-slate-200 rounded p-2 bg-slate-50/50">
-        <div className="grid grid-cols-[1fr_1fr_50px_1fr] gap-1 mb-1">
-          <input
-            placeholder="Seal No"
-            className="border rounded px-1 py-1 text-xs w-full"
-            value={draft.seal_no}
-            onChange={(e) => setDraft({ ...draft, seal_no: e.target.value })}
-          />
-          <input
-            placeholder="Weight"
-            className="border rounded px-1 py-1 text-xs w-full"
-            value={draft.weight}
-            onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
-          />
-          <select
-            value={draft.weight_unit}
-            onChange={(e) => setDraft({ ...draft, weight_unit: e.target.value as any })}
-            className="border rounded text-xs"
-          >
-            <option value="LBS">LBS</option>
-            <option value="KG">KG</option>
-          </select>
-          <input
-            placeholder="Bales"
-            className="border rounded px-1 py-1 text-xs w-full"
-            value={draft.bales}
-            onChange={(e) => setDraft({ ...draft, bales: e.target.value })}
-          />
-        </div>
-        <div className="flex gap-1">
-          <input
-            placeholder="Description (optional)"
-            className="border rounded px-1 py-1 text-xs flex-1"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && addItem()}
-          />
-          <button
-            onClick={addItem}
-            disabled={saving}
-            className="text-xs font-medium bg-ink text-white px-3 py-1 rounded shrink-0 disabled:opacity-50"
-          >
-            {saving ? "Adding…" : "✓ Add Line"}
-          </button>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 0.7fr 0.7fr 1.6fr auto", gap: 6, paddingTop: 10, borderTop: "1px dashed var(--line2)" }}>
+        <input
+          placeholder="Seal No"
+          aria-label="New Seal No"
+          className="input input-s"
+          value={draft.seal_no}
+          onChange={(e) => setDraft({ ...draft, seal_no: e.target.value })}
+        />
+        <input
+          placeholder="Weight"
+          aria-label="New Weight"
+          className="input input-s"
+          value={draft.weight}
+          onChange={(e) => setDraft({ ...draft, weight: e.target.value })}
+        />
+        <select
+          value={draft.weight_unit}
+          onChange={(e) => setDraft({ ...draft, weight_unit: e.target.value as any })}
+          aria-label="New unit"
+          className="select select-s"
+        >
+          <option value="LBS">LBS</option>
+          <option value="KG">KG</option>
+        </select>
+        <input
+          placeholder="Bales"
+          aria-label="New Bales"
+          className="input input-s"
+          value={draft.bales}
+          onChange={(e) => setDraft({ ...draft, bales: e.target.value })}
+        />
+        <input
+          placeholder="Description (optional)"
+          aria-label="New Description"
+          className="input input-s"
+          value={draft.description}
+          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && addItem()}
+        />
+        <button onClick={addItem} disabled={saving} className="btn btn-s btn-p">
+          {saving ? "Adding…" : "✓ Add Line"}
+        </button>
       </div>
 
-      <div className="flex items-center gap-2 border-t pt-2">
+      <div>
         <input
           ref={fileRef}
           type="file"
           accept="application/pdf"
-          className="hidden"
+          className="sr"
           onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
         />
         <button
           onClick={() => fileRef.current?.click()}
           disabled={extracting}
-          className="text-xs text-accent underline"
+          style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}
         >
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3" />
+          </svg>
           {extracting ? "Reading packing list…" : "Or upload packing list PDF to auto-fill above"}
         </button>
       </div>
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
+      {error && <div className="err">{error}</div>}
     </div>
   );
 }

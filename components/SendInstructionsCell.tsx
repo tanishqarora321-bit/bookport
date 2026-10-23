@@ -124,7 +124,7 @@ function ComposeModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
+        className="bg-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
@@ -153,10 +153,10 @@ function ComposeModal({
                 value={cc}
                 onChange={(e) => setCc(e.target.value)}
               />
-              <input className="border rounded px-2 py-1.5 text-sm bg-slate-50" value={subject} readOnly />
+              <input className="border rounded px-2 py-1.5 text-sm bg-surface-2" value={subject} readOnly />
             </div>
 
-            <div className="border rounded p-3 bg-slate-50 max-h-[40vh] overflow-auto mb-3">
+            <div className="border rounded p-3 bg-surface-2 max-h-[40vh] overflow-auto mb-3">
               <div dangerouslySetInnerHTML={{ __html: html }} />
             </div>
 

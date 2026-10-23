@@ -55,16 +55,35 @@ export default async function TeamPage() {
 
   return (
     <div>
-      <ChangePasswordCard email={me.email} />
-      <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
-      <EmailSettingsCard config={emailSettingsRow ?? null} isAdmin={me.role === "admin"} />
-      <TeamClient
-        initialTeammates={teammates}
-        seatLimit={company.seat_limit}
-        companyName={company.name}
-        isAdmin={me.role === "admin"}
-        isPlatformOwner={me.is_platform_owner}
-      />
+      <div className="mb-5">
+        <h1 className="h1">Settings &amp; Control</h1>
+        <p className="sub">Your account, documents, email and team</p>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+        <nav aria-label="Settings sections" style={{ flex: "0 1 220px", display: "flex", flexDirection: "column", gap: 2 }}>
+          <a className="idx" href="#acct">Your Account</a>
+          <a className="idx" href="#lh">Document Letterhead</a>
+          <a className="idx" href="#mail">Email Sending</a>
+          <a className="idx" href="#users">Manage Users</a>
+          {me.is_platform_owner && (
+            <a className="idx" href="#owner" style={{ display: "flex", alignItems: "center" }}>
+              Platform Owner <span className="badge b-acc" style={{ marginLeft: "auto", height: 20 }}>Only you</span>
+            </a>
+          )}
+        </nav>
+        <div style={{ flex: "1 1 640px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+          <ChangePasswordCard email={me.email} />
+          <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
+          <EmailSettingsCard config={emailSettingsRow ?? null} isAdmin={me.role === "admin"} />
+          <TeamClient
+            initialTeammates={teammates}
+            seatLimit={company.seat_limit}
+            companyName={company.name}
+            isAdmin={me.role === "admin"}
+            isPlatformOwner={me.is_platform_owner}
+          />
+        </div>
+      </div>
     </div>
   );
 }

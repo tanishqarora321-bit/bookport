@@ -2,16 +2,17 @@
 
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import Header from "@/components/Header";
 
 // /login and /auth/callback are pre-auth screens that render their own
-// full-bleed, edge-to-edge layout (see app/login/page.tsx) - Sidebar
-// already knows to render nothing for these paths, but leaving them
+// full-bleed, edge-to-edge layout (see app/login/page.tsx) - Sidebar and
+// Header already know to render nothing for these paths, but leaving them
 // wrapped in the authenticated app shell's <main className="p-6"> still
 // boxed them in with 24px of padding on every side and forced a vertical
-// scrollbar (that page's own min-h-screen/h-screen layout wants the full
-// viewport, which no longer fit once the shell's padding ate into it).
-// Skipping the shell entirely for these paths is what actually gives
-// them the whole viewport.
+// scrollbar (that div's own min-h-screen wants the full viewport height,
+// which no longer fits once the shell's padding eats into it). Skipping
+// the shell entirely for these paths is what actually gives them the
+// whole viewport.
 const PRE_AUTH_PATHS = ["/login", "/auth/callback"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <main className="app-main flex-1 overflow-y-auto">{children}</main>
+      </div>
     </div>
   );
 }

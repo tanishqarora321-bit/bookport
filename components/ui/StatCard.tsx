@@ -1,11 +1,16 @@
 import type { LucideIcon } from "lucide-react";
 
-const TONES = {
-  default: { bg: "bg-blue-50", icon: "text-accent" },
-  danger: { bg: "bg-red-50", icon: "text-cutoff" },
-  warning: { bg: "bg-amber-50", icon: "text-amend" },
-  success: { bg: "bg-emerald-50", icon: "text-emerald-600" },
-} as const;
+// Matches design-v2/SPEC.md's `.card.kpi` exactly: a plain label/value/
+// meta stack, no icon chip - except the "danger" tone, which gets a
+// small inline icon next to the label plus a colored border, same as
+// the "Cut-off within 48h" card in design-v2/screens/V2Bookings.dc.html.
+// `icon` is only ever drawn for that one case; every other tone ignores
+// it so existing call sites (which all pass one) don't need to change.
+const TONE_COLOR: Record<string, string> = {
+  danger: "var(--crit)",
+  warning: "var(--warn)",
+  success: "var(--ok)",
+};
 
 export default function StatCard({
   icon: Icon,
@@ -18,21 +23,21 @@ export default function StatCard({
   label: string;
   value: string | number;
   sub?: string;
-  tone?: keyof typeof TONES;
+  tone?: "default" | "danger" | "warning" | "success";
 }) {
-  const t = TONES[tone];
+  const isDanger = tone === "danger";
+  const color = TONE_COLOR[tone];
+
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 flex items-start gap-3">
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.bg}`}>
-        <Icon className={`w-4.5 h-4.5 ${t.icon}`} size={18} />
-      </div>
-      <div className="min-w-0">
-        <div className="text-xs text-slate-400 uppercase tracking-wide truncate">{label}</div>
-        <div className={`text-2xl font-semibold mt-0.5 ${tone === "danger" ? "text-cutoff" : "text-slate-800"}`}>
-          {value}
-        </div>
-        {sub && <div className="text-xs text-slate-400 mt-0.5">{sub}</div>}
-      </div>
+    <div className="card kpi" style={isDanger ? { borderColor: "var(--crit)" } : undefined}>
+      <span className="lbl" style={isDanger ? { display: "flex", alignItems: "center", gap: 6, color, fontWeight: 600 } : undefined}>
+        {isDanger && <Icon size={14} />}
+        {label}
+      </span>
+      <span className="v" style={color ? { color } : undefined}>
+        {value}
+      </span>
+      {sub && <span className="meta">{sub}</span>}
     </div>
   );
 }

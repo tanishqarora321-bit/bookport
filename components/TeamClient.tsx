@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, CheckCircle2, Building2 } from "lucide-react";
+import { Users, CheckCircle2, ShieldCheck } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -110,169 +110,162 @@ export default function TeamClient({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">Manage Users — {companyName}</h1>
-          <p className="text-sm text-ink/40">Invited teammates sign in with email + the password they set from the invite email.</p>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={() => setInviting(!inviting)}
-            disabled={seatsLeft <= 0}
-            className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-40"
-            title={seatsLeft <= 0 ? "No seats left - remove a teammate or upgrade the plan" : undefined}
-          >
-            + Invite Teammate
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
-        <StatCard icon={Users} label="Seats Used" value={`${activeCount} / ${seatLimit}`} tone={seatsLeft <= 0 ? "warning" : "default"} />
-        <StatCard icon={CheckCircle2} label="Seats Left" value={seatsLeft} tone={seatsLeft <= 0 ? "danger" : "success"} />
-      </div>
-
-      {isAdmin && inviting && (
-        <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4 grid grid-cols-3 gap-3">
-          <input
-            placeholder="Email *"
-            type="email"
-            className="border rounded px-2 py-1.5 text-sm"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-          />
-          <input
-            placeholder="Full name"
-            className="border rounded px-2 py-1.5 text-sm"
-            value={form.full_name}
-            onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-          />
-          <select
-            className="border rounded px-2 py-1.5 text-sm"
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value })}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          {error && <div className="col-span-3 text-xs text-cutoff">{error}</div>}
-          <div className="col-span-3 flex gap-2">
-            <button onClick={invite} disabled={saving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
-              {saving ? "Sending invite…" : "Send Invite"}
-            </button>
-            <button onClick={() => setInviting(false)} className="text-sm border px-3 py-1.5 rounded">
-              Cancel
-            </button>
+    <>
+      <section id="users" className="card" aria-labelledby="us-t" style={{ overflow: "hidden" }}>
+        <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
+          <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+            <Users size={18} />
+          </span>
+          <div className="flex-1 min-w-0">
+            <h2 id="us-t" className="h2">Manage Users — {companyName}</h2>
+            <div className="lbl mt-0.5">Invited teammates sign in with email + the password they set from the invite email.</div>
           </div>
+          {isAdmin && !inviting && (
+            <button
+              onClick={() => setInviting(true)}
+              disabled={seatsLeft <= 0}
+              className="btn btn-p btn-s"
+              aria-expanded={inviting}
+              title={seatsLeft <= 0 ? "No seats left - remove a teammate or upgrade the plan" : undefined}
+            >
+              + Invite Teammate
+            </button>
+          )}
         </div>
-      )}
 
-      <div className="bg-white rounded-xl shadow-sm">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-ink/50 border-b">
-              <th className="px-3 py-2">Email</th>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Role</th>
-              <th className="px-3 py-2">Status</th>
-              {isAdmin && <th className="px-3 py-2 w-24"></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {teammates.map((t) => (
-              <tr key={t.id} className={`border-b last:border-0 ${!t.is_active ? "opacity-40" : ""}`}>
-                <td className="px-3 py-2">{t.email}</td>
-                <td className="px-3 py-2 text-ink/70">{t.full_name || "—"}</td>
-                <td className="px-3 py-2 text-ink/70">{t.role}</td>
-                <td className="px-3 py-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                    {t.is_active ? "Active" : "Removed"}
-                  </span>
-                </td>
-                {isAdmin && (
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => toggleActive(t)}
-                      disabled={!t.is_active && seatsLeft <= 0}
-                      className={`text-xs px-2 py-1 rounded disabled:opacity-40 ${
-                        t.is_active ? "text-cutoff hover:bg-red-50" : "text-accent hover:bg-blue-50"
-                      }`}
-                    >
-                      {t.is_active ? "Remove" : "Restore"}
-                    </button>
-                  </td>
-                )}
+        <div className="p-5 flex flex-col gap-4">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 220px))", gap: 12 }}>
+            <StatCard icon={Users} label="Seats Used" value={`${activeCount} / ${seatLimit}`} tone={seatsLeft <= 0 ? "warning" : "default"} />
+            <StatCard icon={CheckCircle2} label="Seats Left" value={seatsLeft} tone={seatsLeft <= 0 ? "danger" : "success"} />
+          </div>
+
+          {isAdmin && inviting && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end", padding: 16, borderRadius: 10, background: "var(--surf2)", border: "1px solid var(--line)" }}>
+              <div className="field" style={{ flex: "2 1 220px" }}>
+                <label htmlFor="invite-email">Email <span className="req">*</span></label>
+                <input id="invite-email" placeholder="you@company.com" type="email" className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div className="field" style={{ flex: "1.5 1 180px" }}>
+                <label htmlFor="invite-name">Full name</label>
+                <input id="invite-name" placeholder="Optional" className="input" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+              </div>
+              <div className="field" style={{ flex: "1 1 150px" }}>
+                <label htmlFor="invite-role">Role</label>
+                <select id="invite-role" className="select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={invite} disabled={saving} className="btn btn-p">
+                {saving ? "Sending invite…" : "Send Invite"}
+              </button>
+              <button onClick={() => setInviting(false)} className="btn btn-g">
+                Cancel
+              </button>
+              {error && <div className="err" style={{ flexBasis: "100%" }}>{error}</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="tw" style={{ borderTop: "1px solid var(--line)" }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                {isAdmin && <th><span className="sr">Actions</span></th>}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {teammates.length === 0 && (
-          <EmptyState icon={Users} title="No teammates yet" hint='Click "+ Invite Teammate" above to bring the first person in.' />
-        )}
-      </div>
+            </thead>
+            <tbody>
+              {teammates.map((t) => (
+                <tr key={t.id} style={!t.is_active ? { opacity: 0.6 } : undefined}>
+                  <td>{t.email}</td>
+                  <td className={t.full_name ? "" : "dash"}>{t.full_name || "—"}</td>
+                  <td><span className="badge b-info">{t.role}</span></td>
+                  <td><span className={`badge ${t.is_active ? "b-ok" : "b-neu"}`}>{t.is_active ? "Active" : "Removed"}</span></td>
+                  {isAdmin && (
+                    <td className="r">
+                      <button
+                        onClick={() => toggleActive(t)}
+                        disabled={!t.is_active && seatsLeft <= 0}
+                        className={`btn btn-xs ${t.is_active ? "btn-d" : ""}`}
+                      >
+                        {t.is_active ? "Remove" : "Restore"}
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {teammates.length === 0 && (
+            <EmptyState icon={Users} title="No teammates yet" hint='Click "+ Invite Teammate" above to bring the first person in.' />
+          )}
+        </div>
+      </section>
 
       {isPlatformOwner && (
-        <div className="mt-8 pt-6 border-t border-ink/10">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
-                <Building2 className="w-4 h-4" size={16} /> Platform Owner: Onboard a New Client Company
-              </h2>
-              <p className="text-xs text-ink/40 mt-0.5">Creates the company and invites its first admin in one step. Only you can see this section.</p>
+        <section id="owner" className="card" aria-labelledby="ow-t" style={{ borderColor: "var(--accent)" }}>
+          <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
+            <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+              <ShieldCheck size={18} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <h2 id="ow-t" className="h2">Platform Owner: Onboard a New Client Company</h2>
+              <div className="lbl mt-0.5">Creates the company and invites its first admin in one step. Only you can see this section.</div>
             </div>
             {!onboarding && (
-              <button onClick={() => setOnboarding(true)} className="text-sm border px-3 py-1.5 rounded font-medium">
+              <button onClick={() => setOnboarding(true)} aria-expanded={onboarding} className="btn btn-s">
                 + New Company
               </button>
             )}
           </div>
 
-          {companySuccess && <div className="text-sm text-emerald-700 bg-emerald-50 rounded px-3 py-2 mb-3">{companySuccess}</div>}
-
-          {onboarding && (
-            <div className="border border-ink/10 bg-slate-50 rounded p-4 grid grid-cols-4 gap-3">
-              <input
-                placeholder="Company name *"
-                className="border rounded px-2 py-1.5 text-sm"
-                value={companyForm.companyName}
-                onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })}
-              />
-              <input
-                placeholder="Admin email *"
-                type="email"
-                className="border rounded px-2 py-1.5 text-sm"
-                value={companyForm.adminEmail}
-                onChange={(e) => setCompanyForm({ ...companyForm, adminEmail: e.target.value })}
-              />
-              <input
-                placeholder="Admin name"
-                className="border rounded px-2 py-1.5 text-sm"
-                value={companyForm.adminName}
-                onChange={(e) => setCompanyForm({ ...companyForm, adminName: e.target.value })}
-              />
-              <input
-                placeholder="Seats allowed"
-                type="number"
-                min={1}
-                className="border rounded px-2 py-1.5 text-sm"
-                value={companyForm.seatLimit}
-                onChange={(e) => setCompanyForm({ ...companyForm, seatLimit: e.target.value })}
-              />
-              {companyError && <div className="col-span-4 text-xs text-cutoff">{companyError}</div>}
-              <div className="col-span-4 flex gap-2">
-                <button onClick={createCompany} disabled={companySaving} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
-                  {companySaving ? "Creating…" : "Create Company & Invite Admin"}
-                </button>
-                <button onClick={() => setOnboarding(false)} className="text-sm border px-3 py-1.5 rounded">
-                  Cancel
-                </button>
+          <div className="p-5 flex flex-col gap-4">
+            {companySuccess && (
+              <div className="banner bn-ok" role="status">
+                <CheckCircle2 size={18} style={{ color: "var(--ok)" }} />
+                <span>{companySuccess}</span>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+
+            {onboarding && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+                  <div className="field">
+                    <label htmlFor="onb-name">Company name <span className="req">*</span></label>
+                    <input id="onb-name" className="input" value={companyForm.companyName} onChange={(e) => setCompanyForm({ ...companyForm, companyName: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="onb-email">Admin email <span className="req">*</span></label>
+                    <input id="onb-email" type="email" placeholder="admin@client.com" className="input" value={companyForm.adminEmail} onChange={(e) => setCompanyForm({ ...companyForm, adminEmail: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="onb-adminname">Admin name</label>
+                    <input id="onb-adminname" placeholder="Optional" className="input" value={companyForm.adminName} onChange={(e) => setCompanyForm({ ...companyForm, adminName: e.target.value })} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="onb-seats">Seats allowed</label>
+                    <input id="onb-seats" type="number" min={1} className="input num" value={companyForm.seatLimit} onChange={(e) => setCompanyForm({ ...companyForm, seatLimit: e.target.value })} />
+                  </div>
+                </div>
+                {companyError && <div className="err">{companyError}</div>}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={createCompany} disabled={companySaving} className="btn btn-p">
+                    {companySaving ? "Creating…" : "Create Company & Invite Admin"}
+                  </button>
+                  <button onClick={() => setOnboarding(false)} className="btn btn-g">
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
       )}
-    </div>
+    </>
   );
 }
