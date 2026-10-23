@@ -45,17 +45,23 @@ function LoginForm() {
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
 
-  // An invite/recovery link's #access_token lands here instead of
-  // /auth/callback whenever its redirectTo isn't (yet) on Supabase's
-  // Redirect URL allow-list - it falls back to the bare site root,
-  // which then routes to /login. Forward it on to the page that
-  // actually knows how to set a password from it, hash intact.
+  // An invite/recovery link's token lands here instead of /auth/callback
+  // whenever its redirectTo isn't (yet) on Supabase's Redirect URL
+  // allow-list - it falls back to the bare site root, which then routes
+  // to /login (middleware preserves the query string on that redirect,
+  // but a URL fragment never reaches the server to begin with, which is
+  // why the hash case has to be checked client-side here too). Forward
+  // either shape on to the page that actually knows what to do with it.
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes("access_token") || hash.includes("error")) {
       window.location.replace("/auth/callback" + hash);
+      return;
     }
-  }, []);
+    if (searchParams.get("code") || searchParams.get("error")) {
+      window.location.replace("/auth/callback?" + searchParams.toString());
+    }
+  }, [searchParams]);
 
   async function signIn(e: React.FormEvent) {
     e.preventDefault();
