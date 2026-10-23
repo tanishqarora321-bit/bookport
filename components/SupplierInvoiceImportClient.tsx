@@ -8,8 +8,16 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
 
+const STEP_ORDER = ["upload", "mapping", "result"] as const;
+type Step = (typeof STEP_ORDER)[number];
+const STEP_LABELS: Record<Step, string> = {
+  upload: "Upload",
+  mapping: "Match columns",
+  result: "Done",
+};
+
 export default function SupplierInvoiceImportClient({ supplierId, supplierName }: { supplierId: string; supplierName: string }) {
-  const [step, setStep] = useState<"upload" | "mapping" | "result">("upload");
+  const [step, setStep] = useState<Step>("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -21,6 +29,23 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
 
   const mappedHeaders = new Set(Object.values(mapping).filter(Boolean));
   const unmappedHeaders = parsed ? parsed.headers.filter((h) => !mappedHeaders.has(h)) : [];
+
+  const stepIdx = STEP_ORDER.indexOf(step);
+  const stepsNav = (
+    <ol
+      aria-label="Import steps"
+      className="steps"
+      style={{ listStyle: "none", margin: 0, padding: "14px 18px", background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12 }}
+    >
+      {STEP_ORDER.map((id, i) => (
+        <li key={id} className={`stp${i < stepIdx ? " done" : i === stepIdx ? " cur" : ""}`} aria-current={i === stepIdx ? "step" : undefined}>
+          <span className="n">{i < stepIdx ? "✓" : i + 1}</span>
+          {STEP_LABELS[id]}
+          {i < STEP_ORDER.length - 1 && <span className="stp-line" aria-hidden="true" style={{ marginLeft: 8 }} />}
+        </li>
+      ))}
+    </ol>
+  );
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,154 +110,212 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
 
   if (step === "upload") {
     return (
-      <div className="h-full flex flex-col">
-        <Link href={backHref} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-          ← Back to {supplierName}'s Invoices
+      <div className="max-w-2xl mx-auto space-y-5 py-6">
+        <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
+          ← Back to {supplierName}&apos;s Invoices
         </Link>
-        <div className="max-w-lg mx-auto mt-12 space-y-4 w-full">
-          <h1 className="text-xl font-semibold text-center">Import Invoices from Excel</h1>
-          <p className="text-sm text-slate-500 text-center">
+        <div>
+          <h1 className="h1">Import Invoices from Excel</h1>
+          <p className="sub">
             A statement where one invoice spans several rows - a row with a Booking Number starts a new invoice, and
-            the Description/Weight/Unit Price rows under it (Booking Number left blank) become that invoice's cost
+            the Description/Weight/Unit Price rows under it (Booking Number left blank) become that invoice&apos;s cost
             lines, until the next Booking Number starts the next invoice.
           </p>
-          <label className="block border-2 border-dashed rounded-lg p-10 bg-white hover:border-accent text-center cursor-pointer">
-            <div className="font-medium">{uploading ? "Reading file…" : "Click to choose a file"}</div>
-            <div className="text-sm text-slate-500 mt-1">.xlsx — first sheet; the header row is found automatically even with a title banner above it</div>
-            <input type="file" accept=".xlsx" className="hidden" onChange={handleUpload} disabled={uploading} />
-          </label>
-          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
         </div>
+
+        {stepsNav}
+
+        <section className="card" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+          <label className="drop" style={{ cursor: "pointer" }}>
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />
+            </svg>
+            <span style={{ fontWeight: 600 }}>{uploading ? "Reading file…" : "Click to choose a file"}</span>
+            <span className="meta">.xlsx — first sheet; the header row is found automatically even with a title banner above it</span>
+            <input type="file" accept=".xlsx" className="sr" onChange={handleUpload} disabled={uploading} />
+          </label>
+          {error && <p className="err" style={{ textAlign: "center" }}>{error}</p>}
+        </section>
       </div>
     );
   }
 
   if (step === "mapping" && parsed) {
     return (
-      <div className="max-w-3xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto space-y-5 py-6">
         <div>
-          <h1 className="text-xl font-semibold">Match your columns</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="h1">Match your columns</h1>
+          <p className="sub">
             {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess for
             each field — review and correct anything before importing.
           </p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-4 grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-xs text-ink/40 mb-0.5">Currency (applies to this whole file)</div>
-            <select className="border rounded px-2 py-1.5 text-sm w-full" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="INR">INR</option>
-              <option value="GBP">GBP</option>
-              <option value="AED">AED</option>
-            </select>
-          </div>
-          <div>
-            <div className="text-xs text-ink/40 mb-0.5">FX Rate → USD (applies to this whole file)</div>
-            <input
-              type="number"
-              step="0.0001"
-              className="border rounded px-2 py-1.5 text-sm w-full"
-              value={fxRate}
-              onChange={(e) => setFxRate(e.target.value)}
-            />
-          </div>
-        </div>
+        {stepsNav}
 
-        <div className="bg-white rounded-xl shadow-sm divide-y">
-          {SUPPLIER_INVOICE_IMPORT_FIELDS.map((f) => (
-            <div key={f.key} className="grid grid-cols-3 gap-3 items-center px-4 py-2.5">
-              <label className="text-sm text-slate-700">
-                {f.label} {(f as any).required && <span className="text-cutoff">*</span>}
-              </label>
+        <section className="card" style={{ padding: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+            <div className="field">
+              <label htmlFor="supplier-import-currency">Currency (applies to this whole file)</label>
               <select
-                className="col-span-2 border rounded px-2 py-1.5 text-sm"
-                value={mapping[f.key] ?? ""}
-                onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value })}
+                id="supplier-import-currency"
+                className="select"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
               >
-                <option value="">— Skip —</option>
-                {parsed.headers.map((h) => (
-                  <option key={h} value={h}>{h}</option>
-                ))}
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="INR">INR</option>
+                <option value="GBP">GBP</option>
+                <option value="AED">AED</option>
               </select>
             </div>
-          ))}
-        </div>
-
-        {unmappedHeaders.length > 0 && (
-          <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 space-y-1">
-            <div className="text-xs font-medium text-amber-800">These columns in your sheet aren't mapped to anything above:</div>
-            <div className="text-sm text-amber-700">{unmappedHeaders.join(", ")}</div>
+            <div className="field">
+              <label htmlFor="supplier-import-fx">FX Rate → USD (applies to this whole file)</label>
+              <input
+                id="supplier-import-fx"
+                type="number"
+                step="0.0001"
+                className="input"
+                value={fxRate}
+                onChange={(e) => setFxRate(e.target.value)}
+              />
+            </div>
           </div>
-        )}
+        </section>
 
-        {parsed.rows.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4 overflow-x-auto">
-            <div className="text-xs font-medium text-slate-500 mb-2">Preview (first 6 rows)</div>
-            <table className="text-sm border-collapse">
-              <thead>
-                <tr>
-                  {parsed.headers.map((h) => (
-                    <th key={h} className="px-2 py-1 text-left text-xs text-slate-500 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {parsed.rows.slice(0, 6).map((row, i) => (
-                  <tr key={i} className="border-t">
-                    {row.map((cell, j) => (
-                      <td key={j} className="px-2 py-1 whitespace-nowrap text-ink/70">{cell || "—"}</td>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 18px 12px" }}>
+              <h2 id="mp" className="h2">Ship-Sphere field</h2>
+            </div>
+            <div className="tw" style={{ maxHeight: 520 }}>
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Ship-Sphere field</th>
+                    <th scope="col">Column in your file</th>
+                    <th scope="col"><span className="sr">Match</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SUPPLIER_INVOICE_IMPORT_FIELDS.map((f) => {
+                    const matched = !!mapping[f.key];
+                    return (
+                      <tr key={f.key}>
+                        <td style={{ fontWeight: 500 }}>
+                          {f.label} {f.required && <span className="req">*</span>}
+                        </td>
+                        <td style={{ width: "55%" }}>
+                          <label className="sr" htmlFor={`map-${f.key}`}>Column for {f.label}</label>
+                          <select
+                            id={`map-${f.key}`}
+                            className="select select-s"
+                            value={mapping[f.key] ?? ""}
+                            onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value })}
+                          >
+                            <option value="">— Skip —</option>
+                            {parsed.headers.map((h) => (
+                              <option key={h} value={h}>{h}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          {matched ? <span className="badge b-ok">Matched</span> : <span className="badge b-neu">Skipped</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {unmappedHeaders.length > 0 && (
+              <div className="banner bn-warn" style={{ margin: 16, flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warn)" }}>These columns in your sheet aren&apos;t mapped to anything above:</div>
+                <div style={{ fontSize: 13, color: "var(--tx2)" }}>{unmappedHeaders.join(", ")}</div>
+              </div>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="pv" style={{ flex: "1 1 480px", minWidth: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 18px 12px" }}>
+              <h2 id="pv" className="h2">Preview (first 6 rows)</h2>
+            </div>
+            <div className="tw">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    {parsed.headers.map((h) => (
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        <div className="flex justify-end gap-3 pt-2 pb-8">
-          <button onClick={() => setStep("upload")} className="px-4 py-2 text-sm rounded border">Back</button>
-          <button
-            onClick={handleImport}
-            disabled={importing}
-            className="px-4 py-2 text-sm rounded bg-ink text-white disabled:opacity-60"
-          >
-            {importing ? "Importing…" : "Import"}
-          </button>
+                </thead>
+                <tbody>
+                  {parsed.rows.slice(0, 6).map((row, i) => (
+                    <tr key={i}>
+                      {row.map((cell, j) => (
+                        <td key={j}>{cell || <span className="dash">—</span>}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
+              <span className="meta">{parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"}</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setStep("upload")} className="btn">Back</button>
+                <button onClick={handleImport} disabled={importing} className="btn btn-p">
+                  {importing ? "Importing…" : "Import"}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
+
+        {error && <p className="err">{error}</p>}
       </div>
     );
   }
 
   if (step === "result" && result) {
     return (
-      <div className="max-w-lg mx-auto mt-12 space-y-4">
-        <h1 className="text-xl font-semibold text-center">Import complete</h1>
-        <div className="bg-white rounded-xl shadow-sm p-6 text-center space-y-1">
-          <div className="text-3xl font-semibold text-ink">{result.imported}</div>
-          <div className="text-sm text-slate-500">of {result.total} invoices created</div>
+      <div className="max-w-2xl mx-auto space-y-5 py-6">
+        <div>
+          <h1 className="h1">Import Invoices from Excel</h1>
         </div>
 
-        {result.skipped.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-4">
-            <div className="text-sm font-medium text-ink mb-2">Skipped ({result.skipped.length})</div>
-            <ul className="text-sm text-slate-600 space-y-1 max-h-64 overflow-y-auto">
-              {result.skipped.map((s, i) => (
-                <li key={i}>Row {s.row}: {s.reason}</li>
-              ))}
-            </ul>
+        {stepsNav}
+
+        <section className="card" style={{ padding: 32, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center" }}>
+          <span style={{ width: 52, height: 52, borderRadius: 26, background: "var(--okS)", color: "var(--ok)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12l5 5 9-10" />
+            </svg>
+          </span>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Import complete</h2>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+            <span className="badge b-ok">{result.imported} imported</span>
+            {result.skipped.length > 0 && <span className="badge b-neu">{result.skipped.length} skipped</span>}
           </div>
-        )}
+          <div className="meta">of {result.total} invoice{result.total === 1 ? "" : "s"} created</div>
 
-        <div className="text-center">
-          <Link href={backHref} className="inline-block px-4 py-2 text-sm rounded bg-ink text-white">
-            Go to {supplierName}'s Invoices
+          {result.skipped.length > 0 && (
+            <div className="card" style={{ width: "100%", textAlign: "left", padding: 16, marginTop: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Skipped ({result.skipped.length})</div>
+              <ul style={{ fontSize: 13, color: "var(--tx2)", display: "flex", flexDirection: "column", gap: 4, maxHeight: 256, overflowY: "auto", margin: 0, paddingLeft: 18 }}>
+                {result.skipped.map((s, i) => (
+                  <li key={i}>Row {s.row}: {s.reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <Link href={backHref} className="btn btn-p" style={{ marginTop: 6 }}>
+            Go to {supplierName}&apos;s Invoices
           </Link>
-        </div>
+        </section>
       </div>
     );
   }

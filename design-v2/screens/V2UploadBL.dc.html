@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Upload Bill of Lading</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ghost{height:14px;border-radius:4px;background:var(--line)}
+.stp{display:inline-flex;align-items:center;gap:6px}
+.dot{width:20px;height:20px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1100px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Booking &amp; Instructions</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main aria-hidden="true" style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div><h1 class="h1">Booking &amp; Instructions</h1><p class="sub">Source of truth — click the pencil icon on any cell to edit</p></div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px">
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+        <div class="card kpi"><div class="ghost" style="width: 60%"></div><div class="ghost" style="width: 40%; height: 24px"></div></div>
+      </div>
+      <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 18px">
+        <div class="ghost" style="width: 40%"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="scrim">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="bl-t" style="max-width: 880px">
+      <div class="mh">
+        <div>
+          <h2 id="bl-t" class="h2" style="font-size: 18px">Upload Bill of Lading</h2>
+          <p class="lbl" style="margin: 4px 0 0">Booking <span class="mono" style="color: var(--tx); font-weight: 600">401610299853</span> · ONE · Seattle → Mundra, IN</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div class="seg" role="radiogroup" aria-label="Preview step">
+            <sc-for list="{{stepBtns}}" as="s" hint-placeholder-count="4">
+              <button role="radio" aria-checked="{{s.checked}}" class="{{s.cls}}" onClick="{{s.pick}}">{{s.label}}</button>
+            </sc-for>
+          </div>
+          <button class="ib" aria-label="Close dialog"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+      </div>
+
+      <ol class="steps" aria-label="Steps" style="list-style: none; margin: 0; padding: 0 24px 12px">
+        <li class="stp"><span class="dot" style="background: {{s1bg}}; color: {{s1fg}}">1</span><span style="font-weight: 500">Upload</span></li>
+        <li aria-hidden="true" style="width: 32px; height: 1px; background: var(--line2)"></li>
+        <li class="stp"><span class="dot" style="background: {{s2bg}}; color: {{s2fg}}">2</span><span style="font-weight: 500">Review</span></li>
+        <li aria-hidden="true" style="width: 32px; height: 1px; background: var(--line2)"></li>
+        <li class="stp"><span class="dot" style="background: {{s3bg}}; color: {{s3fg}}">3</span><span style="font-weight: 500">Done</span></li>
+      </ol>
+
+      <sc-if value="{{isUpload}}" hint-placeholder-val="{{false}}">
+        <div class="mb">
+          <button class="drop" style="font: inherit; color: var(--tx); cursor: pointer; width: 100%">
+            <span style="width: 44px; height: 44px; border-radius: 12px; background: var(--accentS); color: var(--accent); display: flex; align-items: center; justify-content: center">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3"/></svg></span>
+            <b style="font-size: 15px">Click to choose the BL PDF</b>
+            <span class="lbl">Extracts BL Number, Issued Date, routing, and container/seal/weight details for you to review</span>
+            <span class="meta">PDF only · or drop the file here</span>
+          </button>
+        </div>
+        <div class="mf"><button class="btn btn-s">Cancel</button></div>
+      </sc-if>
+
+      <sc-if value="{{isReading}}" hint-placeholder-val="{{false}}">
+        <div class="mb">
+          <div class="drop" role="status" aria-live="polite" style="border-style: solid">
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+            <b style="font-size: 15px">Reading and extracting…</b>
+            <span class="lbl">BL_HLCU12345.pdf · 2 pages</span>
+            <div style="width: 320px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden"><div style="width: 62%; height: 100%; background: var(--accent)"></div></div>
+            <span class="meta">Usually 5–15 seconds. You can keep working; we'll keep this open.</span>
+          </div>
+        </div>
+        <div class="mf"><button class="btn btn-s">Cancel</button></div>
+      </sc-if>
+
+      <sc-if value="{{isReview}}" hint-placeholder-val="{{true}}">
+        <div class="mb">
+          <div class="banner bn-warn" style="padding: 10px 14px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5"/></svg>
+            <span style="font-size: 13px">AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px">
+            <div class="field"><label for="b1">Bill of Lading Number <span class="req">*</span></label><input id="b1" class="input mono ai" value="HLCU12345"><span class="src">from PDF: "B/L No.: HLCU12345"</span></div>
+            <div class="field"><label for="b2">BL Issued Date</label><input id="b2" type="date" class="input ai" value="2026-09-18"><span class="src">from PDF: "Date of Issue 18-SEP-2026"</span></div>
+            <div class="field"><label for="b3">Place of Issue</label><input id="b3" class="input ai" value="Seattle, WA"><span class="src">from PDF: "Place of Issue: SEATTLE"</span></div>
+            <div class="field"><label for="b4">Vessel</label><input id="b4" class="input ai" value="ONE Harmony"><span class="src">from PDF: "Vessel ONE HARMONY"</span></div>
+            <div class="field"><label for="b5">Voyage</label><input id="b5" class="input is-err" value="018E" aria-invalid="true" aria-describedby="b5e"><span id="b5e" class="err">Low confidence — please verify</span></div>
+            <div class="field"><label for="b6">Port of Loading</label><input id="b6" class="input ai" value="Seattle, WA"><span class="src">from PDF: "Port of Loading SEATTLE"</span></div>
+            <div class="field"><label for="b7">Port of Discharge</label><input id="b7" class="input ai" value="Mundra, IN"><span class="src">from PDF: "Port of Discharge MUNDRA"</span></div>
+            <div class="field"><label for="b9">H.S. Code</label><input id="b9" class="input mono ai" value="6310.10"><span class="src">from PDF: "HS 631010"</span></div>
+            <div class="field" style="grid-column: 1 / -1"><label for="b8">Description of Goods</label><input id="b8" class="input ai" value="Used clothing — mixed rags, in bales"><span class="src">from PDF: "USED CLOTHING MIXED RAGS"</span></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <h3 class="h2" style="font-size: 14px">Containers on this BL <span class="meta" style="font-weight: 400">3</span></h3>
+              <button class="btn btn-xs">+ Add row</button>
+            </div>
+            <div class="card" style="overflow: hidden">
+              <table class="tbl">
+                <thead><tr><th>Container No.</th><th>Seal No.</th><th class="r">Gross Weight</th><th>Unit</th><th class="r">Bales</th><th><span class="sr">Remove</span></th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><input class="input input-s mono ai" value="ONEU 301772-5" aria-label="Container No. row 1" style="width: 150px"></td>
+                    <td><input class="input input-s mono ai" value="ONE884120" aria-label="Seal No. row 1" style="width: 120px"></td>
+                    <td class="r"><input class="input input-s num ai" value="21,480" aria-label="Gross Weight row 1" style="width: 100px; text-align: right"></td>
+                    <td><select class="select select-s" aria-label="Unit row 1" style="width: 80px"><option>—</option><option selected>KGS</option><option>LBS</option></select></td>
+                    <td class="r"><input class="input input-s num ai" value="48" aria-label="Bales row 1" style="width: 64px; text-align: right"></td>
+                    <td><button class="ib" aria-label="Remove row 1"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+                  </tr>
+                  <tr>
+                    <td><input class="input input-s mono ai" value="ONEU 301804-1" aria-label="Container No. row 2" style="width: 150px"></td>
+                    <td><input class="input input-s mono ai" value="ONE884121" aria-label="Seal No. row 2" style="width: 120px"></td>
+                    <td class="r"><input class="input input-s num ai" value="22,010" aria-label="Gross Weight row 2" style="width: 100px; text-align: right"></td>
+                    <td><select class="select select-s" aria-label="Unit row 2" style="width: 80px"><option>—</option><option selected>KGS</option><option>LBS</option></select></td>
+                    <td class="r"><input class="input input-s num ai" value="50" aria-label="Bales row 2" style="width: 64px; text-align: right"></td>
+                    <td><button class="ib" aria-label="Remove row 2"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+                  </tr>
+                  <tr>
+                    <td><input class="input input-s mono is-err" value="MSKU 999999-1" aria-label="Container No. row 3" aria-describedby="r3e" style="width: 150px"><div id="r3e" class="err" style="margin-top: 4px">Not on this booking</div></td>
+                    <td><input class="input input-s mono ai" value="ONE884122" aria-label="Seal No. row 3" style="width: 120px"></td>
+                    <td class="r"><input class="input input-s num ai" value="20,950" aria-label="Gross Weight row 3" style="width: 100px; text-align: right"></td>
+                    <td><select class="select select-s" aria-label="Unit row 3" style="width: 80px"><option>—</option><option selected>KGS</option><option>LBS</option></select></td>
+                    <td class="r"><input class="input input-s num ai" value="47" aria-label="Bales row 3" style="width: 64px; text-align: right"></td>
+                    <td><button class="ib" aria-label="Remove row 3"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="meta" style="margin: 0; display: flex; gap: 6px; align-items: flex-start">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1px"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5"/></svg>
+              Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one's missing.</p>
+          </div>
+        </div>
+        <div class="mf" style="justify-content: space-between">
+          <span class="lbl" style="align-self: center">9 fields read · <b style="color: var(--crit)">1 to verify</b></span>
+          <div style="display: flex; gap: 10px"><button class="btn btn-s">Cancel</button><button class="btn btn-s btn-p">Save</button></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+        <div class="mb">
+          <div class="banner bn-ok" role="status">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+            <b style="font-weight: 600">BL details saved — 3 containers updated.</b>
+          </div>
+          <div class="banner bn-warn">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>
+            <span style="font-size: 13px">Not on this booking yet, so skipped: <span class="mono" style="font-weight: 600">MSKU 999999-1</span></span>
+          </div>
+          <p class="lbl" style="margin: 0">The Upload BL cell now shows <span class="badge b-ok">BL: HLCU12345</span></p>
+        </div>
+        <div class="mf"><button class="btn btn-s btn-p">Close</button></div>
+      </sc-if>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, step: 'review' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const step = this.state.step;
+    const stepBtns = [['upload', 'Upload'], ['reading', 'Reading'], ['review', 'Review'], ['done', 'Done']].map(([id, label]) => ({ label, cls: step === id ? 'on' : '', checked: step === id ? 'true' : 'false', pick: () => this.setState({ step: id }) }));
+    const idx = { upload: 1, reading: 1, review: 2, done: 3 }[step];
+    const col = (n) => n < idx ? ['var(--okS)', 'var(--ok)'] : n === idx ? ['var(--accent)', 'var(--onAccent)'] : ['var(--neuS)', 'var(--tx2)'];
+    const [s1bg, s1fg] = col(1), [s2bg, s2fg] = col(2), [s3bg, s3fg] = col(3);
+    return {
+      themeClass: 'th-' + theme, themes, stepBtns, s1bg, s1fg, s2bg, s2fg, s3bg, s3fg,
+      isUpload: step === 'upload', isReading: step === 'reading', isReview: step === 'review', isDone: step === 'done'
+    };
+  }
+}
+</script>
+</body>
+</html>

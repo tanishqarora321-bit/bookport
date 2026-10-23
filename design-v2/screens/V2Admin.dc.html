@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Platform Admin</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:visible}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sbtn{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 8px;border-radius:6px;border:1px solid transparent;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 950px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="admin" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Admin <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Platform Admin</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div>
+        <h1 class="h1">Platform Admin</h1>
+        <p class="sub">Every client company on Ship-Sphere — only you can see this page.</p>
+      </div>
+
+      <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px">
+        <div class="card kpi"><span class="lbl">Total Companies</span><span class="v">4</span><span class="meta">All time</span></div>
+        <div class="card kpi"><span class="lbl">Active</span><span class="v" style="color: var(--ok)">2</span><span class="meta">Paying, signed in</span></div>
+        <div class="card kpi"><span class="lbl">Trial</span><span class="v" style="color: var(--accent)">1</span><span class="meta">Pilot accounts</span></div>
+        <div class="card kpi"><span class="lbl">Total Seats Used</span><span class="v">31 <span style="font-size: 15px; font-weight: 500; color: var(--tx2)">/ 45</span></span><span class="meta">Across all companies</span></div>
+      </section>
+
+      <section class="card" aria-labelledby="co-t">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 18px">
+          <h2 id="co-t" class="h2">Client companies</h2>
+          <a class="btn" href="V2Settings.dc.html" style="height: 32px; padding: 0 12px; font-size: 13px">+ New Company</a>
+        </div>
+        <div class="tw" style="border-top: 1px solid var(--line)">
+          <table class="tbl">
+            <thead><tr><th aria-sort="ascending">Company</th><th>Admin</th><th style="min-width: 180px">Seats</th><th>Created</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: 600">CN International</td>
+                <td><div>tanishq@company.com</div><div class="meta">Tanishq</div></td>
+                <td><div style="display: flex; align-items: center; gap: 10px"><div style="flex: 1; height: 6px; border-radius: 3px; background: var(--neuS); overflow: hidden"><div style="width: 80%; height: 100%; background: var(--accent)"></div></div><span class="num">4 / 5</span></div></td>
+                <td class="num">12 Aug 2026</td>
+                <td><button class="sbtn" style="background: var(--okS); color: var(--ok)" aria-haspopup="listbox">● Active ▾</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600">Tanya &amp; Kajol Enterprises</td>
+                <td><div>admin@tkenterprises.in</div><div class="meta">[Admin name]</div></td>
+                <td><div style="display: flex; align-items: center; gap: 10px"><div style="flex: 1; height: 6px; border-radius: 3px; background: var(--neuS); overflow: hidden"><div style="width: 73%; height: 100%; background: var(--accent)"></div></div><span class="num">11 / 15</span></div></td>
+                <td class="num">3 Sep 2026</td>
+                <td style="position: relative">
+                  <button class="sbtn" style="background: var(--accentS); color: var(--accent); box-shadow: 0 0 0 2px var(--focus)" aria-haspopup="listbox" aria-expanded="true">● Trial ▾</button>
+                  <div class="menu" role="listbox" aria-label="Company status" style="position: absolute; top: 44px; left: 12px; z-index: 5; min-width: 180px">
+                    <div role="option" aria-selected="true" class="opt sel"><span class="badge b-acc">Trial</span><span style="margin-left: auto; color: var(--accent)">✓</span></div>
+                    <div role="option" aria-selected="false" class="opt"><span class="badge b-ok">Active</span></div>
+                    <div role="option" aria-selected="false" class="opt"><span class="badge b-crit">Suspended</span></div>
+                    <div role="option" aria-selected="false" class="opt"><span class="badge b-neu">Cancelled</span></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600">[Client company]</td>
+                <td><div>ops@client-three.com</div><div class="meta"><span style="color: var(--mut)">—</span></div></td>
+                <td><div style="display: flex; align-items: center; gap: 10px"><div style="flex: 1; height: 6px; border-radius: 3px; background: var(--neuS); overflow: hidden"><div style="width: 80%; height: 100%; background: var(--accent)"></div></div><span class="num">16 / 20</span></div></td>
+                <td class="num">21 Sep 2026</td>
+                <td><button class="sbtn" style="background: var(--okS); color: var(--ok)" aria-haspopup="listbox">● Active ▾</button></td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: var(--tx2)">[Former client]</td>
+                <td><div style="color: var(--tx2)">admin@former.com</div></td>
+                <td><div style="display: flex; align-items: center; gap: 10px"><div style="flex: 1; height: 6px; border-radius: 3px; background: var(--neuS); overflow: hidden"><div style="width: 0%; height: 100%; background: var(--accent)"></div></div><span class="num">0 / 5</span></div></td>
+                <td class="num">2 Jul 2026</td>
+                <td><button class="sbtn" style="background: var(--neuS); color: var(--neu)" aria-haspopup="listbox">● Cancelled ▾</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+        <section role="dialog" aria-modal="false" aria-labelledby="sus-t" class="card" style="flex: 0 1 520px; background: var(--elev); box-shadow: var(--shadowL); overflow: hidden">
+          <div style="display: flex; gap: 12px; padding: 20px 22px 14px">
+            <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--critS); color: var(--crit); display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM6 6l12 12"/></svg></span>
+            <div>
+              <h3 id="sus-t" class="h2">Suspend CN International?</h3>
+              <p class="lbl" style="margin: 6px 0 0">Every user there will be signed out and blocked from logging back in until you reactivate it. Their data is not touched or deleted.</p>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 22px; border-top: 1px solid var(--line); background: var(--surf2)">
+            <button class="btn btn-g">Cancel</button><button class="btn btn-dp">Suspend company</button>
+          </div>
+        </section>
+        <div class="card" style="flex: 1 1 320px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+          <span class="lbl" style="font-weight: 600; color: var(--tx)">Other states</span>
+          <span class="lbl">Empty: "No companies yet."</span>
+          <span class="lbl">Not the owner: "Not authorized" — "Platform Admin is only visible to the platform owner."</span>
+          <span class="lbl">Cancel uses the same dialog with "Cancel company" as the action.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":950}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    return { themeClass: 'th-' + theme, themes };
+  }
+}
+</script>
+</body>
+</html>

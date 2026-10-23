@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Settings &amp; Control</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl .r{text-align:right}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ch{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)}
+.cico{width:36px;height:36px;border-radius:10px;background:var(--accentS);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cb{padding:18px 22px;display:flex;flex-direction:column;gap:16px}
+.idx{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:8px;color:var(--tx2);font-size:14px}
+.idx.on{background:var(--accentS);color:var(--tx);font-weight:600}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1600px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="settings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Admin <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Settings &amp; Control</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div>
+        <h1 class="h1">Settings &amp; Control</h1>
+        <p class="sub">Your account, documents, email and team</p>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+        <nav aria-label="Settings sections" style="flex: 0 1 220px; display: flex; flex-direction: column; gap: 2px">
+          <a class="idx on" href="#acct" aria-current="true">Your Account</a>
+          <a class="idx" href="#lh">Document Letterhead</a>
+          <a class="idx" href="#mail">Email Sending</a>
+          <a class="idx" href="#users">Manage Users</a>
+          <a class="idx" href="#owner">Platform Owner <span class="badge b-acc" style="margin-left: auto; height: 20px">Only you</span></a>
+        </nav>
+
+        <div style="flex: 1 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+          <!-- Your Account -->
+          <section id="acct" class="card" aria-labelledby="acct-t">
+            <div class="ch">
+              <span class="cico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7a4 4 0 1 1-4 4 4 4 0 0 1 4-4zM12 14l-9 7M5 19l2 2M8 16l2 2"/></svg></span>
+              <div style="flex: 1"><h2 id="acct-t" class="h2">Your Account</h2><div class="lbl" style="margin-top: 2px">Signed in as <b style="color: var(--tx); font-weight: 600">tanishq@company.com</b></div></div>
+              <button class="btn btn-s" aria-expanded="true">Change Password</button>
+            </div>
+            <div class="cb">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px">
+                <div class="field"><label for="np">New password (min 8 chars)</label><input id="np" class="input" type="password" value="sh1psphere!"></div>
+                <div class="field"><label for="cp">Confirm new password</label><input id="cp" class="input" type="password" value="sh1psphere!"></div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+                <button class="btn btn-p">Save Password</button>
+                <button class="btn btn-g">Cancel</button>
+                <span role="status" style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ok); font-weight: 600"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>Password updated.</span>
+              </div>
+              <div class="meta">Other messages: "Password must be at least 8 characters." · "Passwords don't match."</div>
+            </div>
+          </section>
+
+          <!-- Letterhead -->
+          <section id="lh" class="card" aria-labelledby="lh-t">
+            <div class="ch">
+              <span class="cico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h4"/></svg></span>
+              <div style="flex: 1"><h2 id="lh-t" class="h2">Document Letterhead</h2><div class="lbl" style="margin-top: 2px">Used on Final Invoice &amp; Booking Instructions PDFs: <b style="color: var(--tx); font-weight: 600">CN International LLC</b></div></div>
+              <span class="badge b-neu">Admins only</span>
+            </div>
+            <div class="cb" style="flex-direction: row; flex-wrap: wrap; gap: 24px">
+              <div style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+                <div class="field"><label for="lc">Company name</label><input id="lc" class="input" value="CN International LLC"></div>
+                <div class="field"><label for="la">Address (one line per row)</label><textarea id="la" class="textarea">1200 Westlake Ave N, Suite 400
+Seattle, WA 98109
+United States</textarea></div>
+                <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+                  <div class="field"><label for="lp">Phone</label><input id="lp" class="input" value="+1 206 555 0142"></div>
+                  <div class="field"><label for="lf">Fax</label><input id="lf" class="input" placeholder="Optional"></div>
+                  <div class="field"><label for="le">Email</label><input id="le" class="input" value="docs@cninternational.com"></div>
+                </div>
+                <div class="field">
+                  <label for="lcol">Accent color</label>
+                  <div style="display: flex; align-items: center; gap: 10px">
+                    <input id="lcol" type="color" value="#2F5FE0" style="width: 44px; height: 40px; padding: 2px; border: 1px solid var(--line2); border-radius: 9px; background: var(--surf)">
+                    <input class="input mono" value="#2F5FE0" aria-label="Accent color hex" style="max-width: 140px">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="lsd">Shipper declares clause</label>
+                  <textarea id="lsd" class="textarea">Shipper declares that the cargo is destined for {destination} and contains no prohibited materials.</textarea>
+                  <span class="help">Use <span class="mono" style="background: var(--accentS); color: var(--accent); padding: 1px 6px; border-radius: 4px">{destination}</span> where the port of delivery should be inserted.</span>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center"><button class="btn btn-p">Save Letterhead</button><button class="btn btn-g">Cancel</button></div>
+              </div>
+              <div style="flex: 0 1 320px; min-width: 260px; display: flex; flex-direction: column; gap: 8px">
+                <span class="lbl" style="font-weight: 600; color: var(--tx)">Live preview</span>
+                <div aria-label="Letterhead preview" role="img" style="background: #FFFFFF; color: #0F172A; border: 1px solid var(--line); border-radius: 8px; padding: 18px; box-shadow: var(--shadow); aspect-ratio: 8.5 / 11; display: flex; flex-direction: column; gap: 10px; font-size: 10px">
+                  <div style="border-top: 4px solid #2F5FE0; padding-top: 10px; display: flex; justify-content: space-between; gap: 8px">
+                    <div><div style="font-size: 13px; font-weight: 700; color: #2F5FE0">CN International LLC</div><div style="color: #475569; line-height: 1.4">1200 Westlake Ave N, Suite 400<br>Seattle, WA 98109<br>United States</div></div>
+                    <div style="text-align: right; color: #475569; line-height: 1.4">+1 206 555 0142<br>docs@cninternational.com</div>
+                  </div>
+                  <div style="font-size: 14px; font-weight: 700; letter-spacing: 0.08em; margin-top: 8px">INVOICE</div>
+                  <div style="height: 6px; border-radius: 3px; background: #E2E8F0; width: 80%"></div>
+                  <div style="height: 6px; border-radius: 3px; background: #E2E8F0; width: 60%"></div>
+                  <div style="height: 6px; border-radius: 3px; background: #E2E8F0; width: 70%"></div>
+                  <div style="flex: 1"></div>
+                  <div style="color: #475569; font-style: italic">Shipper declares that the cargo is destined for Mundra, IN and contains no prohibited materials.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Email -->
+          <section id="mail" class="card" aria-labelledby="mail-t">
+            <div class="ch">
+              <span class="cico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3zM3 7l9 6 9-6"/></svg></span>
+              <div style="flex: 1"><h2 id="mail-t" class="h2">Email Sending</h2><div class="lbl" style="margin-top: 2px">Each teammate's emails already show their own name and reply-to automatically. Website: www.cninternational.com</div></div>
+            </div>
+            <div class="cb">
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+                <div class="field" style="flex: 1 1 320px"><label for="ws">Website (e.g. www.…)</label><input id="ws" class="input" value="www.cninternational.com"></div>
+                <button class="btn btn-p">Save</button>
+              </div>
+              <span role="status" class="meta" style="color: var(--ok); font-weight: 600">Email settings saved.</span>
+            </div>
+          </section>
+
+          <!-- Users -->
+          <section id="users" class="card" aria-labelledby="us-t" style="overflow: hidden">
+            <div class="ch">
+              <span class="cico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19 8v6M22 11h-6"/></svg></span>
+              <div style="flex: 1"><h2 id="us-t" class="h2">Manage Users — CN International</h2><div class="lbl" style="margin-top: 2px">Invited teammates sign in with email + the password they set from the invite email.</div></div>
+              <button class="btn btn-p btn-s" aria-expanded="true">+ Invite Teammate</button>
+            </div>
+            <div class="cb">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px">
+                <div class="card kpi"><span class="lbl">Seats Used</span><span class="v">4 <span style="font-size: 15px; font-weight: 500; color: var(--tx2)">/ 5</span></span><div role="progressbar" aria-label="Seats used" aria-valuenow="4" aria-valuemin="0" aria-valuemax="5" style="height: 6px; border-radius: 3px; background: var(--neuS); overflow: hidden"><div style="width: 80%; height: 100%; background: var(--accent)"></div></div></div>
+                <div class="card kpi"><span class="lbl">Seats Left</span><span class="v">1</span><span class="meta">When 0, invites are disabled: "No seats left - remove a teammate or upgrade the plan"</span></div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 16px; border-radius: 10px; background: var(--surf2); border: 1px solid var(--line)">
+                <div class="field" style="flex: 2 1 220px"><label for="ie">Email <span class="req">*</span></label><input id="ie" class="input" type="email" value="priya@cninternational.com"></div>
+                <div class="field" style="flex: 1.5 1 180px"><label for="in">Full name</label><input id="in" class="input" placeholder="Optional"></div>
+                <div class="field" style="flex: 1 1 150px"><label for="ir">Role</label><select id="ir" class="select"><option>admin</option><option selected="selected">operations</option><option>finance</option><option>readonly</option></select></div>
+                <button class="btn btn-p">Send Invite</button>
+                <button class="btn btn-g">Cancel</button>
+              </div>
+            </div>
+            <div class="tw" style="border-top: 1px solid var(--line)">
+              <table class="tbl">
+                <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th><span class="sr">Actions</span></th></tr></thead>
+                <tbody>
+                  <tr><td>tanishq@company.com</td><td>Tanishq</td><td><span class="badge b-acc">admin</span></td><td><span class="badge b-ok">Active</span></td><td class="r"><span class="meta">You</span></td></tr>
+                  <tr><td>ops@cninternational.com</td><td>[Teammate]</td><td><span class="badge b-info">operations</span></td><td><span class="badge b-ok">Active</span></td><td class="r"><button class="btn btn-xs btn-d">Remove</button></td></tr>
+                  <tr><td>accounts@cninternational.com</td><td>[Teammate]</td><td><span class="badge b-ok">finance</span></td><td><span class="badge b-ok">Active</span></td><td class="r"><button class="btn btn-xs btn-d">Remove</button></td></tr>
+                  <tr><td>viewer@cninternational.com</td><td><span class="dash">—</span></td><td><span class="badge b-neu">readonly</span></td><td><span class="badge b-ok">Active</span></td><td class="r"><button class="btn btn-xs btn-d">Remove</button></td></tr>
+                  <tr><td style="color: var(--tx2)">old.ops@cninternational.com</td><td style="color: var(--tx2)">[Former teammate]</td><td><span class="badge b-info">operations</span></td><td><span class="badge b-neu">Removed</span></td><td class="r"><button class="btn btn-xs">Restore</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Platform owner -->
+          <section id="owner" class="card" aria-labelledby="ow-t" style="border-color: var(--accent)">
+            <div class="ch">
+              <span class="cico"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/></svg></span>
+              <div style="flex: 1"><h2 id="ow-t" class="h2">Platform Owner: Onboard a New Client Company</h2><div class="lbl" style="margin-top: 2px">Creates the company and invites its first admin in one step. Only you can see this section.</div></div>
+              <button class="btn btn-s" aria-expanded="true">+ New Company</button>
+            </div>
+            <div class="cb">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px">
+                <div class="field"><label for="oc">Company name <span class="req">*</span></label><input id="oc" class="input" value="Tanya &amp; Kajol Enterprises"></div>
+                <div class="field"><label for="oe">Admin email <span class="req">*</span></label><input id="oe" class="input" type="email" placeholder="admin@client.com"></div>
+                <div class="field"><label for="on">Admin name</label><input id="on" class="input" placeholder="Optional"></div>
+                <div class="field"><label for="os">Seats allowed</label><input id="os" class="input num" type="number" value="5"></div>
+              </div>
+              <div style="display: flex; gap: 10px"><button class="btn btn-p">Create Company &amp; Invite Admin</button><button class="btn btn-g">Cancel</button></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1600}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    return { themeClass: 'th-' + theme, themes };
+  }
+}
+</script>
+</body>
+</html>

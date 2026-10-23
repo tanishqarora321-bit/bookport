@@ -102,11 +102,6 @@ function AuthCallbackInner() {
         setStatus("ready");
       }
     });
-    // searchParams is a stable object identity from useSearchParams() for
-    // the initial load this page cares about - re-running this on every
-    // params change isn't needed and would re-trigger the one-time
-    // exchange/setSession call.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function setNewPassword(e: React.FormEvent) {
@@ -149,56 +144,76 @@ function AuthCallbackInner() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-surface-2 flex items-center justify-center p-6">
+      <div className="w-full max-w-[400px]">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <Logo size={40} />
           <div>
             <div className="font-semibold text-lg leading-tight text-ink">Ship-Sphere</div>
-            <div className="text-xs text-slate-400 leading-tight">One Booking. All Connected.</div>
+            <div className="text-xs text-muted leading-tight">One Booking. All Connected.</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          {status === "loading" && <p className="text-sm text-ink/60 text-center">Confirming your invite…</p>}
+        <div className="card p-6">
+          {status === "loading" && (
+            <div className="banner bn-info" role="status" style={{ fontSize: 13 }}>
+              <span style={{ flex: 1 }}>Confirming your invite…</span>
+            </div>
+          )}
 
           {status === "error" && (
-            <div className="text-center space-y-2">
-              <p className="text-sm text-cutoff">{errorMessage}</p>
-              <p className="text-xs text-slate-400">Ask your admin to send a fresh invite from Settings &amp; Control.</p>
+            <div className="flex flex-col gap-2">
+              <div className="banner bn-crit" role="alert" style={{ fontSize: 13 }}>
+                <span style={{ flex: 1 }}>{errorMessage}</span>
+              </div>
+              <p className="meta" style={{ margin: 0, textAlign: "center" }}>
+                Ask your admin to send a fresh invite from Settings &amp; Control.
+              </p>
             </div>
           )}
 
           {status === "ready" && (
-            <form onSubmit={setNewPassword} className="space-y-4">
-              <h1 className="text-lg font-semibold text-ink">Set your password</h1>
+            <form onSubmit={setNewPassword} className="flex flex-col gap-4">
               <div>
-                <label className="block text-xs font-medium text-ink/60 mb-1">New password</label>
+                <span className="badge b-acc">Invite accepted</span>
+                <h1 className="h1" style={{ marginTop: 12 }}>Set your password</h1>
+                <p className="sub">You&apos;ll use it with your email to sign in from now on.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="new-password">New password</label>
                 <input
+                  id="new-password"
                   type="password"
                   required
                   autoFocus
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  className="input"
                   placeholder="At least 8 characters"
                 />
+                <span className="help">At least 8 characters.</span>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-ink/60 mb-1">Confirm password</label>
+              <div className="field">
+                <label htmlFor="confirm-password">Confirm password</label>
                 <input
+                  id="confirm-password"
                   type="password"
                   required
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  className="input"
                 />
               </div>
-              {saveError && <div className="text-sm text-cutoff">{saveError}</div>}
+              {saveError && (
+                <span className="err" role="alert">
+                  {saveError}
+                </span>
+              )}
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-accent text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-60"
+                className="btn btn-p w-full"
+                style={{ height: 44, fontSize: 15 }}
               >
                 {saving ? "Saving…" : "Set password & continue"}
               </button>

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Cell editing states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.state{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;background:var(--surf2);border:1px solid var(--line);font-size:11px;font-weight:600;color:var(--tx2);margin-bottom:8px}
+.cellv{vertical-align:top!important}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1100px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Booking &amp; Instructions</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div>
+        <h1 class="h1" style="font-size: 24px">Cell editing states</h1>
+        <p class="sub">How every editable cell in the Booking &amp; Instructions grid behaves. Hover shows the pencil, click opens the editor, ✓ saves, ✕ or Esc cancels.</p>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span class="badge b-neu">1 · Text editing</span>
+        <span class="badge b-neu">2 · Date &amp; time</span>
+        <span class="badge b-neu">3 · Party picker + New</span>
+        <span class="badge b-neu">4 · Packing popover</span>
+        <span class="badge b-neu">5 · Status selects</span>
+      </div>
+
+      <section class="card" style="overflow: hidden">
+        <div class="tw">
+          <table class="tbl">
+            <thead>
+              <tr><th>Booking Number</th><th>Cargo Cut Off</th><th>Forwarder Name</th><th>Packing Details</th><th>Status</th><th>Instruction Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="cellv">
+                  <div class="state">1 · Editing text</div>
+                  <div style="display: flex; align-items: center; gap: 4px">
+                    <label class="sr" for="e1">Booking Number</label>
+                    <input id="e1" class="input input-s mono" value="HL-1195200" style="width: 160px; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accentS)">
+                    <button class="ib" aria-label="Save" style="background: var(--accent); color: var(--onAccent)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></button>
+                    <button class="ib" aria-label="Cancel" style="border-color: var(--line2)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                  </div>
+                  <div class="meta" style="margin-top: 6px">Enter saves · Esc cancels</div>
+                </td>
+                <td class="cellv num">19 Oct 2026, 10:00</td>
+                <td class="cellv">UAL</td>
+                <td class="cellv"><a href="#">2 lines</a></td>
+                <td class="cellv"><span class="badge b-acc">Confirmed</span></td>
+                <td class="cellv"><span class="badge b-ok">Sent</span></td>
+              </tr>
+              <tr>
+                <td class="cellv mono" style="font-weight: 600">274502536</td>
+                <td class="cellv">
+                  <div class="state">2 · Editing date &amp; time</div>
+                  <div style="display: flex; align-items: center; gap: 4px">
+                    <label class="sr" for="e2">Cargo Cut Off</label>
+                    <input id="e2" type="datetime-local" class="input input-s" value="2026-10-19T18:00" style="width: 200px; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accentS)">
+                    <button class="ib" aria-label="Save" style="background: var(--accent); color: var(--onAccent)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></button>
+                    <button class="ib" aria-label="Cancel" style="border-color: var(--line2)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                  </div>
+                  <div class="meta" style="margin-top: 6px">Times in IST · amends tracking &amp; trucker</div>
+                </td>
+                <td class="cellv">Walker</td>
+                <td class="cellv"><a href="#" style="color: var(--tx2)">+ Packing Details</a></td>
+                <td class="cellv"><span class="badge b-acc">Confirmed</span></td>
+                <td class="cellv"><span class="badge b-crit">Not Sent</span></td>
+              </tr>
+              <tr>
+                <td class="cellv mono" style="font-weight: 600">EX471632</td>
+                <td class="cellv num">20 Oct 2026, 09:00</td>
+                <td class="cellv">
+                  <div class="state">3 · Party picker open</div>
+                  <div style="display: flex; align-items: center; gap: 4px">
+                    <button class="input input-s" aria-haspopup="listbox" aria-expanded="true" style="width: 180px; display: flex; align-items: center; justify-content: space-between; text-align: left; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accentS); cursor: pointer">UAL
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+                    <button class="ib" aria-label="Save" style="background: var(--accent); color: var(--onAccent)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></button>
+                    <button class="btn btn-xs">+ New</button>
+                    <button class="ib" aria-label="Cancel" style="border-color: var(--line2)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                  </div>
+                  <div class="menu" role="listbox" aria-label="Forwarder" style="margin-top: 6px; width: 220px">
+                    <div style="padding: 4px 6px 6px"><input class="input input-s" placeholder="Filter forwarders…" aria-label="Filter forwarders"></div>
+                    <div class="opt" role="option" aria-selected="false" style="color: var(--mut)">— none —</div>
+                    <div class="opt sel" role="option" aria-selected="true">UAL
+                      <svg aria-hidden="true" style="margin-left: auto" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></div>
+                    <div class="opt" role="option" aria-selected="false">Walker</div>
+                    <div class="opt" role="option" aria-selected="false">[Forwarder name]</div>
+                  </div>
+                  <div class="card" style="margin-top: 8px; padding: 12px; width: 260px; display: flex; flex-direction: column; gap: 8px; border-color: var(--accent)">
+                    <div style="font-size: 13px; font-weight: 600">New Forwarder</div>
+                    <label class="sr" for="nf">Forwarder name</label>
+                    <div style="display: flex; gap: 6px"><input id="nf" class="input input-s" placeholder="Forwarder name"><button class="btn btn-s btn-p">Save</button></div>
+                  </div>
+                </td>
+                <td class="cellv"><a href="#">3 lines</a></td>
+                <td class="cellv"><span class="badge b-acc">Confirmed</span></td>
+                <td class="cellv"><span class="badge b-neu">—</span></td>
+              </tr>
+              <tr>
+                <td class="cellv mono" style="font-weight: 600">400600270642</td>
+                <td class="cellv num">25 Aug 2026, 17:00</td>
+                <td class="cellv">Walker</td>
+                <td class="cellv">
+                  <div class="state">4 · Packing popover</div>
+                  <div class="menu" role="dialog" aria-label="Packing details" style="width: 640px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+                    <div style="display: flex; justify-content: space-between; align-items: center">
+                      <b style="font-size: 14px">Seal No / Weight / Bales</b>
+                      <button class="ib" aria-label="Close packing details"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 0.7fr 1.6fr 32px; gap: 6px; font-size: 11px; font-weight: 600; color: var(--tx2)">
+                      <span>Seal No</span><span>Weight</span><span>Unit</span><span>Bales</span><span>Description</span><span></span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 0.7fr 1.6fr 32px; gap: 6px">
+                      <input class="input input-s mono" value="MSC 4471023" aria-label="Seal No line 1">
+                      <input class="input input-s num" value="26,420" aria-label="Weight line 1">
+                      <select class="select select-s" aria-label="Unit line 1"><option>LBS</option><option selected>KG</option></select>
+                      <input class="input input-s num" value="58" aria-label="Bales line 1">
+                      <input class="input input-s" value="Mixed Rags" aria-label="Description line 1">
+                      <button class="ib" aria-label="Remove line 1"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 0.7fr 1.6fr 32px; gap: 6px">
+                      <input class="input input-s mono" value="MSC 4471024" aria-label="Seal No line 2">
+                      <input class="input input-s num" value="25,880" aria-label="Weight line 2">
+                      <select class="select select-s" aria-label="Unit line 2"><option>LBS</option><option selected>KG</option></select>
+                      <input class="input input-s num" value="56" aria-label="Bales line 2">
+                      <input class="input input-s" value="" placeholder="Description (optional)" aria-label="Description line 2">
+                      <button class="ib" aria-label="Remove line 2"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 0.7fr 1.6fr auto; gap: 6px; padding-top: 10px; border-top: 1px dashed var(--line2)">
+                      <input class="input input-s" placeholder="Seal No" aria-label="New Seal No">
+                      <input class="input input-s" placeholder="Weight" aria-label="New Weight">
+                      <select class="select select-s" aria-label="New unit"><option>LBS</option><option>KG</option></select>
+                      <input class="input input-s" placeholder="Bales" aria-label="New Bales">
+                      <input class="input input-s" placeholder="Description (optional)" aria-label="New Description">
+                      <button class="btn btn-s btn-p">✓ Add Line</button>
+                    </div>
+                    <a href="#" style="font-size: 13px; display: inline-flex; align-items: center; gap: 6px">
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3"/></svg>
+                      Or upload packing list PDF to auto-fill above</a>
+                    <div class="meta">Edits save when you leave a field.</div>
+                  </div>
+                </td>
+                <td class="cellv"><span class="badge b-acc">Confirmed</span></td>
+                <td class="cellv"><span class="badge b-ok">Sent</span></td>
+              </tr>
+              <tr>
+                <td class="cellv mono" style="font-weight: 600">NAM8534819</td>
+                <td class="cellv num">08 Jul 2026, 17:00</td>
+                <td class="cellv">UAL</td>
+                <td class="cellv"><a href="#">2 lines</a></td>
+                <td class="cellv">
+                  <div class="state">5a · Status select</div>
+                  <div style="display: flex; align-items: center; gap: 4px">
+                    <button class="input input-s" aria-haspopup="listbox" aria-expanded="true" style="width: 150px; display: flex; align-items: center; justify-content: space-between; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accentS); cursor: pointer">Confirmed
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+                    <button class="ib" aria-label="Save" style="background: var(--accent); color: var(--onAccent)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></button>
+                    <button class="ib" aria-label="Cancel" style="border-color: var(--line2)"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                  </div>
+                  <div class="menu" role="listbox" aria-label="Status" style="margin-top: 6px; width: 190px">
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-neu">Draft</span></div>
+                    <div class="opt sel" role="option" aria-selected="true"><span class="badge b-acc">Confirmed</span></div>
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-info">In Transit</span></div>
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-ok">Delivered</span></div>
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-crit">Cancelled</span></div>
+                  </div>
+                </td>
+                <td class="cellv">
+                  <div class="state">5b · Instruction Status</div>
+                  <button class="badge b-crit" aria-haspopup="listbox" aria-expanded="true" style="border: 1px solid var(--crit); cursor: pointer; font: inherit; font-size: 12px; font-weight: 600">Not Sent ▾</button>
+                  <div class="menu" role="listbox" aria-label="Instruction Status" style="margin-top: 6px; width: 160px">
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-neu">—</span></div>
+                    <div class="opt" role="option" aria-selected="false"><span class="badge b-ok">Sent</span></div>
+                    <div class="opt sel" role="option" aria-selected="true"><span class="badge b-crit">Not Sent</span></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" role="alertdialog" aria-labelledby="cf-t" aria-describedby="cf-d" style="flex: 1 1 420px; max-width: 520px; box-shadow: var(--shadowL)">
+          <div class="mh">
+            <div style="display: flex; gap: 12px">
+              <span style="width: 36px; height: 36px; border-radius: 10px; background: var(--critS); color: var(--crit); display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg></span>
+              <div>
+                <h2 id="cf-t" class="h2">Clear the forwarder?</h2>
+                <p id="cf-d" class="lbl" style="margin: 6px 0 0">Clear "UAL" as the Forwarder? This also deletes their invoice for this booking…</p>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <button class="btn btn-s">Cancel</button>
+            <button class="btn btn-s btn-dp">Clear forwarder</button>
+          </div>
+        </section>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="meta">Toasts (bottom-right, auto-hide 4 s)</span>
+          <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--elev); border: 1px solid var(--line); box-shadow: var(--shadowL); font-size: 13px; min-width: 280px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+            Saving…
+          </div>
+          <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--elev); border: 1px solid var(--ok); box-shadow: var(--shadowL); font-size: 13px; min-width: 280px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+            <span><b style="font-weight: 600">Saved</b> · ERD updated</span>
+            <a href="#" style="margin-left: auto">Undo</a>
+          </div>
+          <div role="alert" style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--elev); border: 1px solid var(--crit); box-shadow: var(--shadowL); font-size: 13px; min-width: 280px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--crit)" stroke-width="2" stroke-linecap="round"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16v.5"/></svg>
+            <span><b style="font-weight: 600">Couldn't save.</b> Your edit is kept.</span>
+            <a href="#" style="margin-left: auto">Retry</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    return { themeClass: 'th-' + theme, themes };
+  }
+}
+</script>
+</body>
+</html>

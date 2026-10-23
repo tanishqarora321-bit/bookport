@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ColumnDef, formatValue, sumColumn } from "@/lib/offer-sheet-compute";
+import { CheckIcon, CloseIcon } from "@/components/EditableCell";
 
 type Row = { id: string; group_key: string | null; sort_order: number; [key: string]: any };
 
@@ -123,33 +124,86 @@ export default function OfferSheetGridClient({
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <Link href="/offer-sheets" className="text-sm text-accent mb-2 w-fit">
-        ← Back to Offer Sheet
-      </Link>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">{sheetTitle}</h1>
-          <p className="text-xs text-ink/50">{sectionName}</p>
+    <div className="flex flex-col" style={{ gap: 20 }}>
+      <section className="card" aria-labelledby="gt" style={{ overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 12px", display: "flex", flexDirection: "column", gap: 8, borderBottom: "1px solid var(--line)" }}>
+          <Link href="/offer-sheets" style={{ fontSize: 13, width: "fit-content" }}>
+            ← Back to Offer Sheet
+          </Link>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+            <div>
+              <h2 id="gt" style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>{sheetTitle}</h2>
+              <div className="lbl" style={{ marginTop: 2 }}>{sectionName}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => setSettingsOpen(!settingsOpen)} className="btn btn-s">
+                <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                  <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1M15 4v4M9 10v4M17 16v4" />
+                </svg>
+                Sheet Settings
+              </button>
+              <button onClick={exportCsv} className="btn btn-s">Export CSV</button>
+              {hasGrouping ? (
+                <button onClick={() => setAddingGroup(true)} className="btn btn-s btn-p">+ New Group</button>
+              ) : (
+                <button onClick={() => addRow(null)} className="btn btn-s btn-p">+ Add Row</button>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setSettingsOpen(!settingsOpen)} className="text-sm border px-3 py-1.5 rounded">
-            ⚙ Sheet Settings
-          </button>
-          <button onClick={exportCsv} className="text-sm border px-3 py-1.5 rounded">
-            ⬇ Export CSV
-          </button>
-          {hasGrouping ? (
-            <button onClick={() => setAddingGroup(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
-              + New Group
-            </button>
-          ) : (
-            <button onClick={() => addRow(null)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
-              + Add Row
-            </button>
-          )}
+
+        <div className="tw">
+          <table className="tbl" style={{ minWidth: 760 }}>
+            <thead>
+              <tr>
+                {visibleColumns.map((c) => (
+                  <th key={c.key} className={c.kind === "number" || c.kind === "computed" ? "r" : undefined}>
+                    {c.label}
+                    {c.kind === "computed" && <span className="fx" aria-label="computed">ƒx</span>}
+                  </th>
+                ))}
+                <th><span className="sr">Delete</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(({ key, rows: groupRows }) => (
+                <GroupBlock
+                  key={key}
+                  groupRows={groupRows}
+                  visibleColumns={visibleColumns}
+                  numericColumns={numericColumns}
+                  showGroupTotal={groupRows.length > 1 || hasGrouping}
+                  onCellSave={patchCell}
+                  onDeleteRow={deleteRow}
+                  onAddItem={groupRows[0].group_key ? () => addRow(groupRows[0].group_key) : undefined}
+                />
+              ))}
+              {groups.length === 0 && (
+                <tr>
+                  <td colSpan={visibleColumns.length + 1} className="meta" style={{ textAlign: "center", padding: "40px 12px" }}>
+                    No rows yet. Click &quot;{hasGrouping ? "+ New Group" : "+ Add Row"}&quot; to start entering costs.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr>
+                  {visibleColumns.map((c, i) => (
+                    <td key={c.key} className={c.kind === "number" || c.kind === "computed" ? "r" : undefined}>
+                      {i === 0 ? "GRAND TOTAL" : c.kind === "number" || c.kind === "computed" ? formatValue(c, sumColumn(rows, c.key)) : ""}
+                    </td>
+                  ))}
+                  <td></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
         </div>
-      </div>
+        <div className="meta" style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 18px", borderTop: "1px solid var(--line)" }}>
+          <span className="fx" aria-hidden="true">ƒx</span> Computed columns are read-only. Hover a column header to see its formula.
+        </div>
+      </section>
 
       {settingsOpen && (
         <SettingsPanel columns={columns} settings={sheetSettings} onSave={saveSetting} onClose={() => setSettingsOpen(false)} />
@@ -165,54 +219,6 @@ export default function OfferSheetGridClient({
           }}
         />
       )}
-
-      <div className="flex-1 overflow-auto border rounded">
-        <table className="text-sm border-collapse min-w-max">
-          <thead className="sticky top-0 bg-slate-50 z-10">
-            <tr className="text-left text-ink/50 border-b">
-              {visibleColumns.map((c) => (
-                <th key={c.key} className="px-3 py-2 font-medium whitespace-nowrap">
-                  {c.label}
-                </th>
-              ))}
-              <th className="px-3 py-2 w-16"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {groups.map(({ key, rows: groupRows }) => (
-              <GroupBlock
-                key={key}
-                groupRows={groupRows}
-                visibleColumns={visibleColumns}
-                numericColumns={numericColumns}
-                showGroupTotal={groupRows.length > 1 || hasGrouping}
-                onCellSave={patchCell}
-                onDeleteRow={deleteRow}
-                onAddItem={groupRows[0].group_key ? () => addRow(groupRows[0].group_key) : undefined}
-              />
-            ))}
-            {groups.length === 0 && (
-              <tr>
-                <td colSpan={visibleColumns.length + 1} className="px-3 py-10 text-center text-ink/40">
-                  No rows yet. Click "{hasGrouping ? "+ New Group" : "+ Add Row"}" to start entering costs.
-                </td>
-              </tr>
-            )}
-          </tbody>
-          {rows.length > 0 && (
-            <tfoot>
-              <tr className="border-t-2 font-semibold bg-slate-50">
-                {visibleColumns.map((c, i) => (
-                  <td key={c.key} className="px-3 py-2 whitespace-nowrap">
-                    {i === 0 ? "GRAND TOTAL" : c.kind === "number" || c.kind === "computed" ? formatValue(c, sumColumn(rows, c.key)) : ""}
-                  </td>
-                ))}
-                <td></td>
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
     </div>
   );
 }
@@ -238,14 +244,27 @@ function GroupBlock({
 }) {
   return (
     <>
+      {onAddItem && (
+        <tr className="gh">
+          <td colSpan={visibleColumns.length}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              {groupRows[0].group_key && <span className="mono meta">{groupRows[0].group_key}</span>}
+            </span>
+          </td>
+          <td className="r">
+            <button onClick={onAddItem} className="btn btn-xs">+ Add Item to This Group</button>
+          </td>
+        </tr>
+      )}
       {groupRows.map((row, i) => (
-        <tr key={row.id} className="border-b hover:bg-blue-50/20">
+        <tr key={row.id}>
           {visibleColumns.map((c) => {
             const isGroupScoped = c.scope === "group";
             const showEditable = c.kind !== "computed" && (!isGroupScoped || i === 0);
+            const isNum = c.kind === "number" || c.kind === "computed";
             if (!showEditable) {
               return (
-                <td key={c.key} className="px-3 py-2 whitespace-nowrap text-ink/40">
+                <td key={c.key} className={`${isNum ? "r num" : ""}${c.kind === "computed" ? " cmp" : ""}`}>
                   {c.kind === "computed" ? formatValue(c, row[c.key]) : isGroupScoped ? "" : formatValue(c, row[c.key])}
                 </td>
               );
@@ -259,27 +278,18 @@ function GroupBlock({
               />
             );
           })}
-          <td className="px-3 py-2">
-            <button onClick={() => onDeleteRow(row.id)} className="text-cutoff text-xs">
-              ✕
+          <td className="r">
+            <button onClick={() => onDeleteRow(row.id)} aria-label={`Delete row ${i + 1}`} className="ib" style={{ color: "var(--crit)" }}>
+              <CloseIcon />
             </button>
           </td>
         </tr>
       ))}
-      {onAddItem && (
-        <tr className="border-b bg-slate-50/40">
-          <td colSpan={visibleColumns.length + 1} className="px-3 py-1">
-            <button onClick={onAddItem} className="text-xs text-accent underline">
-              + Add Item to This Group
-            </button>
-          </td>
-        </tr>
-      )}
       {showGroupTotal && (
-        <tr className="border-b bg-slate-50 text-xs font-medium text-ink/60">
+        <tr className="gs">
           {visibleColumns.map((c, i) => (
-            <td key={c.key} className="px-3 py-1 whitespace-nowrap">
-              {i === 0 ? "Subtotal" : numericColumns.includes(c) ? formatValue(c, sumColumn(groupRows, c.key)) : ""}
+            <td key={c.key} className={c.kind === "number" || c.kind === "computed" ? "r num" : undefined}>
+              {i === 0 ? "Group subtotal" : numericColumns.includes(c) ? formatValue(c, sumColumn(groupRows, c.key)) : ""}
             </td>
           ))}
           <td></td>
@@ -318,10 +328,12 @@ function EditableCell({
     }
   }
 
+  const isNum = column.kind === "number";
+
   if (!editing) {
     return (
-      <td className="px-3 py-2 whitespace-nowrap">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+      <td className={isNum ? "r num" : undefined}>
+        <span onClick={() => setEditing(true)} style={{ cursor: "text", display: "block", borderRadius: 6, padding: "0 4px", margin: "0 -4px" }}>
           {formatValue(column, value)}
         </span>
       </td>
@@ -329,25 +341,26 @@ function EditableCell({
   }
 
   return (
-    <td className="px-3 py-2 whitespace-nowrap">
-      <div className="flex gap-1 items-center">
+    <td className={isNum ? "r" : undefined}>
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
         <input
           autoFocus
           type={column.kind === "date" ? "date" : column.kind === "number" ? "number" : "text"}
           step={column.kind === "number" ? "any" : undefined}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-28"
+          className="input input-s"
+          style={{ width: 110, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
-          {saving ? "…" : "✓"}
+        <button onClick={save} disabled={saving} aria-label="Save" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
+          <CheckIcon />
         </button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
-          ✕
+        <button onClick={() => setEditing(false)} aria-label="Cancel" className="ib">
+          <CloseIcon />
         </button>
-        {error && <span className="text-xs text-cutoff">{error}</span>}
+        {error && <span className="err">{error}</span>}
       </div>
     </td>
   );
@@ -382,34 +395,35 @@ function NewGroupPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="text-xs font-medium text-ink/60 mb-2">
-        New shipment/load — fill the shared fields plus its first item. Use "+ Add Item to This Group" afterward for more items in the
+    <section className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+      <p className="lbl" style={{ margin: 0 }}>
+        New shipment/load — fill the shared fields plus its first item. Use &quot;+ Add Item to This Group&quot; afterward for more items in the
         same shipment.
-      </div>
-      <div className="grid grid-cols-4 gap-3">
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
         {inputColumns.map((c) => (
-          <div key={c.key}>
-            <div className="text-xs text-ink/40 mb-0.5">{c.label}</div>
+          <div key={c.key} className="field">
+            <label htmlFor={`newgroup-${c.key}`}>{c.label}</label>
             <input
+              id={`newgroup-${c.key}`}
               type={c.kind === "date" ? "date" : c.kind === "number" ? "number" : "text"}
-              className="border rounded px-2 py-1 text-sm w-full"
+              className="input"
               value={form[c.key]}
               onChange={(e) => setForm({ ...form, [c.key]: e.target.value })}
             />
           </div>
         ))}
       </div>
-      {error && <div className="text-xs text-cutoff mt-3">{error}</div>}
-      <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50">
+      {error && <div className="err">{error}</div>}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={save} disabled={saving} className="btn btn-p">
           {saving ? "Saving…" : "Create"}
         </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
+        <button onClick={onClose} className="btn">
           Cancel
         </button>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -448,32 +462,39 @@ function SettingsPanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <div className="text-xs font-medium text-ink/60 mb-2">Sheet Settings</div>
+    <aside className="card" aria-labelledby="ss" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14, maxWidth: 360 }}>
+      <h2 id="ss" className="h2">Sheet Settings</h2>
+      <p className="lbl" style={{ margin: 0 }}>
+        Constants used by this section&apos;s formulas (as <span className="mono">sheet:</span> values).
+      </p>
       {neededKeys.length === 0 ? (
-        <p className="text-xs text-ink/40">This section's formulas don't use any sheet-level constants.</p>
+        <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+          <div className="meta" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 }}>
+            When no constants are used
+          </div>
+          <p className="lbl" style={{ margin: 0 }}>This section&apos;s formulas don&apos;t use any sheet-level constants.</p>
+        </div>
       ) : (
-        <div className="flex gap-3 flex-wrap">
-          {neededKeys.map((key) => (
-            <div key={key} className="flex items-end gap-2">
-              <div>
-                <div className="text-xs text-ink/40 mb-0.5">{key}</div>
-                <input
-                  className="border rounded px-2 py-1 text-sm w-28"
-                  value={vals[key]}
-                  onChange={(e) => setVals({ ...vals, [key]: e.target.value })}
-                />
-              </div>
-              <button onClick={() => save(key)} disabled={saving === key} className="text-xs bg-ink text-white px-2 py-1 rounded">
+        neededKeys.map((key) => (
+          <div key={key} className="field">
+            <label htmlFor={`setting-${key}`}>{key}</label>
+            <input
+              id={`setting-${key}`}
+              className="input num"
+              value={vals[key]}
+              onChange={(e) => setVals({ ...vals, [key]: e.target.value })}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={() => save(key)} disabled={saving === key} className="btn btn-s btn-p">
                 {saving === key ? "…" : "Save"}
               </button>
             </div>
-          ))}
-        </div>
+          </div>
+        ))
       )}
-      <button onClick={onClose} className="text-xs border px-2 py-1 rounded mt-3">
+      <button onClick={onClose} className="btn btn-s">
         Close
       </button>
-    </div>
+    </aside>
   );
 }

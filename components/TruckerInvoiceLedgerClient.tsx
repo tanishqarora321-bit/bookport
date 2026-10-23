@@ -212,13 +212,13 @@ export default function TruckerInvoiceLedgerClient({
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">{truckerName} — Invoices</h1>
         <div className="flex items-center gap-2">
-          <Link href={`/truckers/${truckerId}/invoices/import`} className="text-sm border px-3 py-1.5 rounded font-medium">
+          <Link href={`/truckers/${truckerId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
           <button
             onClick={handleAddColumn}
             disabled={addingColumn || customColumns.length >= MAX_CUSTOM_COLUMNS}
-            className="text-sm border px-3 py-1.5 rounded font-medium flex items-center gap-1 disabled:opacity-50"
+            className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center gap-1 disabled:opacity-50"
             title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a charge column"}
           >
             <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
@@ -238,23 +238,23 @@ export default function TruckerInvoiceLedgerClient({
       <PartyPaymentHistory partyId={truckerId} totalInvoicedUsd={totalUsd} />
 
       <div className="flex flex-wrap gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
         </select>
       </div>
 
-      <div className="flex-1 overflow-auto border rounded">
+      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
         <table className="text-sm border-collapse min-w-[2100px]">
-          <thead className="sticky top-0 bg-slate-50 z-10">
-            <tr className="text-left text-ink/50 border-b">
+          <thead className="sticky top-0 bg-surface-2 z-10">
+            <tr className="text-left text-muted border-b border-line">
               <Th>Booking Number</Th>
               <Th>Container Number</Th>
               <Th>Month of Loading</Th>
@@ -276,7 +276,8 @@ export default function TruckerInvoiceLedgerClient({
                       onClick={() => handleDeleteColumn(col)}
                       disabled={deletingColumnId === col.id}
                       title={`Delete "${col.label}" column (only works if it's 0 everywhere)`}
-                      className="text-ink/30 hover:text-cutoff font-normal normal-case tracking-normal"
+                      aria-label={`Delete column ${col.label}`}
+                      className="text-muted hover:text-cutoff font-normal normal-case tracking-normal"
                     >
                       ✕
                     </button>
@@ -304,7 +305,7 @@ export default function TruckerInvoiceLedgerClient({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={columnCount} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={columnCount} className="px-3 py-10 text-center text-muted">
                   {invoices.length === 0
                     ? <>No invoices yet — one appears here automatically as soon as a container with this trucker assigned is added in Booking &amp; Instructions.</>
                     : "No invoices match these filters."}
@@ -314,15 +315,15 @@ export default function TruckerInvoiceLedgerClient({
           </tbody>
           {filtered.length > 0 && (
             <tfoot>
-              <tr className="font-medium bg-slate-50 border-t">
-                <td colSpan={7} className="px-3 py-2 text-right text-ink/60">Totals (converted to USD):</td>
+              <tr className="font-medium bg-surface-2 border-t border-line">
+                <td colSpan={7} className="px-3 py-2 text-right text-text-2">Totals (converted to USD):</td>
                 {CHARGE_KEYS.map((key) => (
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
                 ))}
                 {customColumns.map((col) => (
                   <td key={col.key} className="px-3 py-2 whitespace-nowrap">{col.value_type === "text" ? "—" : fmtMoney(customTotalsUsd[col.key], "USD")}</td>
                 ))}
-                <td className="px-3 py-2 text-ink/30">—</td>
+                <td className="px-3 py-2 text-muted">—</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
                 <td colSpan={4}></td>
               </tr>
@@ -351,7 +352,7 @@ function Th({ children }: { children?: React.ReactNode }) {
   return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 whitespace-nowrap text-ink/80">{children}</td>;
+  return <td className="px-3 py-2 whitespace-nowrap text-text-2">{children}</td>;
 }
 
 // ---------------- One invoice row ----------------
@@ -376,7 +377,7 @@ function InvoiceRow({
     onDeleted();
   }
   return (
-    <tr className="border-b hover:bg-blue-50/30">
+    <tr className="border-b border-line hover:bg-surface-2">
       <Td>{inv.booking_number || "—"}</Td>
       <Td>{inv.container_number || "—"}</Td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>
@@ -385,7 +386,7 @@ function InvoiceRow({
         <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then((r) => onChange(r.invoice))} />
       ) : (
         <td className="px-3 py-2 whitespace-nowrap">
-          <button onClick={onEnterInvoice} className="text-xs bg-accent text-white px-2 py-1 rounded font-medium">
+          <button onClick={onEnterInvoice} className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded-lg font-medium">
             Enter Invoice
           </button>
         </td>
@@ -429,7 +430,7 @@ function InvoiceRow({
           onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
         />
       ) : (
-        <Td><span className="text-ink/30">—</span></Td>
+        <Td><span className="text-muted">—</span></Td>
       )}
       {inv.tracking_id ? (
         <td className="px-3 py-2 whitespace-nowrap">
@@ -445,8 +446,8 @@ function InvoiceRow({
         <select
           value={inv.paid_status}
           onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
-          className={`text-xs px-2 py-1 rounded font-medium border-0 ${
-            inv.paid_status === "PAID" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          className={`text-xs px-2 py-1 rounded-lg font-medium border-0 ${
+            inv.paid_status === "PAID" ? "bg-success-soft text-success" : "bg-critical-soft text-critical"
           }`}
         >
           <option value="UNPAID">UNPAID</option>
@@ -466,8 +467,8 @@ function InvoiceRow({
 // separate colored StatusPill next to a plain gray <select> looked like
 // two controls showing conflicting info for the same value.
 const RELEASE_STATUS_COLORS: Record<string, string> = {
-  "on water": "bg-sky-100 text-sky-700",
-  released: "bg-emerald-100 text-emerald-700",
+  "on water": "bg-info-soft text-info",
+  released: "bg-success-soft text-success",
 };
 
 function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
@@ -480,7 +481,7 @@ function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: str
       setSaving(false);
     }
   }
-  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-slate-100 text-slate-600";
+  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-surface-2 text-text-2";
   return (
     <select
       value={value}
@@ -528,7 +529,7 @@ function EditableCell({
   if (!editing) {
     return (
       <td className="px-3 py-2 whitespace-nowrap">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-accent-soft px-1 rounded-lg block">
           {shown}
         </span>
       </td>
@@ -541,16 +542,16 @@ function EditableCell({
         <input
           autoFocus
           type={isDate ? "date" : isNumber ? "number" : "text"}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-24"
+          className="border border-accent rounded-lg px-1.5 py-0.5 text-sm w-24"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
+        <button onClick={save} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-1.5 py-0.5 rounded-lg" aria-label="Save">
           {saving ? "…" : "✓"}
         </button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
+        <button onClick={() => setEditing(false)} className="text-xs border border-line hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
           ✕
         </button>
         {error && <span className="text-xs text-cutoff">{error}</span>}
@@ -701,28 +702,28 @@ function EnterInvoiceModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
           </h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
 
-        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+        <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
           <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
 
         {suggestedCharges.length > 0 && (
-          <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 mb-4 space-y-2">
-            <div className="text-xs font-medium text-amber-800">
+          <div className="border border-warning/30 bg-warning-soft rounded-lg p-3 mb-4 space-y-2">
+            <div className="text-xs font-medium text-warning">
               This PDF has charge line(s) that don't match a standard field:
             </div>
             {suggestedCharges.map((s) => (
               <div key={s.name} className="flex items-center justify-between text-sm">
                 <span>{s.name} — {s.amount}</span>
-                <button onClick={() => acceptSuggestion(s)} className="text-xs bg-ink text-white px-2 py-1 rounded">
+                <button onClick={() => acceptSuggestion(s)} className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded-lg">
                   + Add as column
                 </button>
               </div>
@@ -751,8 +752,8 @@ function EnterInvoiceModal({
             />
           ))}
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Currency</div>
-            <select className="border rounded px-2 py-1 text-sm w-full" value={form.currency} onChange={(e) => handleCurrencyChange(e.target.value)}>
+            <div className="text-xs text-muted mb-0.5">Currency</div>
+            <select className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full" value={form.currency} onChange={(e) => handleCurrencyChange(e.target.value)}>
               <option value="USD">USD</option>
               <option value="INR">INR</option>
             </select>
@@ -770,8 +771,8 @@ function EnterInvoiceModal({
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
 
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button onClick={save} disabled={saving} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
             {saving ? "Saving…" : "Save Invoice"}
           </button>
         </div>
@@ -785,8 +786,8 @@ function LabeledInput({
 }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
     <div>
-      <div className="text-xs text-ink/40 mb-0.5">{label}</div>
-      <input type={type} className="border rounded px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
+      <div className="text-xs text-muted mb-0.5">{label}</div>
+      <input type={type} className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

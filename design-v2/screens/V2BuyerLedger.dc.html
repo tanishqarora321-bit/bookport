@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — LR Traders invoices</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.docb{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.docb:hover{background:var(--accentS);border-color:var(--accent)}
+.docb[disabled]{opacity:.45;cursor:not-allowed}
+.tgl{border:0;cursor:pointer;font:inherit}
+.sub-t{border-collapse:collapse;width:100%;font-size:13px}
+.sub-t th{font-size:12px;font-weight:600;color:var(--tx2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.sub-t td{padding:8px 10px;border-bottom:1px solid var(--line)}
+.sub-t .r{text-align:right}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1400px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="buyers" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Partners <span aria-hidden="true">›</span> <a href="V2Buyers.dc.html">Buyers / Customers</a> <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">LR Traders</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <a href="V2Buyers.dc.html" style="font-size: 13px; display: inline-flex; align-items: center; gap: 6px; align-self: flex-start">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        Back to Buyers / Customers
+      </a>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: -8px">
+        <div>
+          <h1 class="h1">LR Traders — Invoices</h1>
+          <p class="sub">Short code <span class="mono">LR</span> · 27 invoices in 2026 · one row per container shipped to this buyer</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <a class="btn" href="#">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M8 13h8M8 17h8M12 11v8"/></svg>
+            Import Excel
+          </a>
+          <button class="btn btn-p">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add Invoice
+          </button>
+        </div>
+      </div>
+
+      <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px">
+        <div class="card kpi"><span class="lbl">Pending</span><span class="v" style="color: var(--warn)">2</span><span class="meta">No invoice number yet</span></div>
+        <div class="card kpi"><span class="lbl">On Water</span><span class="v">5</span><span class="meta">From live tracking</span></div>
+        <div class="card kpi"><span class="lbl">Released</span><span class="v" style="color: var(--ok)">9</span><span class="meta">Cargo released</span></div>
+        <div class="card kpi"><span class="lbl">Paid</span><span class="v" style="color: var(--ok)">7</span><span class="meta">Marked PAID</span></div>
+        <div class="card kpi"><span class="lbl">Unpaid</span><span class="v" style="color: var(--crit); display: flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>4</span><span class="meta">1 past due date</span></div>
+        <div class="card kpi"><span class="lbl">Total (USD)</span><span class="v">$184,320.00</span><span class="meta">Converted at saved FX rates</span></div>
+      </section>
+
+      <section class="card" style="overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line)">
+          <label class="sr" for="fst">Status</label>
+          <select id="fst" class="select select-s" style="width: auto"><option>All Status</option><option>On Water</option><option>Released</option></select>
+          <label class="sr" for="fpd">Paid</label>
+          <select id="fpd" class="select select-s" style="width: auto"><option>All Paid</option><option>Paid</option><option>Unpaid</option></select>
+          <span style="width: 1px; height: 20px; background: var(--line); margin: 0 4px"></span>
+          <span class="chip" style="cursor: default">Total USD: <b class="num">$142,100.00</b></span>
+          <span class="chip" style="cursor: default">Total EUR: <b class="num">€38,900.00</b></span>
+          <span class="meta" style="margin-left: auto">6 of 27 invoices</span>
+        </div>
+        <div class="tw" style="max-height: 560px">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="stk" style="width: 56px">Sr. No</th>
+                <th aria-sort="descending">Date ↓</th>
+                <th>Month of Loading</th>
+                <th>Invoice</th>
+                <th>Forwarder</th>
+                <th>Booking No.</th>
+                <th>Container No.</th>
+                <th>Location</th>
+                <th>BL Date</th>
+                <th>Due Date</th>
+                <th class="r">Weight</th>
+                <th class="r">Total</th>
+                <th class="r">Total (USD)</th>
+                <th>ETA (live)</th>
+                <th>Status (live)</th>
+                <th>Paid</th>
+                <th>Documents</th>
+                <th><span class="sr">Cost section</span></th>
+                <th><span class="sr">Delete</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr>
+                  <td class="stk num lbl">{{r.sr}}</td>
+                  <td class="num">{{r.date}} <svg class="pen" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></td>
+                  <td>{{r.mol}}</td>
+                  <td>
+                    <sc-if value="{{r.inv}}" hint-placeholder-val="{{true}}"><span class="mono" style="font-weight: 500">{{r.inv}}</span> <svg class="pen" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></sc-if>
+                    <sc-if value="{{r.noInv}}" hint-placeholder-val="{{false}}"><button class="btn btn-xs" style="border-color: var(--warnB); color: var(--warn)">Enter Invoice</button></sc-if>
+                  </td>
+                  <td>{{r.fwd}}</td>
+                  <td><a class="mono" href="V2BookingDetail.dc.html">{{r.bk}}</a></td>
+                  <td class="mono">{{r.ctr}}</td>
+                  <td>{{r.loc}}</td>
+                  <td class="num">{{r.bl}}</td>
+                  <td class="num" style="color: {{r.dueC}}; font-weight: {{r.dueW}}">{{r.due}}</td>
+                  <td class="r num">{{r.wt}} <span class="meta">{{r.unit}}</span></td>
+                  <td class="r num">{{r.total}}</td>
+                  <td class="r num" style="font-weight: 600">{{r.usd}}</td>
+                  <td class="num">{{r.eta}}</td>
+                  <td><span class="badge {{r.sb}}">{{r.st}}</span></td>
+                  <td><button class="badge tgl {{r.pb}}" aria-pressed="{{r.paidAria}}" onClick="{{r.togglePaid}}" aria-label="Paid status: {{r.paid}}. Click to toggle">{{r.paid}}</button></td>
+                  <td>
+                    <span style="display: inline-flex; gap: 4px">
+                      <button class="docb" disabled="{{r.dis}}" title="{{r.docTitle}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h4"/></svg>Generate Invoice</button>
+                      <button class="docb" disabled="{{r.dis}}" title="{{r.docTitle}}">Fumigation Cert.</button>
+                      <button class="docb" disabled="{{r.dis}}" title="{{r.docTitle}}">Certificate of Origin</button>
+                      <button class="docb" disabled="{{r.dis}}" title="{{r.docTitle}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h10v14H8zM6 7H4v14h10v-2"/></svg>Set of Documents</button>
+                    </span>
+                  </td>
+                  <td><button class="btn btn-xs" aria-expanded="{{r.expAria}}" onClick="{{r.toggle}}">{{r.expLabel}}</button></td>
+                  <td><button class="ib" aria-label="Delete invoice {{r.inv}}" style="color: var(--crit)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></td>
+                </tr>
+                <sc-if value="{{r.open}}" hint-placeholder-val="{{false}}">
+                  <tr>
+                    <td colspan="19" style="background: var(--surf2); padding: 14px 20px 18px 72px">
+                      <div style="max-width: 760px; display: flex; flex-direction: column; gap: 8px">
+                        <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 13px">Cost section — {{r.inv}}</b><span class="meta">Printed as itemised lines on the generated invoice</span></div>
+                        <table class="sub-t" style="background: var(--surf); border: 1px solid var(--line); border-radius: 8px">
+                          <thead><tr><th>Description</th><th class="r">Weight (KG)</th><th class="r">Unit Price</th><th class="r">Amount (USD)</th><th><span class="sr">Remove</span></th></tr></thead>
+                          <tbody>
+                            <tr><td>Mixed Rags — Grade A</td><td class="r num">18,200</td><td class="r num">0.420</td><td class="r num">7,644.00</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove cost line">✕</button></td></tr>
+                            <tr><td>Mixed Rags — Grade B</td><td class="r num">6,340</td><td class="r num">0.310</td><td class="r num">1,965.40</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove cost line">✕</button></td></tr>
+                            <tr><td>Ocean freight recovery</td><td class="r dash">—</td><td class="r dash">—</td><td class="r num">1,240.00</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove cost line">✕</button></td></tr>
+                            <tr>
+                              <td><label class="sr" for="nd">Description</label><input id="nd" class="input input-s" placeholder="Description"></td>
+                              <td><label class="sr" for="nw">Weight KG</label><input id="nw" class="input input-s" placeholder="Weight KG" style="text-align: right"></td>
+                              <td><label class="sr" for="nu">Unit Price</label><input id="nu" class="input input-s" placeholder="Unit Price" style="text-align: right"></td>
+                              <td><input class="input input-s" placeholder="Amount (auto)" disabled="{{true}}" style="text-align: right" aria-label="Amount, calculated automatically"></td>
+                              <td><button class="btn btn-p btn-xs">+ Add Line</button></td>
+                            </tr>
+                          </tbody>
+                          <tfoot><tr><td colspan="3" style="text-align: right; font-weight: 600">Subtotal</td><td class="r num" style="font-weight: 700">10,849.40</td><td></td></tr></tfoot>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                </sc-if>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line)">
+          <span class="meta">Showing 1–6 of 27 · documents open in a new tab</span>
+          <span style="display: inline-flex; gap: 6px"><button class="btn btn-xs" disabled>Previous</button><button class="btn btn-xs">Next</button></span>
+        </div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" aria-labelledby="addinv" style="flex: 2 1 640px; min-width: 0; border-color: var(--accent)">
+          <div class="mh">
+            <div>
+              <h2 id="addinv" class="h2" style="font-size: 18px">Add Invoice</h2>
+              <p class="lbl" style="margin: 4px 0 0">Link it to a shipment so ETA and status stay live.</p>
+            </div>
+            <button class="ib" aria-label="Close Add Invoice"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+          </div>
+          <div class="mb">
+            <div class="drop" style="padding: 18px">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tx2)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3"/></svg>
+              <div style="font-weight: 600; font-size: 14px">Upload invoice PDF <span class="meta" style="font-weight: 400">(optional)</span></div>
+              <div class="help">Auto-fills invoice number, date, currency, weight and cost lines below</div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-end">
+              <div class="field" style="flex: 1"><label for="lk">Enter Booking Number or Container Number</label><input id="lk" class="input mono" value="MSKU 552019-3"></div>
+              <button class="btn">Lookup</button>
+            </div>
+            <div class="banner bn-ok" role="status" style="gap: 20px">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>
+              <span style="font-size: 13px"><span class="meta">Matched by</span> <b>Container</b></span>
+              <span style="font-size: 13px"><span class="meta">Container</span> <b class="mono">MSKU 552019-3</b></span>
+              <span style="font-size: 13px"><span class="meta">Forwarder</span> <b>UAL</b></span>
+              <span style="font-size: 13px"><span class="meta">Month of Loading</span> <b>October 2026</b></span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px">
+              <div class="field"><label for="i1">Invoice Number</label><input id="i1" class="input mono ai" value="2026-LR/10"><span class="src">from PDF: "Invoice No. 2026-LR/10"</span></div>
+              <div class="field"><label for="i2">Invoice Date</label><input id="i2" class="input" type="date" value="2026-10-19"></div>
+              <div class="field"><label for="i3">BL Date</label><input id="i3" class="input" type="date" value="2026-10-14"></div>
+              <div class="field"><label for="i4">Due Date</label><input id="i4" class="input" type="date" value="2026-11-18"></div>
+              <div class="field"><label for="i5">Location</label><input id="i5" class="input" value="Savannah, GA"></div>
+              <div class="field"><label for="i6">Weight</label><input id="i6" class="input num" value="24540"></div>
+              <div class="field"><label for="i7">Weight Unit</label><select id="i7" class="select"><option>LBS</option><option selected>KG</option></select></div>
+              <div class="field"><label for="i8">Currency</label><select id="i8" class="select"><option>USD</option><option selected>EUR</option><option>INR</option><option>GBP</option><option>AED</option></select></div>
+              <div class="field"><label for="i9">FX Rate (→ USD)</label><input id="i9" class="input num" value="1.0852"><span class="help">1 EUR = 1.0852 USD</span></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; justify-content: space-between; align-items: center"><b style="font-size: 14px">Cost Section</b><button class="btn btn-xs">+ Add Line</button></div>
+              <table class="sub-t" style="border: 1px solid var(--line); border-radius: 8px">
+                <thead><tr><th>Description</th><th class="r">Weight (KG)</th><th class="r">Unit Price</th><th class="r">Amount (EUR)</th><th><span class="sr">Remove</span></th></tr></thead>
+                <tbody>
+                  <tr><td>Mixed Rags — Grade A</td><td class="r num">20,000</td><td class="r num">0.500</td><td class="r num">10,000.00</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove cost line">✕</button></td></tr>
+                  <tr><td>Mixed Rags — Grade B</td><td class="r num">4,540</td><td class="r num">0.529</td><td class="r num">2,400.00</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove cost line">✕</button></td></tr>
+                </tbody>
+              </table>
+              <div style="text-align: right; font-size: 14px"><span class="lbl">Computed total:</span> <b class="num">EUR 12,400.00</b> <span class="lbl num">(≈ USD 13,456.00)</span></div>
+            </div>
+          </div>
+          <div class="mf"><button class="btn">Cancel</button><button class="btn btn-p">Save Invoice</button></div>
+        </section>
+
+        <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+          <section class="card" aria-labelledby="fmt" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+            <h2 id="fmt" class="h2">Invoice number format</h2>
+            <div class="mono" style="font-size: 15px; padding: 10px 12px; border-radius: 8px; background: var(--surf2); border: 1px solid var(--line)">YYYY-{short code}/{seq}</div>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span class="lbl">Example</span> <span class="mono" style="font-weight: 600">2026-LR/09</span></div>
+            <ul class="lbl" style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px">
+              <li>Year = the year the invoice is generated</li>
+              <li>Sequence restarts per buyer each year, padded to 2 digits</li>
+              <li>Written to the buyer invoice and its tracking row</li>
+            </ul>
+            <div class="banner bn-crit" role="alert" style="padding: 10px 12px">
+              <span class="err" style="font-size: 13px">"Shree Ganesh Textiles" has no short code set yet — add one under Buyers / Customers before generating an invoice number.</span>
+            </div>
+          </section>
+          <section class="card" aria-label="Empty state example" style="padding: 24px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+            <span class="meta" style="align-self: flex-start">Empty state</span>
+            <div style="width: 44px; height: 44px; border-radius: 22px; background: var(--neuS); color: var(--tx2); display: flex; align-items: center; justify-content: center">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>
+            </div>
+            <div class="lbl" style="max-width: 260px">No invoices yet for this buyer. Click "+ Add Invoice" to enter one.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, open: 2, paid: {} }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const data = [
+      [6, '19 Oct 2026', 'October 2026', '', 'UAL', '401610299853', 'MSKU 552019-3', 'Savannah, GA', '14 Oct 2026', '18 Nov 2026', '24,540', 'KG', '—', '—', '12 Nov 2026', 'On Water', false, true, false],
+      [5, '15 Oct 2026', 'October 2026', '2026-LR/09', 'UAL', '401610299862', 'MSKU 552107-0', 'Savannah, GA', '10 Oct 2026', '14 Nov 2026', '25,110', 'KG', '€10,849.40', '$11,773.76', '8 Nov 2026', 'On Water', false, true, false],
+      [4, '02 Oct 2026', 'September 2026', '2026-LR/08', 'Walker', '400600270642', 'HLXU 873204-1', 'Seattle, WA', '27 Sep 2026', '01 Nov 2026', '53,800', 'LBS', '$9,320.00', '$9,320.00', '26 Oct 2026', 'On Water', false, true, false],
+      [3, '18 Sep 2026', 'September 2026', '2026-LR/07', 'Walker', '400600270749', 'CMAU 418230-7', 'Seattle, WA', '13 Sep 2026', '13 Oct 2026', '52,410', 'LBS', '$8,940.00', '$8,940.00', '9 Oct 2026', 'Released', false, false, true],
+      [2, '04 Sep 2026', 'August 2026', '2026-LR/06', 'UAL', 'NAM8534819', 'ONEU 301772-5', 'Los Angeles, CA', '30 Aug 2026', '29 Sep 2026', '23,980', 'KG', '€9,210.00', '$9,994.69', '24 Sep 2026', 'Released', true, false, true],
+      [1, '21 Aug 2026', 'August 2026', '2026-LR/05', '—', 'NAM8535021', 'TGHU 664210-8', 'Los Angeles, CA', '16 Aug 2026', '15 Sep 2026', '24,120', 'KG', '$10,120.00', '$10,120.00', '—', '— set —', true, false, false]
+    ];
+    const rows = data.map(([sr, date, mol, inv, fwd, bk, ctr, loc, bl, due, wt, unit, total, usd, eta, st, paidDefault, notDue, overdue]) => {
+      const paid = this.state.paid[sr] ?? paidDefault;
+      const noTrack = st === '— set —';
+      const open = this.state.open === sr;
+      return {
+        sr, date, mol, inv, noInv: !inv, fwd, bk, ctr, loc, bl, due, wt, unit, total, usd, eta, st,
+        sb: st === 'On Water' ? 'b-info' : st === 'Released' ? 'b-ok' : 'b-neu',
+        paid: paid ? 'PAID' : 'UNPAID', pb: paid ? 'b-ok' : (overdue ? 'b-crit' : 'b-warn'), paidAria: paid ? 'true' : 'false',
+        dueC: (!paid && overdue) ? 'var(--crit)' : 'var(--tx)', dueW: (!paid && overdue) ? '600' : '400',
+        dis: noTrack, docTitle: noTrack ? 'This invoice has no linked tracking entry yet' : 'Opens in a new tab',
+        open, expAria: open ? 'true' : 'false', expLabel: open ? 'Hide cost ▲' : 'Cost section ▼',
+        toggle: () => this.setState({ open: open ? null : sr }),
+        togglePaid: () => this.setState({ paid: { ...this.state.paid, [sr]: !paid } })
+      };
+    });
+    return { themeClass: 'th-' + theme, themes, rows };
+  }
+}
+</script>
+</body>
+</html>

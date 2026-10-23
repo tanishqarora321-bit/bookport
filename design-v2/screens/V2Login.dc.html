@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Sign in</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.input::placeholder{color:var(--mut)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-info{background:var(--infoS);border-color:var(--info)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="min-height: 950px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <section style="flex: 1 1 520px; min-width: 0; background: #0C1A3A; color: #FFFFFF; padding: 44px 56px; display: flex; flex-direction: column; justify-content: space-between; gap: 40px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <div style="width: 40px; height: 40px; border-radius: 11px; background: #2F5FE0; display: flex; align-items: center; justify-content: center">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l1.5 5h15L21 15H3zM6 15V9h12v6M10 9V5h4v4"/></svg>
+      </div>
+      <div><div style="font-size: 17px; font-weight: 700">Ship-Sphere</div><div style="font-size: 13px; color: #AAB6CF">One Booking. All Connected.</div></div>
+    </div>
+
+    <div style="max-width: 540px">
+      <h1 style="margin: 0; font-size: 46px; line-height: 1.08; font-weight: 600; letter-spacing: -0.03em">Freight forwarding, without the spreadsheet chaos.</h1>
+      <p style="margin: 18px 0 0; font-size: 17px; line-height: 1.55; color: #C9D2E3">Bookings, tracking, documents and invoicing for your whole team — kept in sync, in one place.</p>
+    </div>
+
+    <div aria-hidden="true" style="max-width: 480px; background: #16264F; border: 1px solid rgba(255,255,255,0.10); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px">
+        <span class="mono">401610299853</span>
+        <span class="badge" style="background: rgba(126,162,255,0.18); color: #A3BDFF">Confirmed</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; font-size: 12px; color: #AAB6CF">
+        <div>Port of Loading<div style="color: #FFFFFF; font-size: 13px; margin-top: 2px">Seattle</div></div>
+        <div>Port of Discharge<div style="color: #FFFFFF; font-size: 13px; margin-top: 2px">Mundra, IN</div></div>
+        <div>Cargo Cut Off<div style="color: #FFB4AC; font-size: 13px; margin-top: 2px">in 15 h</div></div>
+      </div>
+      <div style="display: flex; gap: 8px; font-size: 12px; color: #AAB6CF">
+        <span class="badge" style="background: rgba(74,222,155,0.16); color: #7EE8B5">Instructions Sent</span>
+        <span class="badge" style="background: rgba(125,211,252,0.16); color: #9ADDFB">On Water</span>
+        <span class="badge" style="background: rgba(74,222,155,0.16); color: #7EE8B5">PAID</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; padding: 24px 32px 40px; background: var(--surf)">
+    <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px">
+      <div class="seg" role="radiogroup" aria-label="Preview state">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{m.checked}}" class="{{m.cls}}" onClick="{{m.pick}}">{{m.label}}</button>
+        </sc-for>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px 0">
+      <sc-if value="{{isSignIn}}" hint-placeholder-val="{{true}}">
+        <form style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 18px" aria-labelledby="si-t">
+          <div class="banner bn-info" role="status" style="font-size: 13px; align-items: flex-start">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" style="flex-shrink: 0; margin-top: 1px"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5"/></svg>
+            <span style="flex: 1">You've been signed out because this account signed in on another device. Ship-Sphere only allows one active session at a time.</span>
+          </div>
+          <div>
+            <h2 id="si-t" class="h1">Welcome back</h2>
+            <p class="sub">Sign in to your Ship-Sphere account.</p>
+          </div>
+          <div class="field"><label for="em">Email</label><input id="em" class="input" type="email" autocomplete="email" placeholder="you@company.com" value="{{email}}"></div>
+          <div class="field">
+            <label for="pw">Password</label>
+            <div style="position: relative">
+              <input id="pw" class="input {{pwErr}}" type="password" autocomplete="current-password" placeholder="••••••••" style="padding-right: 44px" aria-describedby="pw-e">
+              <button type="button" class="ib" aria-label="Show password" style="position: absolute; right: 4px; top: 4px">
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+              </button>
+            </div>
+            <sc-if value="{{isError}}" hint-placeholder-val="{{false}}">
+              <span id="pw-e" class="err" role="alert">Incorrect email or password.</span>
+            </sc-if>
+          </div>
+          <button type="submit" class="btn btn-p" style="width: 100%; height: 44px; font-size: 15px">Sign in</button>
+          <p class="lbl" style="margin: 0; text-align: center">Don't have an account yet? Ask your admin to invite you from Settings &amp; Control.</p>
+        </form>
+      </sc-if>
+
+      <sc-if value="{{isSetPw}}" hint-placeholder-val="{{false}}">
+        <form style="width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 18px" aria-labelledby="sp-t">
+          <div>
+            <span class="badge" style="background: var(--accentS); color: var(--accent)">Invite accepted</span>
+            <h2 id="sp-t" class="h1" style="margin-top: 12px">Set your password</h2>
+            <p class="sub">You'll use it with your email to sign in from now on.</p>
+          </div>
+          <div class="field"><label for="np">New password</label><input id="np" class="input" type="password" autocomplete="new-password" placeholder="At least 8 characters"><span class="help">At least 8 characters.</span></div>
+          <div class="field"><label for="cp">Confirm password</label><input id="cp" class="input" type="password" autocomplete="new-password"></div>
+          <button type="submit" class="btn btn-p" style="width: 100%; height: 44px; font-size: 15px">Set password &amp; continue</button>
+          <p class="meta" style="margin: 0; text-align: center">Link not working? "No invite information found in this link. Ask your admin to send a fresh invite."</p>
+        </form>
+      </sc-if>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":950}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, mode: 'signin' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const mode = this.state.mode;
+    const modes = [['signin', 'Sign in'], ['error', 'Error'], ['setpw', 'Set password']].map(([id, label]) => ({ label, cls: mode === id ? 'on' : '', checked: mode === id ? 'true' : 'false', pick: () => this.setState({ mode: id }) }));
+    return {
+      themeClass: 'th-' + theme, themes, modes,
+      isSignIn: mode !== 'setpw', isSetPw: mode === 'setpw', isError: mode === 'error',
+      pwErr: mode === 'error' ? 'is-err' : '', email: mode === 'error' ? 'tanishq@company.com' : ''
+    };
+  }
+}
+</script>
+</body>
+</html>

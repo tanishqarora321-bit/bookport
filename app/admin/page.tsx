@@ -17,8 +17,8 @@ export default async function AdminPage() {
   if (!me.is_platform_owner) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center text-center">
-        <h1 className="text-lg font-semibold text-ink">Not authorized</h1>
-        <p className="text-sm text-ink/50 mt-1">Platform Admin is only visible to the platform owner.</p>
+        <h1 className="h2">Not authorized</h1>
+        <p className="lbl mt-1">Platform Admin is only visible to the platform owner.</p>
       </div>
     );
   }
@@ -29,8 +29,8 @@ export default async function AdminPage() {
     supabase.from("companies").select("id, name, seat_limit, subscription_status, created_at").order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, company_id, full_name, role, is_active"),
   ]);
-  if (companiesError) return <p className="text-red-600 p-6">{companiesError.message}</p>;
-  if (profilesError) return <p className="text-red-600 p-6">{profilesError.message}</p>;
+  if (companiesError) return <p className="text-critical p-6">{companiesError.message}</p>;
+  if (profilesError) return <p className="text-critical p-6">{profilesError.message}</p>;
 
   const { data: authUsers } = await supabase.auth.admin.listUsers();
   const emailById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, u.email as string]));

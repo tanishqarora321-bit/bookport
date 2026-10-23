@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — Send Booking Instructions</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ghost{height:14px;border-radius:4px;background:var(--line)}
+.tok{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 10px;border-radius:13px;background:var(--accentS);color:var(--tx);font-size:13px}
+.mail td{padding:6px 10px;border:1px solid #D9DEE7;font-size:12px;color:#1F2937}
+.mail td:first-child{background:#F3F5F9;font-weight:600;width:38%}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1000px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="bookings" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Operations <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">Booking &amp; Instructions</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main aria-hidden="true" style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <div><h1 class="h1">Booking &amp; Instructions</h1><p class="sub">Source of truth — click the pencil icon on any cell to edit</p></div>
+      <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 18px">
+        <div class="ghost" style="width: 40%"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="ghost"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="scrim" style="padding-top: 40px">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="si-t" style="max-width: 900px">
+      <div class="mh">
+        <div>
+          <h2 id="si-t" class="h2" style="font-size: 18px">Send Booking Instructions</h2>
+          <p class="lbl" style="margin: 4px 0 0">Booking <span class="mono" style="color: var(--tx); font-weight: 600">401610299853</span> · to forwarder <b style="color: var(--tx); font-weight: 600">UAL</b></p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <div class="seg" role="radiogroup" aria-label="Preview state">
+            <sc-for list="{{modes}}" as="m" hint-placeholder-count="4">
+              <button role="radio" aria-checked="{{m.checked}}" class="{{m.cls}}" onClick="{{m.pick}}">{{m.label}}</button>
+            </sc-for>
+          </div>
+          <button class="ib" aria-label="Close dialog"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+      </div>
+
+      <sc-if value="{{notSent}}" hint-placeholder-val="{{true}}">
+        <div class="mb">
+          <div class="banner bn-warn" style="padding: 10px 14px">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>
+            <span style="font-size: 13px; flex: 1 1 400px">This forwarder has no email on file yet - add one under Forwarders &gt; Edit, or type a recipient below for this send.</span>
+            <a href="V2Partners.dc.html" style="font-size: 13px; font-weight: 600">Open Forwarders</a>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px">
+            <div class="field">
+              <label for="to">To (comma-separated) <span class="req">*</span></label>
+              <sc-if value="{{hasTo}}" hint-placeholder-val="{{true}}">
+                <div class="input" style="height: auto; min-height: 40px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px">
+                  <span class="tok">ops@ual-logistics.com<button class="ib" style="width: 20px; height: 20px" aria-label="Remove ops@ual-logistics.com"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>
+                  <span class="tok">bookings@ual-logistics.com<button class="ib" style="width: 20px; height: 20px" aria-label="Remove bookings@ual-logistics.com"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>
+                  <input id="to" placeholder="Add email…" style="flex: 1; min-width: 120px; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: var(--tx)">
+                </div>
+              </sc-if>
+              <sc-if value="{{isError}}" hint-placeholder-val="{{false}}">
+                <input id="to" class="input is-err" placeholder="name@forwarder.com, …" aria-invalid="true" aria-describedby="to-e">
+                <span id="to-e" class="err" role="alert">At least one "To" recipient is required.</span>
+              </sc-if>
+            </div>
+            <div class="field">
+              <label for="cc">Cc (comma-separated, optional)</label>
+              <input id="cc" class="input" value="tanishq@company.com">
+              <span class="help">You'll get a copy. Replies come to your email.</span>
+            </div>
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="sj">Subject</label>
+              <input id="sj" class="input" readonly="readonly" value="Booking Instructions — 401610299853 — Seattle → Mundra, IN" style="background: var(--surf2); color: var(--tx2)">
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; justify-content: space-between; align-items: center">
+              <span style="font-size: 13px; font-weight: 600">Email preview</span>
+              <span class="meta">Exactly what the forwarder receives</span>
+            </div>
+            <div style="border: 1px solid var(--line); border-radius: 10px; background: var(--surf2); padding: 16px; max-height: 360px; overflow: auto">
+              <div style="background: #FFFFFF; color: #1F2937; border-radius: 6px; padding: 22px 24px; max-width: 640px; margin: 0 auto; box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 13px; line-height: 1.5">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2F5FE0; padding-bottom: 10px; margin-bottom: 14px">
+                  <div><div style="font-size: 16px; font-weight: 700; color: #0C1A3A">CN INTERNATIONAL</div><div style="font-size: 11px; color: #4B5563">[Letterhead address line] · Tel [phone] · [email]</div></div>
+                  <div style="font-size: 11px; color: #4B5563; text-align: right">19 Oct 2026</div>
+                </div>
+                <p style="margin: 0 0 10px">Dear UAL team,</p>
+                <p style="margin: 0 0 12px">Please find the shipping instructions for the booking below.</p>
+                <table class="mail" style="border-collapse: collapse; width: 100%; margin-bottom: 12px">
+                  <tr><td>Booking Number</td><td>401610299853</td></tr>
+                  <tr><td>Shipping Line</td><td>ONE</td></tr>
+                  <tr><td>Port of Loading</td><td>Seattle, WA</td></tr>
+                  <tr><td>Port of Discharge</td><td>Mundra, IN</td></tr>
+                  <tr><td>Port of Delivery</td><td>Mundra, IN</td></tr>
+                  <tr><td>Consignee</td><td>LR Traders</td></tr>
+                  <tr><td>Containers</td><td>ONEU 301772-5 · ONEU 301804-1</td></tr>
+                  <tr><td>Description of Goods</td><td>Used clothing — mixed rags, in bales</td></tr>
+                  <tr><td>H.S. Code</td><td>6310.10</td></tr>
+                </table>
+                <p style="margin: 0 0 12px; padding: 10px 12px; background: #F3F5F9; border-left: 3px solid #0C1A3A; font-size: 12px">Shipper declares that the goods are destined for Mundra, IN and will not be diverted contrary to applicable law.</p>
+                <p style="margin: 0">Regards,<br>Tanishq · CN International</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn btn-s">Cancel</button>
+          <sc-if value="{{isSending}}" hint-placeholder-val="{{false}}">
+            <button class="btn btn-s btn-p" disabled="disabled" aria-busy="true">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+              Sending…</button>
+          </sc-if>
+          <sc-if value="{{notSending}}" hint-placeholder-val="{{true}}">
+            <button class="btn btn-s btn-p">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+              Send Email</button>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isSent}}" hint-placeholder-val="{{false}}">
+        <div class="mb" style="align-items: center; text-align: center; padding: 36px 24px">
+          <span style="width: 56px; height: 56px; border-radius: 28px; background: var(--okS); color: var(--ok); display: flex; align-items: center; justify-content: center">
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+          <h3 style="margin: 0; font-size: 20px; font-weight: 600" role="status">Instructions sent.</h3>
+          <p class="lbl" style="margin: 0">Sent to ops@ual-logistics.com and 1 other · Cc tanishq@company.com · 19 Oct 2026, 07:12</p>
+          <p class="lbl" style="margin: 0">Instruction Status is now <span class="badge b-ok">Sent</span> and the button reads “Resend Instructions”.</p>
+        </div>
+        <div class="mf"><button class="btn btn-s btn-p">Close</button></div>
+      </sc-if>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, mode: 'compose' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const mode = this.state.mode;
+    const modes = [['compose', 'Compose'], ['error', 'Error'], ['sending', 'Sending'], ['sent', 'Sent']].map(([id, label]) => ({ label, cls: mode === id ? 'on' : '', checked: mode === id ? 'true' : 'false', pick: () => this.setState({ mode: id }) }));
+    return {
+      themeClass: 'th-' + theme, themes, modes,
+      notSent: mode !== 'sent', isSent: mode === 'sent', isError: mode === 'error', hasTo: mode !== 'error',
+      isSending: mode === 'sending', notSending: mode !== 'sending'
+    };
+  }
+}
+</script>
+</body>
+</html>

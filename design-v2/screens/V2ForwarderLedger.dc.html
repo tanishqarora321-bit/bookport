@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship-Sphere — UAL invoices</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+.th-light,.th-system{color-scheme:light;--bg:#F5F7FB;--surf:#FFFFFF;--surf2:#F8FAFC;--elev:#FFFFFF;--tx:#0F172A;--tx2:#475569;--mut:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--accent:#2F5FE0;--accentH:#2449B8;--onAccent:#FFFFFF;--accentS:#EAF0FD;--ok:#047857;--okS:#E6F6EF;--warn:#B45309;--warnS:#FEF3E2;--warnB:#F59E0B;--crit:#C81E1E;--critS:#FDECEC;--info:#0369A1;--infoS:#E5F2FA;--neu:#475569;--neuS:#F1F5F9;--focus:#2F5FE0;--scrim:rgba(15,23,42,0.45);--shadow:0 1px 2px rgba(15,23,42,0.06);--shadowL:0 16px 40px rgba(15,23,42,0.18);--nav:#0C1A3A;--navH:#16264F;--navTx:#FFFFFF;--navMut:#AAB6CF;--navLine:rgba(255,255,255,0.10);--navAct:#2F5FE0}
+.th-dark{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}
+@media (prefers-color-scheme: dark){.th-system{color-scheme:dark;--bg:#0A1224;--surf:#0F1B33;--surf2:#0C172C;--elev:#15233F;--tx:#E8EEF8;--tx2:#B6C2D6;--mut:#8D9BB3;--line:#24334F;--line2:#334566;--accent:#7EA2FF;--accentH:#A3BDFF;--onAccent:#0A1224;--accentS:#1B2B52;--ok:#4ADE9B;--okS:#0F2E22;--warn:#FBBF24;--warnS:#33260F;--warnB:#B7791F;--crit:#FF9C94;--critS:#3B1A1E;--info:#7DD3FC;--infoS:#0E2A3B;--neu:#B6C2D6;--neuS:#1A2740;--focus:#A3BDFF;--scrim:rgba(2,6,16,0.66);--shadow:none;--shadowL:0 16px 40px rgba(0,0,0,0.55);--nav:#071027;--navH:#13234A;--navTx:#FFFFFF;--navMut:#A3B0CB;--navLine:rgba(255,255,255,0.08);--navAct:#2F5FE0}}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.nav-a:hover{background:var(--navH)}
+.h1{margin:0;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.02em}
+.sub{margin:4px 0 0;font-size:14px;color:var(--tx2)}
+.h2{margin:0;font-size:16px;font-weight:600;letter-spacing:-0.01em}
+.lbl{font-size:13px;color:var(--tx2)}
+.meta{font-size:12px;color:var(--mut)}
+.mono{font-family:'Geist Mono',ui-monospace,monospace}
+.num{font-variant-numeric:tabular-nums}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{background:var(--surf2);text-decoration:none}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-g{border-color:transparent;background:transparent}
+.btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
+.ib:hover{background:var(--surf2);border-color:var(--line)}
+.input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}
+.textarea{height:auto;min-height:84px;padding:10px 12px;resize:vertical}
+.input::placeholder,.textarea::placeholder{color:var(--mut)}
+.input-s,.select-s{height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>label{font-size:13px;font-weight:500;color:var(--tx)}
+.req{color:var(--crit)}
+.help{font-size:12px;color:var(--mut)}
+.err{font-size:12px;color:var(--crit);font-weight:500}
+.is-err{border-color:var(--crit)!important}
+.ai{border-color:var(--warnB)!important;background:var(--warnS)!important}
+.src{font-size:12px;color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--accentS);border-color:var(--accent);font-weight:600}
+.chip.on-crit{background:var(--critS);border-color:var(--crit);color:var(--crit);font-weight:600}
+.badge{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:3px;background:currentColor;flex-shrink:0}
+.b-neu{background:var(--neuS);color:var(--neu)}.b-acc{background:var(--accentS);color:var(--accent)}.b-info{background:var(--infoS);color:var(--info)}.b-ok{background:var(--okS);color:var(--ok)}.b-warn{background:var(--warnS);color:var(--warn)}.b-crit{background:var(--critS);color:var(--crit)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{height:40px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--tx);border-bottom-color:var(--accent);font-weight:600}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:9px;background:var(--surf2);border:1px solid var(--line)}
+.seg button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.seg button.on{background:var(--elev);color:var(--tx);font-weight:600;box-shadow:0 0 0 1px var(--line)}
+.tw{overflow:auto}
+.tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.tbl th{position:sticky;top:0;z-index:1;background:var(--surf2);text-align:left;font-size:12px;font-weight:600;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;background:var(--surf)}
+.tbl tbody tr:hover td{background:var(--surf2)}
+.tbl tfoot td{background:var(--surf2);font-weight:600;border-bottom:0}
+.tbl .r{text-align:right}
+.stk{position:sticky;left:0;z-index:2}
+.stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line)}
+.pen{color:var(--mut);opacity:0}
+.tbl tr:hover .pen{opacity:1}
+.dash{color:var(--mut)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .v{font-size:26px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
+.bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+.mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
+.mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}
+.menu{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadowL);padding:6px;min-width:200px}
+.opt{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:7px;font-size:13px;color:var(--tx)}
+.opt.sel{background:var(--accentS);font-weight:600}
+.sw{display:inline-flex;align-items:center;width:36px;height:20px;border-radius:10px;background:var(--line2);padding:2px;border:0;cursor:pointer}
+.sw::after{content:"";width:16px;height:16px;border-radius:8px;background:var(--surf)}
+.sw.on{background:var(--accent);justify-content:flex-end}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:28px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;background:var(--surf2)}
+.steps{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bsel{height:26px;border-radius:6px;border:0;font:inherit;font-size:12px;font-weight:600;padding:0 6px;cursor:pointer}
+.bsel.b-ok{background:var(--okS);color:var(--ok)}.bsel.b-info{background:var(--infoS);color:var(--info)}.bsel.b-crit{background:var(--critS);color:var(--crit)}.bsel.b-neu{background:var(--neuS);color:var(--neu)}
+.cust{background:var(--accentS)!important}
+.sub-t{border-collapse:collapse;width:100%;font-size:13px}
+.sub-t th{font-size:12px;font-weight:600;color:var(--tx2);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.sub-t td{padding:8px 10px;border-bottom:1px solid var(--line)}
+.sub-t .r{text-align:right}
+.stepn{width:22px;height:22px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--accentS);color:var(--accent);flex-shrink:0}
+</style>
+</helmet>
+<div class="{{themeClass}}" style="position: relative; min-height: 1400px; display: flex; flex-wrap: wrap; background: var(--bg); color: var(--tx); font-family: 'Geist', system-ui, sans-serif; font-size: 14px">
+  <div style="flex: 1 1 256px; display: flex">
+    <dc-import name="V2Nav" active="forwarders" hint-size="256px,1000px"></dc-import>
+  </div>
+  <div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 28px; min-height: 56px; background: var(--surf); border-bottom: 1px solid var(--line)">
+      <nav aria-label="Breadcrumb" class="lbl" style="flex: 1 1 auto">Partners <span aria-hidden="true">›</span> <a href="V2Partners.dc.html">Forwarders</a> <span aria-hidden="true">›</span> <span style="color: var(--tx); font-weight: 600">UAL</span></nav>
+      <div class="seg" role="radiogroup" aria-label="Appearance">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button role="radio" aria-checked="{{t.checked}}" class="{{t.cls}}" onClick="{{t.pick}}">{{t.label}}</button>
+        </sc-for>
+      </div>
+    </header>
+    <main style="padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; min-width: 0">
+      <a href="V2Partners.dc.html" style="font-size: 13px; display: inline-flex; align-items: center; gap: 6px; align-self: flex-start">
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        Back to Forwarders
+      </a>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: -8px">
+        <div>
+          <h1 class="h1">UAL — Invoices</h1>
+          <p class="sub">A row appears automatically for each container with UAL assigned in Booking &amp; Instructions</p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <a class="btn" href="#">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4M8 13h8M8 17h8M12 11v8"/></svg>
+            Import Excel
+          </a>
+          <button class="btn">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add Column <span class="meta num">(2/10)</span>
+          </button>
+        </div>
+      </div>
+
+      <section aria-label="Totals" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px">
+        <div class="card kpi"><span class="lbl">Pending</span><span class="v" style="color: var(--warn)">3</span><span class="meta">No invoice number yet</span></div>
+        <div class="card kpi"><span class="lbl">On Water</span><span class="v">6</span><span class="meta">From live tracking</span></div>
+        <div class="card kpi"><span class="lbl">Released</span><span class="v" style="color: var(--ok)">11</span><span class="meta">Cargo released</span></div>
+        <div class="card kpi"><span class="lbl">Paid</span><span class="v" style="color: var(--ok)">12</span><span class="meta">Marked PAID</span></div>
+        <div class="card kpi"><span class="lbl">Unpaid</span><span class="v" style="color: var(--crit); display: flex; align-items: center; gap: 6px"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2zM12 10v4M12 17v.5"/></svg>5</span><span class="meta">Owed to UAL</span></div>
+        <div class="card kpi"><span class="lbl">Total (USD)</span><span class="v">$58,940.50</span><span class="meta">All charges, converted</span></div>
+      </section>
+
+      <section class="card" aria-labelledby="ph">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px">
+          <div>
+            <h2 id="ph" class="h2">Payment History</h2>
+            <span class="meta">Payments you've made to UAL, counted against the invoiced total</span>
+          </div>
+          <button class="btn btn-s" aria-expanded="{{phAria}}" aria-controls="phbody" onClick="{{togglePh}}">{{phLabel}}</button>
+        </div>
+        <sc-if value="{{phOpen}}" hint-placeholder-val="{{true}}">
+          <div id="phbody" style="padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px">
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+              <div style="padding: 14px 16px; border-radius: 10px; background: var(--surf2); border: 1px solid var(--line)"><div class="lbl">Total Invoiced (USD)</div><div class="num" style="font-size: 22px; font-weight: 600; margin-top: 4px">$58,940.50</div></div>
+              <div style="padding: 14px 16px; border-radius: 10px; background: var(--surf2); border: 1px solid var(--line)"><div class="lbl">Total Paid (USD)</div><div class="num" style="font-size: 22px; font-weight: 600; margin-top: 4px; color: var(--ok)">$41,200.00</div></div>
+              <div style="padding: 14px 16px; border-radius: 10px; background: var(--warnS); border: 1px solid var(--warnB)"><div class="lbl">Net Still Owed (USD)</div><div class="num" style="font-size: 22px; font-weight: 600; margin-top: 4px; color: var(--warn)">$17,740.50</div></div>
+            </div>
+            <table class="sub-t">
+              <thead><tr><th>Date</th><th class="r">Amount</th><th>Applies to Year</th><th>Note</th><th><span class="sr">Remove</span></th></tr></thead>
+              <tbody>
+                <tr><td class="num">12 Oct 2026</td><td class="r num">$15,000.00</td><td>2026</td><td class="lbl">Wire — September invoices</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove payment">✕</button></td></tr>
+                <tr><td class="num">18 Sep 2026</td><td class="r num">₹14,52,000 <span class="meta">≈ $17,400.00</span></td><td>2026</td><td class="lbl">INR transfer @ 83.45</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove payment">✕</button></td></tr>
+                <tr><td class="num">20 Aug 2026</td><td class="r num">$8,800.00</td><td>2026</td><td class="dash">—</td><td><button class="ib" style="width: 26px; height: 26px" aria-label="Remove payment">✕</button></td></tr>
+              </tbody>
+            </table>
+            <div style="border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+              <b style="font-size: 13px">+ Add Payment</b>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px">
+                <div class="field"><label for="pa">Amount</label><input id="pa" class="input input-s num is-err" value="-500"><span class="err">Amount must be a positive number.</span></div>
+                <div class="field"><label for="pc">Currency</label><select id="pc" class="select select-s"><option>USD</option><option selected>INR</option><option>EUR</option><option>GBP</option><option>AED</option></select></div>
+                <div class="field"><label for="pf">FX rate to USD</label><input id="pf" class="input input-s num" value="0.01198"><span class="help">Shown for non-USD</span></div>
+                <div class="field"><label for="pd">Date</label><input id="pd" class="input input-s" type="date" value="2026-10-19"></div>
+                <div class="field"><label for="py">Applies to year</label><select id="py" class="select select-s"><option>2025</option><option selected>2026</option><option>2027</option></select></div>
+                <div class="field"><label for="pn">Note (optional)</label><input id="pn" class="input input-s" placeholder="e.g. Wire ref"></div>
+              </div>
+              <div style="display: flex; gap: 8px; justify-content: flex-end"><button class="btn btn-s">Cancel</button><button class="btn btn-p btn-s">Save</button></div>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+
+      <section class="card" style="overflow: hidden">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line)">
+          <label class="sr" for="fst">Status</label>
+          <select id="fst" class="select select-s" style="width: auto"><option>All Status</option><option>On Water</option><option>Released</option></select>
+          <label class="sr" for="fpd">Paid</label>
+          <select id="fpd" class="select select-s" style="width: auto"><option>All Paid</option><option>Paid</option><option>Unpaid</option></select>
+          <span class="meta" style="margin-left: auto">Charge cells are editable · custom columns tinted blue</span>
+        </div>
+        <div class="tw" style="max-height: 520px">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th class="stk" style="box-shadow: 1px 0 0 var(--line)">Booking Number</th>
+                <th>Container Number</th>
+                <th>Month of Loading</th>
+                <th>Shipping Line</th>
+                <th>Consignee</th>
+                <th>POL</th>
+                <th>POD</th>
+                <th>Invoice Number</th>
+                <th>Invoice Date</th>
+                <th>Due Date</th>
+                <th class="r">Freight</th>
+                <th class="r">BL Fees</th>
+                <th class="r">AES Fees</th>
+                <th class="r">Extra</th>
+                <th class="r">Correction</th>
+                <th class="r">Demurrage</th>
+                <th class="r cust"><span style="display: inline-flex; align-items: center; gap: 4px">Port Storage <button class="ib" style="width: 20px; height: 20px" aria-label="Remove column Port Storage">✕</button></span></th>
+                <th class="cust"><span style="display: inline-flex; align-items: center; gap: 4px">Remarks <span class="meta">(text)</span> <button class="ib" style="width: 20px; height: 20px" aria-label="Remove column Remarks">✕</button></span></th>
+                <th class="r">Total</th>
+                <th class="r">Total (USD)</th>
+                <th>ETA (live)</th>
+                <th>Status (live)</th>
+                <th>Paid</th>
+                <th><span class="sr">Delete</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr>
+                  <td class="stk mono" style="box-shadow: 1px 0 0 var(--line)"><a href="V2BookingDetail.dc.html">{{r.bk}}</a></td>
+                  <td class="mono">{{r.ctr}}</td>
+                  <td>{{r.mol}}</td>
+                  <td>{{r.line}}</td>
+                  <td>{{r.cons}}</td>
+                  <td>{{r.pol}}</td>
+                  <td>{{r.pod}}</td>
+                  <td>
+                    <sc-if value="{{r.inv}}" hint-placeholder-val="{{true}}"><span class="mono">{{r.inv}}</span> <svg class="pen" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></sc-if>
+                    <sc-if value="{{r.noInv}}" hint-placeholder-val="{{false}}"><button class="btn btn-xs" style="border-color: var(--warnB); color: var(--warn)">Enter Invoice</button></sc-if>
+                  </td>
+                  <td class="num">{{r.idate}}</td>
+                  <td class="num">{{r.due}}</td>
+                  <td class="r num">{{r.c1}}</td>
+                  <td class="r num">{{r.c2}}</td>
+                  <td class="r num">{{r.c3}}</td>
+                  <td class="r num">{{r.c4}}</td>
+                  <td class="r num">{{r.c5}}</td>
+                  <td class="r num">{{r.c6}}</td>
+                  <td class="r num cust">{{r.c7}}</td>
+                  <td class="cust lbl">{{r.rem}}</td>
+                  <td class="r num">{{r.total}}</td>
+                  <td class="r num" style="font-weight: 600">{{r.usd}}</td>
+                  <td class="num">{{r.eta}} <svg class="pen" aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></td>
+                  <td>
+                    <label class="sr" for="{{r.sid}}">Status (live) for {{r.ctr}}</label>
+                    <select id="{{r.sid}}" class="bsel {{r.sb}}"><option>— set —</option><option selected="{{r.isWater}}">On Water</option><option selected="{{r.isRel}}">Released</option></select>
+                  </td>
+                  <td>
+                    <label class="sr" for="{{r.pid}}">Paid for {{r.ctr}}</label>
+                    <select id="{{r.pid}}" class="bsel {{r.pb}}"><option selected="{{r.isUnpaid}}">UNPAID</option><option selected="{{r.isPaid}}">PAID</option></select>
+                  </td>
+                  <td><button class="ib" aria-label="Delete invoice row {{r.ctr}}" style="color: var(--crit)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="stk" colspan="10" style="box-shadow: 1px 0 0 var(--line)">Totals (converted to USD):</td>
+                <td class="r num">$21,450.00</td>
+                <td class="r num">$1,050.00</td>
+                <td class="r num">$210.00</td>
+                <td class="r num">$640.00</td>
+                <td class="r num">$150.00</td>
+                <td class="r num">$1,820.00</td>
+                <td class="r num cust">$480.00</td>
+                <td class="cust"></td>
+                <td></td>
+                <td class="r num">$25,800.00</td>
+                <td colspan="4"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div style="padding: 12px 16px; border-top: 1px solid var(--line)" class="meta">Empty state: "No invoices yet — one appears here automatically as soon as a container with this forwarder assigned is added in Booking &amp; Instructions."</div>
+      </section>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+        <section class="card" aria-labelledby="acf" style="flex: 2 1 560px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px">
+          <h2 id="acf" class="h2">Add Column — 3 steps</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+            <div style="border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 8px"><span class="stepn">1</span><b style="font-size: 13px">Name</b></div>
+              <div class="field"><label for="cn">New charge column name:</label><input id="cn" class="input input-s" value="Port Storage"></div>
+            </div>
+            <div style="border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 8px"><span class="stepn">2</span><b style="font-size: 13px">Type</b></div>
+              <div class="seg" role="radiogroup" aria-label="Column type">
+                <sc-for list="{{types}}" as="ty" hint-placeholder-count="2">
+                  <button role="radio" aria-checked="{{ty.checked}}" class="{{ty.cls}}" onClick="{{ty.pick}}">{{ty.label}}</button>
+                </sc-for>
+              </div>
+              <span class="help">{{typeHelp}}</span>
+            </div>
+            <div style="border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 8px"><span class="stepn">3</span><b style="font-size: 13px">Confirm</b></div>
+              <span class="lbl">"Port Storage" appears on every forwarder's ledger. 8 of 10 column slots left.</span>
+              <div style="display: flex; gap: 8px"><button class="btn btn-xs">Cancel</button><button class="btn btn-p btn-xs">Add column</button></div>
+            </div>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="sib" style="flex: 1 1 320px; min-width: 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+          <h2 id="sib" class="h2">Same pattern elsewhere</h2>
+          <div style="display: flex; gap: 10px; align-items: flex-start">
+            <span class="badge b-warn">Truckers</span>
+            <span class="lbl">Truckers ledger uses this layout with columns: Trucking, Fuel Surcharge, Chassis Rental, Stop Off, Chassis Split, Misc Charges (+ Location). Enter Invoice adds a Location field.</span>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: flex-start">
+            <span class="badge b-info">Suppliers</span>
+            <span class="lbl">Suppliers ledger follows the Buyer ledger (Cost section, lookup by booking/container, Payment History) with no document buttons.</span>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","system"],"default":"light"},"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { theme: null, ph: true, ctype: 'num' }; }
+  renderVals() {
+    const theme = this.state.theme ?? this.props.theme ?? 'light';
+    const themes = [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([id, label]) => ({ label, cls: theme === id ? 'on' : '', checked: theme === id ? 'true' : 'false', pick: () => this.setState({ theme: id }) }));
+    const data = [
+      ['401610299853', 'MSKU 552019-3', 'October 2026', 'Maersk', 'LR Traders', 'Savannah', 'Mundra', '', '—', '—', '3,850.00', '175.00', '35.00', '—', '—', '—', '—', '', '$4,060.00', '$4,060.00', '12 Nov 2026', 'water', false],
+      ['401610299862', 'MSKU 552107-0', 'October 2026', 'Maersk', 'LR Traders', 'Savannah', 'Mundra', 'UAL-26-1184', '12 Oct 2026', '11 Nov 2026', '3,850.00', '175.00', '35.00', '120.00', '—', '—', '80.00', 'Rolled 1 voyage', '$4,260.00', '$4,260.00', '8 Nov 2026', 'water', false],
+      ['HL-11952005', 'HLXU 873204-1', 'September 2026', 'Hapag-Lloyd', 'Jagmohan', 'Hamburg', 'Mundra', 'UAL-26-1102', '28 Sep 2026', '28 Oct 2026', '2,950.00', '175.00', '35.00', '—', '50.00', '—', '—', '', '$3,210.00', '$3,210.00', '26 Oct 2026', 'water', false],
+      ['NAM8534819', 'ONEU 301772-5', 'August 2026', 'ONE', 'LR Traders', 'Los Angeles', 'Nhava Sheva', 'UAL-26-0977', '30 Aug 2026', '29 Sep 2026', '3,400.00', '175.00', '35.00', '—', '—', '640.00', '—', 'Demurrage 4 days', '$4,250.00', '$4,250.00', '24 Sep 2026', 'rel', true],
+      ['400600270642', 'CMAU 418230-7', 'August 2026', 'CMA CGM', 'Kuldeep', 'Seattle', 'Mundra', 'UAL-26-0951', '22 Aug 2026', '21 Sep 2026', '3,100.00', '175.00', '35.00', '260.00', '100.00', '—', '—', '', '$3,670.00', '$3,670.00', '18 Sep 2026', 'rel', true],
+      ['400600270749', 'TGHU 664210-8', 'July 2026', 'MSC', 'Jagmohan', 'Seattle', 'Mundra', 'UAL-26-0840', '25 Jul 2026', '24 Aug 2026', '₹2,58,400', '—', '—', '—', '—', '—', '—', 'Billed in INR', '₹2,58,400', '$3,095.90', '20 Aug 2026', 'rel', true]
+    ];
+    const rows = data.map((d, i) => {
+      const [bk, ctr, mol, line, cons, pol, pod, inv, idate, due, c1, c2, c3, c4, c5, c6, c7, rem, total, usd, eta, st, paid] = d;
+      return {
+        bk, ctr, mol, line, cons, pol, pod, inv, noInv: !inv, idate, due, c1, c2, c3, c4, c5, c6, c7, rem: rem || '—', total, usd, eta,
+        sid: 'st' + i, pid: 'pd' + i,
+        sb: st === 'water' ? 'b-info' : 'b-ok', isWater: st === 'water', isRel: st === 'rel',
+        pb: paid ? 'b-ok' : 'b-crit', isPaid: paid, isUnpaid: !paid
+      };
+    });
+    const ph = this.state.ph;
+    const ct = this.state.ctype;
+    const types = [['num', 'Number'], ['text', 'Text']].map(([id, label]) => ({ label, cls: ct === id ? 'on' : '', checked: ct === id ? 'true' : 'false', pick: () => this.setState({ ctype: id }) }));
+    return {
+      themeClass: 'th-' + theme, themes, rows, types,
+      typeHelp: ct === 'num' ? 'Adds into Total and the USD totals row' : 'Free text, e.g. remarks — not added to totals',
+      phOpen: ph, phAria: ph ? 'true' : 'false', phLabel: ph ? 'Hide ▲' : 'Show ▼', togglePh: () => this.setState({ ph: !ph })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -136,10 +136,10 @@ export default function SupplierInvoiceLedgerClient({
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-semibold text-ink">{supplierName} — Invoices</h1>
         <div className="flex items-center gap-2">
-          <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border px-3 py-1.5 rounded font-medium">
+          <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
-          <button onClick={() => setAdding(true)} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium">
+          <button onClick={() => setAdding(true)} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium">
             + Add Invoice
           </button>
         </div>
@@ -157,21 +157,21 @@ export default function SupplierInvoiceLedgerClient({
       <PartyPaymentHistory partyId={supplierId} totalInvoicedUsd={totalUsd} />
 
       <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
         </select>
-        <div className="text-xs text-ink/50 ml-auto">
+        <div className="text-xs text-muted ml-auto">
           {Object.entries(totalsByCurrency).map(([cur, total]) => (
             <span key={cur} className="mr-3">
-              Total {cur}: <span className="font-medium text-ink/80">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              Total {cur}: <span className="font-medium text-text-2">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </span>
           ))}
         </div>
@@ -199,10 +199,10 @@ export default function SupplierInvoiceLedgerClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto border rounded">
+      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
         <table className="text-sm border-collapse min-w-[1800px]">
-          <thead className="sticky top-0 bg-slate-50 z-10">
-            <tr className="text-left text-ink/50 border-b">
+          <thead className="sticky top-0 bg-surface-2 z-10">
+            <tr className="text-left text-muted border-b border-line">
               <Th>Sr. No</Th>
               <Th>Date</Th>
               <Th>Month of Loading</Th>
@@ -236,7 +236,7 @@ export default function SupplierInvoiceLedgerClient({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={15} className="px-3 py-10 text-center text-ink/40">
+                <td colSpan={15} className="px-3 py-10 text-center text-muted">
                   {invoices.length === 0
                     ? 'No invoices yet for this supplier. Click "+ Add Invoice" to enter one.'
                     : "No invoices match these filters."}
@@ -254,7 +254,7 @@ function Th({ children }: { children?: React.ReactNode }) {
   return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 whitespace-nowrap text-ink/80">{children}</td>;
+  return <td className="px-3 py-2 whitespace-nowrap text-text-2">{children}</td>;
 }
 
 // ---------------- Add Invoice panel: lookup + header fields + cost section ----------------
@@ -397,8 +397,8 @@ function AddInvoicePanel({
   }
 
   return (
-    <div className="border border-accent/30 bg-accent/5 rounded p-4 mb-4">
-      <label className="block border-2 border-dashed rounded-lg p-4 bg-white hover:border-accent text-center cursor-pointer mb-3">
+    <div className="border border-accent/30 bg-accent/5 rounded-lg p-4 mb-4">
+      <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface hover:border-accent text-center cursor-pointer mb-3">
         <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills invoice number/date/currency and cost lines below)"}</div>
         <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={uploading} />
       </label>
@@ -406,25 +406,25 @@ function AddInvoicePanel({
       <div className="flex gap-2 mb-3">
         <input
           placeholder="Enter Booking Number or Container Number"
-          className="border rounded px-2 py-1.5 text-sm flex-1"
+          className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm flex-1"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && lookup()}
         />
-        <button onClick={lookup} disabled={looking} className="text-sm bg-ink text-white px-3 py-1.5 rounded">
+        <button onClick={lookup} disabled={looking} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg">
           {looking ? "Looking up…" : "Lookup"}
         </button>
       </div>
 
-      {lookupError && <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-3">{lookupError}</div>}
+      {lookupError && <div className="text-xs text-warning bg-warning-soft border border-warning/30 rounded-lg p-2 mb-3">{lookupError}</div>}
 
       {lookupResult?.matched && (
-        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-white border rounded p-3">
-          <div><span className="text-ink/40">Matched by:</span> {lookupResult.matched_by}</div>
-          <div><span className="text-ink/40">Container:</span> {lookupResult.container_number || "—"}</div>
-          <div><span className="text-ink/40">Forwarder:</span> {lookupResult.forwarder_name || "—"}</div>
-          <div><span className="text-ink/40">Consignee:</span> {lookupResult.consignee_name || "—"}</div>
-          <div><span className="text-ink/40">Month of Loading:</span> {lookupResult.month_of_loading || "—"}</div>
+        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-surface border border-line rounded-lg p-3">
+          <div><span className="text-muted">Matched by:</span> {lookupResult.matched_by}</div>
+          <div><span className="text-muted">Container:</span> {lookupResult.container_number || "—"}</div>
+          <div><span className="text-muted">Forwarder:</span> {lookupResult.forwarder_name || "—"}</div>
+          <div><span className="text-muted">Consignee:</span> {lookupResult.consignee_name || "—"}</div>
+          <div><span className="text-muted">Month of Loading:</span> {lookupResult.month_of_loading || "—"}</div>
         </div>
       )}
 
@@ -432,9 +432,9 @@ function AddInvoicePanel({
         <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
         <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
         <div>
-          <div className="text-xs text-ink/40 mb-0.5">Currency</div>
+          <div className="text-xs text-muted mb-0.5">Currency</div>
           <select
-            className="border rounded px-2 py-1 text-sm w-full"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
             value={form.currency}
             onChange={(e) => setForm({ ...form, currency: e.target.value })}
           >
@@ -454,11 +454,11 @@ function AddInvoicePanel({
       </div>
 
       {/* Cost section -- kept visually separate, this is the line-item table */}
-      <div className="border-t pt-3">
-        <div className="text-xs font-medium text-ink/60 mb-2">Cost Section</div>
+      <div className="border-t border-line pt-3">
+        <div className="text-xs font-medium text-text-2 mb-2">Cost Section</div>
         <table className="w-full text-sm mb-2">
           <thead>
-            <tr className="text-left text-ink/40">
+            <tr className="text-left text-muted">
               <th className="pb-1 pr-2 font-normal">Description</th>
               <th className="pb-1 pr-2 font-normal w-28">Weight (KG)</th>
               <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
@@ -471,7 +471,7 @@ function AddInvoicePanel({
               <tr key={i}>
                 <td className="pr-2 pb-1">
                   <input
-                    className="border rounded px-2 py-1 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                     value={it.description}
                     onChange={(e) => updateItem(i, { description: e.target.value })}
                   />
@@ -479,7 +479,7 @@ function AddInvoicePanel({
                 <td className="pr-2 pb-1">
                   <input
                     type="number"
-                    className="border rounded px-2 py-1 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                     value={it.weight_kg}
                     onChange={(e) => updateItem(i, { weight_kg: e.target.value })}
                   />
@@ -488,7 +488,7 @@ function AddInvoicePanel({
                   <input
                     type="number"
                     step="0.0001"
-                    className="border rounded px-2 py-1 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                     value={it.unit_price}
                     onChange={(e) => updateItem(i, { unit_price: e.target.value })}
                   />
@@ -498,14 +498,14 @@ function AddInvoicePanel({
                     type="number"
                     step="0.01"
                     placeholder="auto"
-                    className="border rounded px-2 py-1 text-sm w-full"
+                    className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                     value={it.amount}
                     onChange={(e) => updateItem(i, { amount: e.target.value })}
                   />
                 </td>
                 <td className="pb-1 text-center">
                   {items.length > 1 && (
-                    <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs">
+                    <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
                       ✕
                     </button>
                   )}
@@ -518,10 +518,10 @@ function AddInvoicePanel({
           <button onClick={addItemRow} className="text-xs text-accent underline">
             + Add Line
           </button>
-          <div className="text-sm text-ink/70">
+          <div className="text-sm text-text-2">
             Computed total: <span className="font-medium">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
-              <span className="text-ink/50"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+              <span className="text-muted"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
             )}
           </div>
         </div>
@@ -530,10 +530,10 @@ function AddInvoicePanel({
       {saveError && <div className="text-xs text-cutoff mt-3">{saveError}</div>}
 
       <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-3 py-1.5 rounded font-medium disabled:opacity-50">
+        <button onClick={save} disabled={saving} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium disabled:opacity-50">
           {saving ? "Saving…" : "Save Invoice"}
         </button>
-        <button onClick={onClose} className="text-sm border px-3 py-1.5 rounded">
+        <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5">
           Cancel
         </button>
       </div>
@@ -554,8 +554,8 @@ function LabeledInput({
 }) {
   return (
     <div>
-      <div className="text-xs text-ink/40 mb-0.5">{label}</div>
-      <input type={type} className="border rounded px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
+      <div className="text-xs text-muted mb-0.5">{label}</div>
+      <input type={type} className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
@@ -583,7 +583,7 @@ function InvoiceRows({
 }) {
   return (
     <>
-      <tr className="border-b hover:bg-blue-50/30">
+      <tr className="border-b border-line hover:bg-surface-2">
         <Td>{sr}</Td>
         <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then(() => onChange({ invoice_date: v }))} />
         <Td>{fmtMonth(inv.month_of_loading)}</Td>
@@ -591,7 +591,7 @@ function InvoiceRows({
           <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
         ) : (
           <td className="px-3 py-2 whitespace-nowrap">
-            <button onClick={onEnterInvoice} className="text-xs bg-accent text-white px-2 py-1 rounded font-medium">
+            <button onClick={onEnterInvoice} className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded-lg font-medium">
               Enter Invoice
             </button>
           </td>
@@ -604,13 +604,13 @@ function InvoiceRows({
           <span className="font-medium">{fmtMoney(inv.total, inv.currency)}</span>
         </Td>
         <Td>
-          <span className="text-ink/60">{fmtMoney(inv.total_usd, "USD")}</span>
+          <span className="text-text-2">{fmtMoney(inv.total_usd, "USD")}</span>
         </Td>
         <Td>
-          <span className="text-ink/60">{fmtDate(inv.tracking?.eta ?? null)}</span>
+          <span className="text-text-2">{fmtDate(inv.tracking?.eta ?? null)}</span>
         </Td>
         <Td>
-          <span className="text-ink/60">{inv.tracking?.release_status || "—"}</span>
+          <span className="text-text-2">{inv.tracking?.release_status || "—"}</span>
         </Td>
         <td className="px-3 py-2">
           <button
@@ -618,8 +618,8 @@ function InvoiceRows({
               const next = inv.paid_status === "PAID" ? "UNPAID" : "PAID";
               patchInvoice(inv.id, { paid_status: next }).then(() => onChange({ paid_status: next }));
             }}
-            className={`text-xs px-2 py-1 rounded font-medium ${
-              inv.paid_status === "PAID" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+            className={`text-xs px-2 py-1 rounded-lg font-medium ${
+              inv.paid_status === "PAID" ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
             }`}
           >
             {inv.paid_status}
@@ -637,7 +637,7 @@ function InvoiceRows({
         </td>
       </tr>
       {expanded && (
-        <tr className="border-b bg-slate-50/60">
+        <tr className="border-b border-line bg-surface-2">
           <td colSpan={15} className="px-6 py-3">
             <CostSection invoiceId={inv.id} items={inv.items} currency={inv.currency} onTotalChange={(total) => onChange({ total })} onItemsChange={(items) => onChange({ items })} />
           </td>
@@ -755,15 +755,15 @@ function EnterInvoiceModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink">
             Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
           </h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
         </div>
 
-        <label className="block border-2 border-dashed rounded-lg p-4 bg-slate-50 hover:border-accent text-center cursor-pointer mb-4">
+        <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
           <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
@@ -772,9 +772,9 @@ function EnterInvoiceModal({
           <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
           <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
           <div>
-            <div className="text-xs text-ink/40 mb-0.5">Currency</div>
+            <div className="text-xs text-muted mb-0.5">Currency</div>
             <select
-              className="border rounded px-2 py-1 text-sm w-full"
+              className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
               value={form.currency}
               onChange={(e) => setForm({ ...form, currency: e.target.value })}
             >
@@ -788,11 +788,11 @@ function EnterInvoiceModal({
           <LabeledInput label="FX Rate (→ USD)" type="number" value={form.fx_rate} onChange={(v) => setForm({ ...form, fx_rate: v })} />
         </div>
 
-        <div className="border-t pt-3">
-          <div className="text-xs font-medium text-ink/60 mb-2">Cost Section</div>
+        <div className="border-t border-line pt-3">
+          <div className="text-xs font-medium text-text-2 mb-2">Cost Section</div>
           <table className="w-full text-sm mb-2">
             <thead>
-              <tr className="text-left text-ink/40">
+              <tr className="text-left text-muted">
                 <th className="pb-1 pr-2 font-normal">Description</th>
                 <th className="pb-1 pr-2 font-normal w-28">Weight (KG)</th>
                 <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
@@ -805,7 +805,7 @@ function EnterInvoiceModal({
                 <tr key={i}>
                   <td className="pr-2 pb-1">
                     <input
-                      className="border rounded px-2 py-1 text-sm w-full"
+                      className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                       value={it.description}
                       onChange={(e) => updateItem(i, { description: e.target.value })}
                     />
@@ -813,7 +813,7 @@ function EnterInvoiceModal({
                   <td className="pr-2 pb-1">
                     <input
                       type="number"
-                      className="border rounded px-2 py-1 text-sm w-full"
+                      className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                       value={it.weight_kg}
                       onChange={(e) => updateItem(i, { weight_kg: e.target.value })}
                     />
@@ -822,7 +822,7 @@ function EnterInvoiceModal({
                     <input
                       type="number"
                       step="0.0001"
-                      className="border rounded px-2 py-1 text-sm w-full"
+                      className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                       value={it.unit_price}
                       onChange={(e) => updateItem(i, { unit_price: e.target.value })}
                     />
@@ -832,14 +832,14 @@ function EnterInvoiceModal({
                       type="number"
                       step="0.01"
                       placeholder="auto"
-                      className="border rounded px-2 py-1 text-sm w-full"
+                      className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-full"
                       value={it.amount}
                       onChange={(e) => updateItem(i, { amount: e.target.value })}
                     />
                   </td>
                   <td className="pb-1 text-center">
                     {items.length > 1 && (
-                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs">
+                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
                         ✕
                       </button>
                     )}
@@ -852,10 +852,10 @@ function EnterInvoiceModal({
             <button onClick={addItemRow} className="text-xs text-accent underline">
               + Add Line
             </button>
-            <div className="text-sm text-ink/70">
+            <div className="text-sm text-text-2">
               Computed total: <span className="font-medium">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
-                <span className="text-ink/50"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                <span className="text-muted"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
               )}
             </div>
           </div>
@@ -864,8 +864,8 @@ function EnterInvoiceModal({
         {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
 
         <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="text-sm border px-4 py-2 rounded">Cancel</button>
-          <button onClick={save} disabled={saving} className="text-sm bg-accent text-white px-4 py-2 rounded font-medium disabled:opacity-60">
+          <button onClick={onClose} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button onClick={save} disabled={saving} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
             {saving ? "Saving…" : "Save Invoice"}
           </button>
         </div>
@@ -948,7 +948,7 @@ function CostSection({
     <div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-ink/40">
+          <tr className="text-left text-muted">
             <th className="pb-1 pr-2 font-normal">Description</th>
             <th className="pb-1 pr-2 font-normal w-32">Weight (KG)</th>
             <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
@@ -958,7 +958,7 @@ function CostSection({
         </thead>
         <tbody>
           {rows.map((item) => (
-            <tr key={item.id} className="border-t">
+            <tr key={item.id} className="border-t border-line">
               <ItemCell value={item.description} onSave={(v) => patchItem(item.id, "description", v)} />
               <ItemCell value={item.weight_kg?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "weight_kg", v)} />
               <ItemCell value={item.unit_price?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "unit_price", v)} />
@@ -972,7 +972,7 @@ function CostSection({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-2 text-ink/40 text-xs">
+              <td colSpan={5} className="py-2 text-muted text-xs">
                 No cost lines yet.
               </td>
             </tr>
@@ -984,14 +984,14 @@ function CostSection({
         <div className="flex gap-2 items-center mt-2">
           <input
             placeholder="Description"
-            className="border rounded px-2 py-1 text-sm flex-1"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm flex-1"
             value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
           />
           <input
             type="number"
             placeholder="Weight KG"
-            className="border rounded px-2 py-1 text-sm w-28"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-28"
             value={draft.weight_kg}
             onChange={(e) => setDraft({ ...draft, weight_kg: e.target.value })}
           />
@@ -999,7 +999,7 @@ function CostSection({
             type="number"
             step="0.0001"
             placeholder="Unit Price"
-            className="border rounded px-2 py-1 text-sm w-28"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-28"
             value={draft.unit_price}
             onChange={(e) => setDraft({ ...draft, unit_price: e.target.value })}
           />
@@ -1007,11 +1007,11 @@ function CostSection({
             type="number"
             step="0.01"
             placeholder="Amount (auto)"
-            className="border rounded px-2 py-1 text-sm w-28"
+            className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1 text-sm w-28"
             value={draft.amount}
             onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
           />
-          <button onClick={saveNewRow} disabled={saving} className="text-xs bg-ink text-white px-2 py-1 rounded">
+          <button onClick={saveNewRow} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded-lg">
             {saving ? "…" : "✓"}
           </button>
           <button
@@ -1019,7 +1019,7 @@ function CostSection({
               setAddingRow(false);
               setDraft(blankItem());
             }}
-            className="text-xs border px-2 py-1 rounded"
+            className="text-xs border border-line hover:bg-surface-2 px-2 py-1 rounded-lg"
           >
             ✕
           </button>
@@ -1064,7 +1064,7 @@ function ItemCell({
   if (!editing) {
     return (
       <td className="py-1 pr-2">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-accent-soft px-1 rounded-lg block">
           {value || (isNumber ? "0" : "—")}
         </span>
       </td>
@@ -1078,16 +1078,16 @@ function ItemCell({
           autoFocus
           type={isNumber ? "number" : "text"}
           step={isNumber ? "0.0001" : undefined}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-full"
+          className="border border-accent rounded-lg px-1.5 py-0.5 text-sm w-full"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
+        <button onClick={save} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-1.5 py-0.5 rounded-lg">
           {saving ? "…" : "✓"}
         </button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
+        <button onClick={() => setEditing(false)} className="text-xs border border-line hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
           ✕
         </button>
         {error && <span className="text-xs text-cutoff">{error}</span>}
@@ -1130,7 +1130,7 @@ function EditableCell({
   if (!editing) {
     return (
       <td className="px-3 py-2 whitespace-nowrap">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-blue-50 px-1 rounded block">
+        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-accent-soft px-1 rounded-lg block">
           {display}
         </span>
       </td>
@@ -1143,16 +1143,16 @@ function EditableCell({
         <input
           autoFocus
           type={isDate ? "date" : "text"}
-          className="border border-accent rounded px-1.5 py-0.5 text-sm w-28"
+          className="border border-accent rounded-lg px-1.5 py-0.5 text-sm w-28"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && save()}
           disabled={saving}
         />
-        <button onClick={save} disabled={saving} className="text-xs bg-ink text-white px-1.5 py-0.5 rounded">
+        <button onClick={save} disabled={saving} className="text-xs bg-accent hover:bg-accent-hover text-white px-1.5 py-0.5 rounded-lg">
           {saving ? "…" : "✓"}
         </button>
-        <button onClick={() => setEditing(false)} className="text-xs border px-1.5 py-0.5 rounded">
+        <button onClick={() => setEditing(false)} className="text-xs border border-line hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
           ✕
         </button>
         {error && <span className="text-xs text-cutoff">{error}</span>}
