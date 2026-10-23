@@ -22,16 +22,25 @@ export default function Sidebar() {
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
   const [duplicateBookings, setDuplicateBookings] = useState(0);
+  // Which nav groups are expanded. Always kept in sync with the active
+  // route below (the current section is never collapsed out from under
+  // you), otherwise left to whatever the user has clicked open.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
-  // expanded) HTML and trigger a hydration warning.
+  // expanded) HTML and trigger a hydration warning. With no saved
+  // preference yet, default to the icon rail on tablet-width viewports
+  // (<1280px) and expanded on desktop, matching the redesign spec.
   useEffect(() => {
     try {
-      if (localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored === "1") { setCollapsed(true); return; }
+      if (stored === "0") return;
+      if (window.matchMedia("(max-width: 1279px)").matches) setCollapsed(true);
     } catch {
-      // localStorage can throw in a private window or with site data
-      // blocked - falling back to the default (expanded) is fine.
+      // localStorage/matchMedia can throw in a private window or with
+      // site data blocked - falling back to the default (expanded) is fine.
     }
   }, []);
 
@@ -64,6 +73,15 @@ export default function Sidebar() {
       .catch(() => {});
   }, [pathname]);
 
+  // The group containing whatever page you're on is always expanded -
+  // added to whatever's already open, never replacing it, so a group you
+  // opened yourself doesn't snap shut on an unrelated navigation.
+  useEffect(() => {
+    const activeGroup = NAV_GROUPS.find((g) => g.items.some((it) => it.key === activeKey));
+    if (!activeGroup) return;
+    setOpenGroups((prev) => (prev.has(activeGroup.label) ? prev : new Set(prev).add(activeGroup.label)));
+  }, [activeKey]);
+
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -80,6 +98,15 @@ export default function Sidebar() {
     });
   }
 
+  function toggleGroup(label: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
   // /login and /auth/callback are pre-auth screens that render their own
   // centered layout - no app chrome around them. Checked after all hooks
   // above so their call order never changes across a client-side
@@ -89,18 +116,18 @@ export default function Sidebar() {
   // "Platform Admin" only shows for the platform owner - every other
   // item is visible to everyone, same as before.
   const visibleGroups = NAV_GROUPS.map((g) =>
-    g.label === "Admin" ? { ...g, items: g.items.filter((it) => it.key !== "admin" || isPlatformOwner) } : g
+    g.label === "Workspace" ? { ...g, items: g.items.filter((it) => it.key !== "admin" || isPlatformOwner) } : g
   );
 
   return (
     <nav
       aria-label="Main"
-      style={{ background: "var(--nav)", color: "var(--navTx)" }}
-      className={`${collapsed ? "w-16" : "w-64"} h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150`}
+      style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 238 }}
+      className="h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150"
     >
       <div
-        className={`flex items-center gap-3 ${collapsed ? "p-3 justify-center" : "py-[18px] px-[18px] pt-5"}`}
-        style={{ borderBottom: "1px solid var(--navLine)" }}
+        className={`flex items-center gap-3 ${collapsed ? "justify-center" : "px-[18px]"}`}
+        style={{ height: 64, borderBottom: "1px solid var(--navLine)" }}
       >
         <Logo size={collapsed ? 32 : 36} />
         {!collapsed && (
@@ -115,17 +142,39 @@ export default function Sidebar() {
 
       <YearSelector collapsed={collapsed} />
 
-      <div className="flex-1 overflow-y-auto px-2.5 py-2 flex flex-col gap-3.5">
-        {visibleGroups.map((group) => (
+      <div className="flex-1 overflow-y-auto px-2.5 py-2 flex flex-col gap-2.5">
+        {visibleGroups.map((group) => {
+          const isOpen = collapsed || openGroups.has(group.label);
+          return (
           <div key={group.label} className="flex flex-col gap-0.5">
             {!collapsed && (
-              <div
-                className="text-[11px] font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-1"
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                aria-expanded={isOpen}
+                aria-controls={`navgroup-${group.label}`}
+                className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide px-2.5 pt-1.5 pb-1 border-0 bg-transparent w-full cursor-pointer"
                 style={{ color: "var(--navMut)", letterSpacing: "0.06em" }}
               >
                 {group.label}
-              </div>
+                <svg
+                  aria-hidden="true"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 150ms", flexShrink: 0 }}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
             )}
+            {isOpen && (
+            <div id={`navgroup-${group.label}`} className="flex flex-col gap-0.5">
             {group.items.map((it) => {
               const active = it.key === activeKey;
               const badge = it.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
@@ -139,7 +188,7 @@ export default function Sidebar() {
                     collapsed ? "justify-center px-2" : "px-2.5"
                   }`}
                   style={{
-                    minHeight: 38,
+                    minHeight: 33,
                     background: active ? "var(--navAct)" : "transparent",
                     color: active ? "#FFFFFF" : "rgba(255,255,255,0.86)",
                     fontWeight: active ? 600 : 400,
@@ -176,8 +225,11 @@ export default function Sidebar() {
                 </Link>
               );
             })}
+            </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <button
@@ -279,7 +331,7 @@ function YearSelector({ collapsed }: { collapsed: boolean }) {
         onChange={(e) => setYear(Number(e.target.value))}
         className="text-sm px-2.5"
         style={{
-          height: 36,
+          height: 32,
           borderRadius: 8,
           border: "1px solid var(--navLine)",
           background: "var(--navH)",

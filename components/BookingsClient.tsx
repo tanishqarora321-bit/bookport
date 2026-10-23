@@ -370,7 +370,7 @@ export default function BookingsClient({
       )}
 
       {variant === "single" && (
-        <section aria-label="Booking totals" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
+        <section aria-label="Booking totals" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 9 }}>
           <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
           <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
           <StatCard icon={Ship} label="In Transit" value={inTransitCount} />

@@ -63,7 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   { label: "Finance", items: [{ key: "pl", label: "Profit & Loss", href: "/profit-loss" }] },
   {
-    label: "Admin",
+    label: "Workspace",
     items: [
       { key: "settings", label: "Settings & Control", href: "/team" },
       { key: "admin", label: "Platform Admin", href: "/admin" },
