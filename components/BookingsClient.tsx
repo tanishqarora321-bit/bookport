@@ -43,6 +43,11 @@ type Row = {
   packing_items: PackingItem[];
 };
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
 function monthOfLoading(erd: string | null): string {
   if (!erd) return "—";
   const d = new Date(erd);
@@ -125,14 +130,15 @@ export default function BookingsClient({
     setRows(initialRows);
   }, [initialRows]);
 
-  // The sidebar's Year selector - off by default here (a booking with no
-  // ERD yet has no determinable year, and defaulting this ON could
-  // silently hide a grid full of real bookings the moment someone picks
-  // a year), opt in with the checkbox below. A booking's year always
-  // comes from its own Month of Loading (ERD), never a separately
-  // entered field.
+  // The sidebar's Year selector is the one working-year filter for this
+  // grid - always on, no separate opt-in toggle, since having both was
+  // redundant with the sidebar already being "the" year control. A
+  // booking's year always comes from its own Month of Loading (ERD),
+  // never a separately entered field; a booking with no ERD yet can't
+  // belong to any year, so it won't show until it has one. The Month
+  // filter below narrows further within whichever year is selected.
   const { year } = useYear();
-  const [filterByYear, setFilterByYear] = useState(false);
+  const [monthFilter, setMonthFilter] = useState("all");
 
   // The duplicate-numbers banner is a one-time heads-up, not a permanent
   // fixture - once dismissed for the current count, it stays hidden until
@@ -190,16 +196,14 @@ export default function BookingsClient({
       if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
       if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
-      // No year filter at all -> show everything, including bookings with
-      // no Month of Loading/ERD yet (there's no year to exclude them by).
-      // Once a specific year IS selected, a booking with no date can't
-      // belong to it either, so it has to drop out too - r.erd && ... used
-      // to short-circuit past a missing date and leave it visible
-      // regardless of which year was picked.
-      if (filterByYear) {
-        if (!r.erd) return false;
-        if (new Date(r.erd).getFullYear() !== year) return false;
-      }
+      // The working year (sidebar) always filters this grid - a booking
+      // with no Month of Loading/ERD yet can't belong to any year, so it
+      // drops out until it has one. The Month filter then narrows further
+      // within that year.
+      if (!r.erd) return false;
+      const erdDate = new Date(r.erd);
+      if (erdDate.getFullYear() !== year) return false;
+      if (monthFilter !== "all" && erdDate.getMonth() !== Number(monthFilter)) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -218,13 +222,13 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, year, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
 
   // Any filter change jumps back to page 1 - staying on, say, page 4 after
   // narrowing the result set down to one page would just show an empty grid.
   useEffect(() => {
     setPage(0);
-  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, filterByYear, cutoffSoonOnly, overdueOnly, search, pageSize]);
+  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
@@ -415,10 +419,12 @@ export default function BookingsClient({
               </svg>
               Cut-off overdue
             </button>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={filterByYear} onChange={(e) => setFilterByYear(e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--accent)" }} />
-              Only {year} (by Month of Loading)
-            </label>
+            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: "auto" }}>
+              <option value="all">All Months ({year})</option>
+              {MONTH_NAMES.map((m, i) => (
+                <option key={m} value={i}>{m} {year}</option>
+              ))}
+            </select>
             <div style={{ flex: "1 1 0" }} />
             <span className="lbl num" aria-live="polite">
               <b style={{ color: "var(--tx)" }}>{filtered.length}</b> bookings
