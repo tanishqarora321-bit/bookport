@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function formatDate(value: string, isDateTime: boolean) {
   const d = new Date(value);
@@ -22,6 +22,18 @@ export default function EditableCell({
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Owns the displayed value locally after a successful save instead of
+  // reloading the whole page to pick up the new value from the server -
+  // that reload (there purely because this cell has no way to tell its
+  // parent what changed) briefly showed a blank white page on every
+  // single edit anywhere this component is used (40+ call sites). Synced
+  // back to the `value` prop below so an update from elsewhere (e.g. a
+  // sibling action's router.refresh()) still overrides this once fresh
+  // data actually arrives, rather than this cell clinging to a stale save.
+  const [savedValue, setSavedValue] = useState(value);
+  useEffect(() => {
+    setSavedValue(value);
+  }, [value]);
 
   async function save() {
     setSaving(true);
@@ -40,20 +52,22 @@ export default function EditableCell({
       let json: any = {};
       try { json = text ? JSON.parse(text) : {}; } catch { /* non-JSON body, fall through to status */ }
       if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
-      window.location.reload();
+      setSavedValue(val);
+      setEditing(false);
     } catch (err: any) {
-      setSaving(false);
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
   function cancel() {
-    setVal(value ?? "");
+    setVal(savedValue ?? "");
     setEditing(false);
     setError(null);
   }
 
-  const display = value ? (isDate ? formatDate(value, value.includes("T")) : value) : "—";
+  const display = savedValue ? (isDate ? formatDate(savedValue, savedValue.includes("T")) : savedValue) : "—";
 
   const stickyClass = sticky ? "stk2" : "";
 
@@ -62,7 +76,7 @@ export default function EditableCell({
       <td className={`${stickyClass} ${highlight ? "num" : ""}`.trim()} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
         <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: bold ? 700 : undefined }}>
           {display}
-          <button onClick={() => setEditing(true)} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
+          <button onClick={() => { setVal(savedValue ?? ""); setEditing(true); }} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
             <PencilIcon />
           </button>
         </span>

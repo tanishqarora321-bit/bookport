@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail } from "lucide-react";
 import EditableCell, { CloseIcon } from "@/components/EditableCell";
 import PartyPickerCell from "@/components/PartyPickerCell";
@@ -109,11 +110,20 @@ export default function BookingsClient({
   // entries, for the banner linking over to the Multiple page.
   duplicateGroupCount?: number;
 }) {
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [forwarderOptions, setForwarderOptions] = useState(forwarders);
   const [truckerOptions, setTruckerOptions] = useState(truckers);
   const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [buyerOptions, setBuyerOptions] = useState(buyers);
+
+  // router.refresh() re-runs this page's server-side data fetch and hands
+  // this component fresh props without a browser navigation - this is
+  // what actually applies it, since useState(initialRows) only reads that
+  // prop once on mount and otherwise ignores later prop changes.
+  useEffect(() => {
+    setRows(initialRows);
+  }, [initialRows]);
 
   // The sidebar's Year selector - off by default here (a booking with no
   // ERD yet has no determinable year, and defaulting this ON could
@@ -180,7 +190,16 @@ export default function BookingsClient({
       if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
       if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
-      if (filterByYear && r.erd && new Date(r.erd).getFullYear() !== year) return false;
+      // No year filter at all -> show everything, including bookings with
+      // no Month of Loading/ERD yet (there's no year to exclude them by).
+      // Once a specific year IS selected, a booking with no date can't
+      // belong to it either, so it has to drop out too - r.erd && ... used
+      // to short-circuit past a missing date and leave it visible
+      // regardless of which year was picked.
+      if (filterByYear) {
+        if (!r.erd) return false;
+        if (new Date(r.erd).getFullYear() !== year) return false;
+      }
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -499,10 +518,15 @@ export default function BookingsClient({
                     bookingId={r.booking_id}
                     blNumber={r.bl_number}
                     // A BL can update fields across every container on this
-                    // booking at once (not just this row's own) - simplest
-                    // to just reload rather than patch N rows' worth of
-                    // scattered state by hand.
-                    onApplied={() => window.location.reload()}
+                    // booking at once (not just this row's own), so patching
+                    // local state by hand for every affected row/container
+                    // risked missing one - router.refresh() re-fetches this
+                    // page's data server-side and hands it back down via
+                    // the initialRows-sync effect above, which is correct
+                    // for all of them at once without a full browser
+                    // navigation (a plain reload briefly showed a blank
+                    // white page while the whole document reloaded).
+                    onApplied={() => router.refresh()}
                   />
                   <EditableCell bookingId={r.booking_id} column="carrier" value={r.carrier} />
                   <PartyPickerCell
