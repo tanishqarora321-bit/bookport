@@ -25,7 +25,18 @@ const STATUS_OPTIONS: StatusOption[] = [
   { value: "cancelled", label: "Cancelled", badgeClass: "b-neu" },
 ];
 
-type ConflictInfo = { companyId: string; companyName: string; adminEmail: string; adminName: string; existingCompanyName: string | null };
+type ConflictInfo = {
+  companyId: string;
+  companyName: string;
+  adminEmail: string;
+  adminName: string;
+  existingCompanyName: string | null;
+  // "create": came from onboarding a brand-new company. "edit": came
+  // from setting/replacing an existing company's admin. Only changes
+  // the success message and whether the "add company" form resets -
+  // the move itself (POST /api/admin/reassign-user) is identical either way.
+  mode: "create" | "edit";
+};
 
 export default function AdminCompaniesClient({ initialCompanies }: { initialCompanies: Company[] }) {
   const router = useRouter();
@@ -61,6 +72,22 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
   // once the platform owner confirms it's the right person.
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
   const [reassigning, setReassigning] = useState(false);
+
+  // Set/replace a company's admin - corrects a typo'd/wrong email while
+  // they're still pending, or invites a new admin otherwise (see the
+  // route's own comment for why an active admin's account is never
+  // silently repointed).
+  const [editingAdmin, setEditingAdmin] = useState<{ id: string; name: string } | null>(null);
+  const [editAdminForm, setEditAdminForm] = useState({ email: "", fullName: "" });
+  const [editAdminSaving, setEditAdminSaving] = useState(false);
+  const [editAdminError, setEditAdminError] = useState<string | null>(null);
+
+  // Delete only ever succeeds server-side when the company has zero team
+  // members (see the DELETE route) - this just asks for confirmation and
+  // surfaces whatever the server says.
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const activeCount = companies.filter((c) => c.subscription_status === "active" || c.subscription_status === "trial").length;
   const trialCount = companies.filter((c) => c.subscription_status === "trial").length;
@@ -138,6 +165,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
             adminEmail: companyForm.adminEmail.trim().toLowerCase(),
             adminName: companyForm.adminName.trim(),
             existingCompanyName: json.existingCompanyName,
+            mode: "create",
           });
           setAdding(false);
           return;
@@ -166,8 +194,12 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to move the account");
-      setCompanySuccess(`"${conflict.companyName}" created - ${conflict.adminEmail}'s existing account is now its admin.`);
-      setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
+      if (conflict.mode === "edit") {
+        setCompanySuccess(`"${conflict.companyName}"'s admin is now ${conflict.adminEmail}${conflict.existingCompanyName ? ` (moved from ${conflict.existingCompanyName})` : ""}.`);
+      } else {
+        setCompanySuccess(`"${conflict.companyName}" created - ${conflict.adminEmail}'s existing account is now its admin.`);
+        setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
+      }
       setConflict(null);
       router.refresh();
     } catch (err: any) {
@@ -175,6 +207,71 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
       setConflict(null);
     } finally {
       setReassigning(false);
+    }
+  }
+
+  function openEditAdmin(company: Company) {
+    setEditingAdmin({ id: company.id, name: company.name });
+    setEditAdminForm({ email: company.admin_email !== "—" ? company.admin_email : "", fullName: "" });
+    setEditAdminError(null);
+    setCompanySuccess(null);
+  }
+
+  async function saveAdminEdit() {
+    if (!editingAdmin) return;
+    if (!editAdminForm.email.trim()) {
+      setEditAdminError("Email is required.");
+      return;
+    }
+    setEditAdminSaving(true);
+    setEditAdminError(null);
+    try {
+      const res = await fetch(`/api/admin/companies/${editingAdmin.id}/admin`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: editAdminForm.email.trim(), fullName: editAdminForm.fullName.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.code === "EMAIL_ALREADY_REGISTERED") {
+          setConflict({
+            companyId: json.companyId,
+            companyName: json.companyName,
+            adminEmail: editAdminForm.email.trim().toLowerCase(),
+            adminName: editAdminForm.fullName.trim(),
+            existingCompanyName: json.existingCompanyName,
+            mode: "edit",
+          });
+          setEditingAdmin(null);
+          return;
+        }
+        throw new Error(json.error || "Failed to update the admin");
+      }
+      setCompanySuccess(`"${editingAdmin.name}"'s admin ${json.mode === "updated" ? "email was corrected to" : "is now"} ${json.email}.`);
+      setEditingAdmin(null);
+      router.refresh();
+    } catch (err: any) {
+      setEditAdminError(err.message);
+    } finally {
+      setEditAdminSaving(false);
+    }
+  }
+
+  async function deleteCompany() {
+    if (!deleting) return;
+    setDeleteSaving(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/companies/${deleting.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Failed to delete company");
+      setCompanies((prev) => prev.filter((c) => c.id !== deleting.id));
+      setCompanySuccess(`"${deleting.name}" was deleted.`);
+      setDeleting(null);
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteSaving(false);
     }
   }
 
@@ -309,15 +406,23 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                       />
                     </td>
                     <td className="r">
-                      {c.admin_pending && c.admin_email !== "—" && (
-                        <button
-                          onClick={() => resendAdminInvite(c.id)}
-                          disabled={resendingId === c.id}
-                          className="btn btn-xs"
-                        >
-                          {resendingId === c.id ? "Resending…" : "Resend Invite"}
+                      <span style={{ display: "inline-flex", gap: 6 }}>
+                        {c.admin_pending && c.admin_email !== "—" && (
+                          <button
+                            onClick={() => resendAdminInvite(c.id)}
+                            disabled={resendingId === c.id}
+                            className="btn btn-xs"
+                          >
+                            {resendingId === c.id ? "Resending…" : "Resend Invite"}
+                          </button>
+                        )}
+                        <button onClick={() => openEditAdmin(c)} className="btn btn-xs">
+                          Edit Admin
                         </button>
-                      )}
+                        <button onClick={() => { setDeleting({ id: c.id, name: c.name }); setDeleteError(null); }} className="btn btn-xs btn-d">
+                          Delete
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -385,6 +490,80 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
               </button>
               <button type="button" onClick={confirmReassign} disabled={reassigning} className="btn btn-p">
                 {reassigning ? "Moving…" : "Move Account Here"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingAdmin && (
+        <div className="scrim" onClick={() => !editAdminSaving && setEditingAdmin(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <h2 className="h2">Set admin for "{editingAdmin.name}"</h2>
+              </div>
+            </div>
+            <div className="mb">
+              <p className="lbl">
+                If the current admin hasn&rsquo;t accepted their invite yet, this corrects their email and resends it. Otherwise it invites this
+                email as a new admin - an admin who&rsquo;s already signed in keeps their own account either way.
+              </p>
+              <div className="field">
+                <label htmlFor="edit-admin-email">Admin email <span className="req">*</span></label>
+                <input
+                  id="edit-admin-email"
+                  type="email"
+                  className="input"
+                  value={editAdminForm.email}
+                  onChange={(e) => setEditAdminForm({ ...editAdminForm, email: e.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="edit-admin-name">Admin name</label>
+                <input
+                  id="edit-admin-name"
+                  placeholder="Optional"
+                  className="input"
+                  value={editAdminForm.fullName}
+                  onChange={(e) => setEditAdminForm({ ...editAdminForm, fullName: e.target.value })}
+                />
+              </div>
+              {editAdminError && <div className="err">{editAdminError}</div>}
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setEditingAdmin(null)} disabled={editAdminSaving} className="btn btn-g">
+                Cancel
+              </button>
+              <button type="button" onClick={saveAdminEdit} disabled={editAdminSaving} className="btn btn-p">
+                {editAdminSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleting && (
+        <div className="scrim" onClick={() => !deleteSaving && setDeleting(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <h2 className="h2">Delete "{deleting.name}"?</h2>
+              </div>
+            </div>
+            <div className="mb">
+              <p className="lbl">
+                This permanently removes the company. It only works if it has no team members - if it does, cancel or suspend it instead so its
+                data stays intact.
+              </p>
+              {deleteError && <div className="err">{deleteError}</div>}
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setDeleting(null)} disabled={deleteSaving} className="btn btn-g">
+                Cancel
+              </button>
+              <button type="button" onClick={deleteCompany} disabled={deleteSaving} className="btn btn-dp">
+                {deleteSaving ? "Deleting…" : "Delete Company"}
               </button>
             </div>
           </div>
