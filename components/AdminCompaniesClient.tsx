@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type Company = {
   id: string;
@@ -17,12 +18,12 @@ type Company = {
 // Ship-Sphere v2 design system's company-status badge map
 // (design-v2/SPEC.md): Trial b-acc, Active b-ok, Suspended b-crit,
 // Cancelled b-neu.
-const STATUS_BADGE: Record<string, string> = {
-  trial: "b-acc",
-  active: "b-ok",
-  suspended: "b-crit",
-  cancelled: "b-neu",
-};
+const STATUS_OPTIONS: StatusOption[] = [
+  { value: "trial", label: "Trial", badgeClass: "b-acc" },
+  { value: "active", label: "Active", badgeClass: "b-ok" },
+  { value: "suspended", label: "Suspended", badgeClass: "b-crit" },
+  { value: "cancelled", label: "Cancelled", badgeClass: "b-neu" },
+];
 
 type ConflictInfo = { companyId: string; companyName: string; adminEmail: string; adminName: string; existingCompanyName: string | null };
 
@@ -300,35 +301,12 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                     </td>
                     <td className="num text-muted">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
                     <td>
-                      <div className="relative inline-block">
-                        <select
-                          value={c.subscription_status}
-                          onChange={(e) => changeStatus(c.id, e.target.value)}
-                          aria-label={`Change status for ${c.name}`}
-                          className={`badge ${STATUS_BADGE[c.subscription_status] ?? "b-neu"} appearance-none cursor-pointer`}
-                          style={{ border: 0, paddingRight: 20, height: 24 }}
-                        >
-                          <option value="trial">Trial</option>
-                          <option value="active">Active</option>
-                          <option value="suspended">Suspended</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                        <svg
-                          aria-hidden="true"
-                          className="pointer-events-none absolute"
-                          style={{ right: 6, top: "50%", transform: "translateY(-50%)" }}
-                          width="10"
-                          height="10"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </div>
+                      <StatusMenuButton
+                        value={c.subscription_status}
+                        options={STATUS_OPTIONS}
+                        onChange={(next) => changeStatus(c.id, next)}
+                        ariaLabel={`Change status for ${c.name}`}
+                      />
                     </td>
                     <td className="r">
                       {c.admin_pending && c.admin_email !== "—" && (
