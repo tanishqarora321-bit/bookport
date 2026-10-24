@@ -17,22 +17,22 @@ export function createClient() {
     {
       auth: {
         detectSessionInUrl: false,
-        // resetPasswordForEmail's link otherwise carries the session
-        // straight in the URL (#access_token=...), which is "live" the
-        // instant the link exists - an email client or security scanner
-        // that pre-fetches links to check for phishing (Gmail and
-        // Outlook both do this) visits it before the person ever
-        // clicks, silently burning the one-time code and leaving them
-        // with "invalid or has expired" on the real click. PKCE's link
-        // instead carries an opaque ?code= that's useless without the
-        // verifier this browser stashed locally when it requested the
-        // reset - a scanner visiting the link can't complete the
-        // exchange, so the code survives for the actual click. Only
-        // affects flows this client itself redirects for (password
-        // reset); admin-generated invite links are a separate server-
-        // side mechanism and still arrive as #access_token, which
-        // app/auth/callback still handles.
-        flowType: "pkce",
+        // Was "pkce" - reverted (confirmed live: a real password-reset
+        // click failed with "PKCE code verifier not found in storage")
+        // because PKCE's ?code= can only ever be exchanged in the exact
+        // browser that called resetPasswordForEmail - the verifier lives
+        // in THAT browser's own storage, nowhere else. Requesting a
+        // reset on a laptop and opening the email on a phone (a normal,
+        // common thing to do) always fails, not just occasionally.
+        // "implicit" (the library default) goes back to the classic
+        // #access_token hash, which carries everything it needs and
+        // works from any device/browser - the scanner-prefetch problem
+        // PKCE was solving for is instead handled where it actually
+        // needs to be, in app/auth/callback itself: it no longer calls
+        // setSession() just from the page loading, only from an explicit
+        // "Continue" click, so a passive visit (human or bot) can't
+        // consume the link before a real click does.
+        flowType: "implicit",
       },
     }
   );

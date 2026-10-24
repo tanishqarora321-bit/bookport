@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -31,7 +32,20 @@ export default function TeamClient({
   companyName: string;
   isAdmin: boolean;
 }) {
+  const router = useRouter();
   const [teammates, setTeammates] = useState(initialTeammates);
+
+  // router.refresh() (called after a successful invite below) re-fetches
+  // this page's server data and hands fresh props down, but
+  // useState(initialTeammates) only reads that prop once on mount -
+  // without this, a brand-new teammate would keep the fake
+  // crypto.randomUUID() id from the optimistic insert below forever,
+  // and "Resend Invite" against that fake id is exactly what produced
+  // "Cannot coerce the result to a single JSON object" (zero profiles
+  // rows match an id nothing was ever inserted under).
+  useEffect(() => {
+    setTeammates(initialTeammates);
+  }, [initialTeammates]);
   const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState({ email: "", full_name: "", role: "operations" });
   const [saving, setSaving] = useState(false);
@@ -72,12 +86,17 @@ export default function TeamClient({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to invite");
+      // Shown immediately under this fake id for instant feedback, then
+      // replaced by the real row (real profile id, correct pending
+      // state) once router.refresh() below lands - never used to resend
+      // against, since nothing in the database has this id.
       setTeammates([
         ...teammates,
         { id: crypto.randomUUID(), email: form.email, full_name: form.full_name || null, role: form.role, is_active: true, created_at: new Date().toISOString(), pending: true },
       ]);
       setForm({ email: "", full_name: "", role: "operations" });
       setInviting(false);
+      router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {

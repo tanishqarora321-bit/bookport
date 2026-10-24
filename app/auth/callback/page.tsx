@@ -5,21 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
-// Where an invite (or password-recovery) email link lands. Two different
-// link shapes arrive here:
-// - Admin-generated invites (app/api/team/invite) use Supabase's admin
-//   generateLink API, which is a separate server-side mechanism that
-//   still produces the classic #access_token/#refresh_token hash - this
-//   page's own explicit setSession() handles that (not Supabase's
-//   automatic detectSessionInUrl hash-parsing, which turned out not to
-//   reliably fire here - possibly an @supabase/ssr version quirk,
-//   possibly an email scanner having already touched the link; never
-//   fully confirmed either way for THIS path).
-// - Self-service password resets (resetPasswordForEmail, called from
-//   this browser) use the PKCE flow instead (see lib/supabase/client.ts
-//   for why) - those links carry a ?code= query param, exchanged via
-//   exchangeCodeForSession() against the verifier this same browser
-//   stashed when it requested the reset.
+// Where an invite or password-recovery email link lands. Both shapes
+// arrive the same way now: the classic #access_token/#refresh_token
+// hash (hash.get("type") says which). Admin-generated invites
+// (app/api/team/invite) always used this - a separate server-side
+// mechanism unaffected by the browser client's own flowType. Self-
+// service password resets (resetPasswordForEmail) used PKCE's ?code=
+// for a while instead (see the removed flowType:"pkce" in
+// lib/supabase/client.ts for the full history) but that broke the
+// ordinary case of requesting a reset on one device and opening the
+// email on another - the verifier it needs only ever exists in the one
+// browser that asked for it. Back on the hash flow for both now; the
+// ?code= branch below stays as a harmless fallback in case anything
+// ever requests PKCE again, but nothing in this app does today.
 export default function AuthCallbackPage() {
   return (
     <Suspense fallback={null}>
@@ -42,9 +40,14 @@ function AuthCallbackInner() {
   // "confirm" status branch for why this can't just run from the effect.
   const [pendingTokens, setPendingTokens] = useState<{ access_token: string; refresh_token: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // "invite" vs "recovery" - from the link's own hash.get("type") - just
+  // picks the right copy below ("accept your invite" reads oddly for
+  // someone resetting a password they already had).
+  const [linkType, setLinkType] = useState<"invite" | "recovery">("invite");
 
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get("type") === "recovery" || searchParams.get("type") === "recovery") setLinkType("recovery");
 
     // An expired/already-used link's details can arrive either way
     // depending on which flow generated it - PKCE (password reset)
@@ -85,7 +88,11 @@ function AuthCallbackInner() {
       // Nothing this page knows how to handle (no code, no tokens, no
       // error) - e.g. opened directly, or already-cleared after a prior
       // successful run.
-      setErrorMessage("No invite information found in this link. Ask your admin to send a fresh invite.");
+      setErrorMessage(
+        hash.get("type") === "recovery" || searchParams.get("type") === "recovery"
+          ? "No reset information found in this link. Request a new password reset link."
+          : "No invite information found in this link. Ask your admin to send a fresh invite."
+      );
       setStatus("error");
       return;
     }
@@ -187,9 +194,15 @@ function AuthCallbackInner() {
           {status === "confirm" && (
             <div className="flex flex-col gap-4">
               <div>
-                <span className="badge b-acc">Invite received</span>
-                <h1 className="h1" style={{ marginTop: 12 }}>Accept your invite</h1>
-                <p className="sub">Click below to confirm this invite and set your password.</p>
+                <span className="badge b-acc">{linkType === "recovery" ? "Reset link received" : "Invite received"}</span>
+                <h1 className="h1" style={{ marginTop: 12 }}>
+                  {linkType === "recovery" ? "Reset your password" : "Accept your invite"}
+                </h1>
+                <p className="sub">
+                  {linkType === "recovery"
+                    ? "Click below to confirm this is you and set a new password."
+                    : "Click below to confirm this invite and set your password."}
+                </p>
               </div>
               <button
                 type="button"
@@ -209,7 +222,9 @@ function AuthCallbackInner() {
                 <span style={{ flex: 1 }}>{errorMessage}</span>
               </div>
               <p className="meta" style={{ margin: 0, textAlign: "center" }}>
-                Ask your admin to send a fresh invite from Settings &amp; Control.
+                {linkType === "recovery"
+                  ? "Request a new password reset link from the login page."
+                  : "Ask your admin to send a fresh invite from Settings & Control."}
               </p>
             </div>
           )}
@@ -217,7 +232,7 @@ function AuthCallbackInner() {
           {status === "ready" && (
             <form onSubmit={setNewPassword} className="flex flex-col gap-4">
               <div>
-                <span className="badge b-acc">Invite accepted</span>
+                <span className="badge b-acc">{linkType === "recovery" ? "Identity confirmed" : "Invite accepted"}</span>
                 <h1 className="h1" style={{ marginTop: 12 }}>Set your password</h1>
                 <p className="sub">You&apos;ll use it with your email to sign in from now on.</p>
               </div>

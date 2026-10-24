@@ -26,8 +26,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     .from("profiles")
     .select("company_id")
     .eq("id", params.id)
-    .single();
+    .maybeSingle();
   if (targetError) return NextResponse.json({ error: targetError.message }, { status: 500 });
+  if (!target) return NextResponse.json({ error: "That teammate couldn't be found - refresh the page and try again." }, { status: 404 });
   if (target.company_id !== me.company_id) {
     return NextResponse.json({ error: "That teammate isn't in your company" }, { status: 403 });
   }
@@ -58,8 +59,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("profiles")
     .select("company_id")
     .eq("id", params.id)
-    .single();
+    .maybeSingle();
   if (profileFetchError) return NextResponse.json({ error: profileFetchError.message }, { status: 500 });
+  if (!profile) return NextResponse.json({ error: "That teammate couldn't be found - refresh the page and try again." }, { status: 404 });
   if (profile.company_id !== me.company_id) {
     return NextResponse.json({ error: "That teammate isn't in your company" }, { status: 403 });
   }
