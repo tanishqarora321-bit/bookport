@@ -63,21 +63,13 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
 
   return (
     <section id="lh" className="card" aria-labelledby="lh-t">
-      <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
-        <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+      <div className="ch">
+        <span className="cico" aria-hidden="true">
           <FileText size={18} />
         </span>
         <div className="flex-1 min-w-0">
           <h2 id="lh-t" className="h2">Document Letterhead</h2>
-          <div className="lbl mt-0.5">
-            {config?.company_name ? (
-              <>
-                Used on Final Invoice &amp; Booking Instructions PDFs: <b className="text-ink font-semibold">{config.company_name}</b>
-              </>
-            ) : (
-              "Not set up yet"
-            )}
-          </div>
+          <div className="lbl mt-0.5">Company identity used on final invoices and booking instructions.</div>
         </div>
         {isAdmin ? (
           !open && (
@@ -98,7 +90,19 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
         )}
       </div>
 
-      <div className="p-5 flex flex-col gap-4">
+      <div className="sdet">
+        <div className="sfield">
+          <span>Company name</span>
+          <strong className={config?.company_name ? "" : "dash"}>{config?.company_name || "Not set up yet"}</strong>
+        </div>
+        <div className="sfield">
+          <span>Applied to</span>
+          <strong>Final Invoice · Booking Instructions</strong>
+        </div>
+      </div>
+
+      {(success || open) && (
+      <div className="cb">
         {success && (
           <span role="status" className="meta" style={{ color: "var(--ok)", fontWeight: 600 }}>
             Letterhead updated.
@@ -235,6 +239,7 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
           </div>
         )}
       </div>
+      )}
     </section>
   );
 }

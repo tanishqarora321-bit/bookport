@@ -44,16 +44,13 @@ export default function EmailSettingsCard({ config, isAdmin }: { config: Config 
 
   return (
     <section id="mail" className="card" aria-labelledby="mail-t">
-      <div className="flex flex-wrap items-center gap-3 p-5 border-b border-line">
-        <span className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0" aria-hidden="true">
+      <div className="ch">
+        <span className="cico" aria-hidden="true">
           <Mail size={18} />
         </span>
         <div className="flex-1 min-w-0">
           <h2 id="mail-t" className="h2">Email Sending</h2>
-          <div className="lbl mt-0.5">
-            Each teammate&apos;s emails already show their own name and reply-to automatically.
-            {config?.website ? ` Website: ${config.website}` : " Set a company website to show on outgoing emails."}
-          </div>
+          <div className="lbl mt-0.5">Control sender identity and replies for outgoing documents.</div>
         </div>
         {isAdmin && !open && (
           <button
@@ -70,33 +67,46 @@ export default function EmailSettingsCard({ config, isAdmin }: { config: Config 
         )}
       </div>
 
-      <div className="p-5 flex flex-col gap-4">
-        {success && (
-          <span role="status" className="meta" style={{ color: "var(--ok)", fontWeight: 600 }}>
-            Email settings saved.
-          </span>
-        )}
-
-        {open && (
-          <>
-            <div className="flex flex-wrap gap-3 items-end">
-              <div className="field" style={{ flex: "1 1 320px" }}>
-                <label htmlFor="ws">Website (e.g. www.cninternationalusa.com)</label>
-                <input id="ws" className="input" value={website} onChange={(e) => setWebsite(e.target.value)} />
-              </div>
-              <button type="button" className="btn btn-p" onClick={save} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
-            {error && <span className="err">{error}</span>}
-            <div>
-              <button type="button" className="btn btn-g" onClick={() => setOpen(false)}>
-                Cancel
-              </button>
-            </div>
-          </>
-        )}
+      <div className="sdet">
+        <div className="sfield">
+          <span>Sender behavior</span>
+          <strong>Teammate name and reply-to applied automatically</strong>
+        </div>
+        <div className="sfield">
+          <span>Website</span>
+          <strong className={config?.website ? "" : "dash"}>{config?.website || "Not set"}</strong>
+        </div>
       </div>
+
+      {(success || open) && (
+        <div className="cb">
+          {success && (
+            <span role="status" className="meta" style={{ color: "var(--ok)", fontWeight: 600 }}>
+              Email settings saved.
+            </span>
+          )}
+
+          {open && (
+            <>
+              <div className="flex flex-wrap gap-3 items-end">
+                <div className="field" style={{ flex: "1 1 320px" }}>
+                  <label htmlFor="ws">Website (e.g. www.cninternationalusa.com)</label>
+                  <input id="ws" className="input" value={website} onChange={(e) => setWebsite(e.target.value)} />
+                </div>
+                <button type="button" className="btn btn-p" onClick={save} disabled={saving}>
+                  {saving ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {error && <span className="err">{error}</span>}
+              <div>
+                <button type="button" className="btn btn-g" onClick={() => setOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </section>
   );
 }

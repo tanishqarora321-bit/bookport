@@ -34,6 +34,7 @@ export default async function AdminPage() {
 
   const { data: authUsers } = await supabase.auth.admin.listUsers();
   const emailById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, u.email as string]));
+  const confirmedById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, !!u.email_confirmed_at]));
 
   const rows = (companies ?? []).map((c: any) => {
     const companyProfiles = (profiles ?? []).filter((p: any) => p.company_id === c.id);
@@ -47,6 +48,7 @@ export default async function AdminPage() {
       created_at: c.created_at,
       seats_used: activeCount,
       admin_email: admin ? emailById.get(admin.id) ?? "—" : "—",
+      admin_pending: admin ? !confirmedById.get(admin.id) : false,
     };
   });
 

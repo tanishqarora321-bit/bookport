@@ -122,7 +122,7 @@ export default function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 238 }}
+      style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 244 }}
       className="h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150"
     >
       <div

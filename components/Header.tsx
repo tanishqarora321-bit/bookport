@@ -16,7 +16,7 @@ export default function Header() {
   return (
     <header
       className="flex flex-wrap items-center gap-3 shrink-0"
-      style={{ minHeight: 50, padding: "8px 20px", background: "var(--surf)", borderBottom: "1px solid var(--line)" }}
+      style={{ minHeight: 58, padding: "8px 20px", background: "var(--surf)", borderBottom: "1px solid var(--line)" }}
     >
       <nav aria-label="Breadcrumb" className="lbl flex-1">
         {entry ? (

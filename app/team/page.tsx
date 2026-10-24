@@ -5,6 +5,7 @@ import ChangePasswordCard from "@/components/ChangePasswordCard";
 import LetterheadSettingsCard from "@/components/LetterheadSettingsCard";
 import EmailSettingsCard from "@/components/EmailSettingsCard";
 import SignInRequired from "@/components/SignInRequired";
+import SettingsSubnav from "@/components/SettingsSubnav";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -47,31 +48,23 @@ export default async function TeamPage() {
 
   const { data: authUsers } = await supabase.auth.admin.listUsers();
   const emailById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, u.email as string]));
+  const confirmedById = new Map((authUsers?.users ?? []).map((u: any) => [u.id, !!u.email_confirmed_at]));
 
   const teammates = (profiles ?? []).map((p: { id: string; full_name: string | null; role: string; is_active: boolean; created_at: string }) => ({
     ...p,
     email: emailById.get(p.id) ?? "—",
+    pending: !confirmedById.get(p.id),
   }));
 
   return (
     <div>
-      <div className="mb-5">
+      <div className="hdg">
         <h1 className="h1">Settings &amp; Control</h1>
-        <p className="sub">Your account, documents, email and team</p>
+        <p className="sub">Manage your account, documents, email and team access.</p>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
-        <nav aria-label="Settings sections" style={{ flex: "0 1 220px", display: "flex", flexDirection: "column", gap: 2 }}>
-          <a className="idx" href="#acct">Your Account</a>
-          <a className="idx" href="#lh">Document Letterhead</a>
-          <a className="idx" href="#mail">Email Sending</a>
-          <a className="idx" href="#users">Manage Users</a>
-          {me.is_platform_owner && (
-            <a className="idx" href="#owner" style={{ display: "flex", alignItems: "center" }}>
-              Platform Owner <span className="badge b-acc" style={{ marginLeft: "auto", height: 20 }}>Only you</span>
-            </a>
-          )}
-        </nav>
-        <div style={{ flex: "1 1 640px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div className="settings-grid">
+        <SettingsSubnav />
+        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
           <ChangePasswordCard email={me.email} />
           <LetterheadSettingsCard config={templateRow?.template_config ?? null} isAdmin={me.role === "admin"} />
           <EmailSettingsCard config={emailSettingsRow ?? null} isAdmin={me.role === "admin"} />
@@ -80,7 +73,6 @@ export default async function TeamPage() {
             seatLimit={company.seat_limit}
             companyName={company.name}
             isAdmin={me.role === "admin"}
-            isPlatformOwner={me.is_platform_owner}
           />
         </div>
       </div>

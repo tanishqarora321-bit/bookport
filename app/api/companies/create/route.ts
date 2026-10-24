@@ -64,13 +64,39 @@ export async function POST(req: NextRequest) {
     options: { data: { full_name: adminName }, redirectTo },
   });
   if (inviteError) {
-    // The company row now exists with no admin - not ideal, but better
-    // than losing the company creation over an email hiccup that's
-    // usually just "this address already has a pending account
-    // somewhere" (see the same note in api/team/invite). The platform
-    // owner can invite an admin into this company from Manage Users once
-    // they're able to view another company - not built yet, so for now
-    // this failure needs a manual profiles insert or a fresh email.
+    // The company row now exists with no admin yet either way - not
+    // ideal, but better than losing the company creation over an email
+    // hiccup. The common case is this exact email already having a real,
+    // confirmed account under a different (often cancelled/suspended)
+    // company - Supabase refuses to invite an already-registered email,
+    // and that account can't just be deleted and recreated (see the note
+    // in /api/admin/reassign-user). Surface that distinctly so the client
+    // can offer moving the existing account here instead of just showing
+    // a dead-end error.
+    const alreadyRegistered = inviteError.status === 422 || /already been registered/i.test(inviteError.message);
+    if (alreadyRegistered) {
+      const { data: list } = await supabase.auth.admin.listUsers();
+      const existingUser = list?.users.find((u: any) => u.email?.toLowerCase() === adminEmail);
+      let existingCompanyName: string | null = null;
+      if (existingUser) {
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("companies(name)")
+          .eq("id", existingUser.id)
+          .maybeSingle();
+        existingCompanyName = (existingProfile as any)?.companies?.name ?? null;
+      }
+      return NextResponse.json(
+        {
+          error: `${adminEmail} already has an account on Ship-Sphere${existingCompanyName ? ` (currently under ${existingCompanyName})` : ""}.`,
+          code: "EMAIL_ALREADY_REGISTERED",
+          companyId: company.id,
+          companyName,
+          existingCompanyName,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: `Company "${companyName}" was created, but inviting the admin failed: ${inviteError.message}` },
       { status: 500 }
