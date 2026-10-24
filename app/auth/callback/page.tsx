@@ -29,7 +29,7 @@ export default function AuthCallbackPage() {
 function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "confirm" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "confirm" | "ready" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -116,6 +116,12 @@ function AuthCallbackInner() {
     if (!pendingTokens) return;
     setConfirming(true);
     const supabase = createClient();
+    // Clear any session already sitting in this browser first (e.g. the
+    // same device still signed in as whoever last used it here) - this
+    // link's tokens are the ones that should win, unambiguously, not
+    // whatever was already active. "local" scope only drops this
+    // browser's own stored tokens, not anyone else's session elsewhere.
+    await supabase.auth.signOut({ scope: "local" });
     const { data, error } = await supabase.auth.setSession(pendingTokens);
     if (error) {
       setErrorMessage(error.message);
@@ -169,6 +175,15 @@ function AuthCallbackInner() {
       setSaving(false);
       return;
     }
+    // A brand-new password silently dropping you straight into the app
+    // with zero on-screen confirmation reads as "did that even work?" -
+    // especially right after clicking a link that may have failed
+    // before. Show the result explicitly instead of a silent redirect.
+    setStatus("success");
+    setSaving(false);
+  }
+
+  function continueToApp() {
     router.push("/bookings");
     router.refresh();
   }
@@ -212,6 +227,32 @@ function AuthCallbackInner() {
                 style={{ height: 44, fontSize: 15 }}
               >
                 {confirming ? "Confirming…" : "Continue"}
+              </button>
+            </div>
+          )}
+
+          {status === "success" && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <span className="badge b-ok">
+                  {linkType === "recovery" ? "Password reset" : "Account ready"}
+                </span>
+                <h1 className="h1" style={{ marginTop: 12 }}>
+                  {linkType === "recovery" ? "Your password has been changed" : "You're all set"}
+                </h1>
+                <p className="sub">
+                  {linkType === "recovery"
+                    ? "Use your new password next time you sign in. You're already signed in on this device."
+                    : "You're signed in and ready to go."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={continueToApp}
+                className="btn btn-p w-full"
+                style={{ height: 44, fontSize: 15 }}
+              >
+                Continue to Ship-Sphere
               </button>
             </div>
           )}
