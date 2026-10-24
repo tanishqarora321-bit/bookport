@@ -49,6 +49,16 @@ export default async function AdminPage() {
       seats_used: activeCount,
       admin_email: admin ? emailById.get(admin.id) ?? "—" : "—",
       admin_pending: admin ? !confirmedById.get(admin.id) : false,
+      // The table only ever surfaces the one admin email - the platform
+      // owner managing every client's access still needs to see who else
+      // is actually on a company's team, not just its one admin contact.
+      team: companyProfiles.map((p: any) => ({
+        email: emailById.get(p.id) ?? "—",
+        full_name: p.full_name,
+        role: p.role,
+        is_active: p.is_active,
+        pending: !confirmedById.get(p.id),
+      })),
     };
   });
 

@@ -4,6 +4,22 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 
 const STATUSES = ["trial", "active", "cancelled", "suspended"];
 
+// Every table that scopes real business data to a company, per the
+// current schema (supabase/migrations) - checked for zero rows before
+// DELETE below is ever allowed to touch a company with team members.
+// Deliberately excludes company_email_settings/document_templates
+// (settings, not activity someone would mourn losing) and sent_emails
+// (a send log, cleaned up unconditionally below either way).
+const BUSINESS_TABLES = [
+  "parties", "party_contacts", "bookings", "booking_parties", "transport_legs",
+  "containers", "tracking_events", "trucking_jobs", "rate_quotes", "offers",
+  "charges", "invoices", "invoice_lines", "payments", "documents", "amendments",
+  "audit_log", "items", "tracking", "generated_documents", "forwarder_invoices",
+  "trucker_invoices", "supplier_invoices", "offer_sheet_types", "offer_sheets",
+  "rate_sheets", "forwarder_invoice_custom_columns", "trucker_invoice_custom_columns",
+  "buyer_invoices", "party_payments",
+];
+
 // Platform-owner-only. Changing a company's status to cancelled/suspended
 // blocks every one of its users from signing in (getCurrentProfile()
 // returns null for them) without touching/deleting any of their data -
@@ -47,14 +63,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // Platform-owner-only. A true delete - unlike PATCH above, which only
-// ever blocks sign-in - and only ever allowed when the company has no
-// team members. Every table that could hold real activity (bookings,
-// documents, amendments, audit_log, parties, ...) is only ever written
-// to by an authenticated request, which requires a profile in that
-// company - so zero profiles is a real guarantee of zero data, not just
-// a convention. A company anyone has actually used should be Cancelled
-// instead (see PATCH), never deleted - this intentionally does not
-// attempt to cascade through "dozens of tables" of real history.
+// ever blocks sign-in. Allowed in two cases:
+// 1. The company has no team members at all (a failed/abandoned
+//    onboarding attempt, e.g. an invite that hit a conflict and was
+//    never resolved) - nothing to check, nothing to lose.
+// 2. The company HAS team members, but every one of BUSINESS_TABLES is
+//    empty for it - accounts that exist but were never actually used.
+//    Their accounts are removed too in this case (hard-deleted, email
+//    freed for reuse elsewhere), which is safe specifically because
+//    zero activity anywhere means nothing can reference these profiles
+//    via bookings.owner_user_id / documents.uploaded_by /
+//    amendments.created_by / party_payments.created_by / audit_log.user_id
+//    - the only things that reference profiles(id) with no ON DELETE,
+//    besides active_sessions (cleared explicitly below, since it isn't
+//    company-scoped so BUSINESS_TABLES can't cover it).
+// A company with any real data in ANY of those tables is always
+// rejected, pointed at Cancel/Suspend (PATCH) instead - that data and
+// the FK structure protecting it is real business history, never
+// silently erased by this endpoint.
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -68,32 +94,47 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: companyError.message }, { status: 500 });
   }
 
-  const { count: profileCount, error: profileCountError } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", params.id);
-  if (profileCountError) return NextResponse.json({ error: profileCountError.message }, { status: 500 });
-  if ((profileCount ?? 0) > 0) {
-    return NextResponse.json(
-      { error: `"${company.name}" has ${profileCount} team member${profileCount === 1 ? "" : "s"} - cancel it instead of deleting, so its data stays intact.` },
-      { status: 400 }
-    );
+  for (const table of BUSINESS_TABLES) {
+    // "*" rather than a named column - head:true never actually returns
+    // row data, just the count, and a couple of these (booking_parties)
+    // are join tables with a composite primary key and no "id" column.
+    const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true }).eq("company_id", params.id);
+    if (error) return NextResponse.json({ error: `Could not check ${table}: ${error.message}` }, { status: 500 });
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        { error: `"${company.name}" has real data (${table.replace(/_/g, " ")}) - cancel or suspend it instead of deleting, so that history stays intact.` },
+        { status: 400 }
+      );
+    }
   }
 
-  // Invite emails get logged here even when they failed to send, so an
-  // otherwise-empty company (a failed/never-finished onboarding attempt)
-  // can still have rows - just a send log, not business data, safe to
-  // clear as part of removing the company itself.
-  const { error: sentEmailsError } = await supabase.from("sent_emails").delete().eq("company_id", params.id);
-  if (sentEmailsError) return NextResponse.json({ error: sentEmailsError.message }, { status: 500 });
+  const { data: profiles, error: profilesError } = await supabase.from("profiles").select("id").eq("company_id", params.id);
+  if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 500 });
+
+  for (const p of profiles ?? []) {
+    const { error: sessionError } = await supabase.from("active_sessions").delete().eq("user_id", p.id);
+    if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 });
+    // Deletes the auth user, which cascades to delete its profiles row
+    // too (profiles.id references auth.users(id) on delete cascade) -
+    // safe here specifically because BUSINESS_TABLES above confirmed
+    // nothing references this profile anywhere.
+    const { error: delUserError } = await supabase.auth.admin.deleteUser(p.id);
+    if (delUserError) return NextResponse.json({ error: `Could not remove a team member: ${delUserError.message}` }, { status: 500 });
+  }
+
+  // Settings and a send log, not business data someone would mourn
+  // losing - cleared unconditionally either way.
+  await supabase.from("company_email_settings").delete().eq("company_id", params.id);
+  await supabase.from("document_templates").delete().eq("company_id", params.id);
+  await supabase.from("sent_emails").delete().eq("company_id", params.id);
 
   const { error: deleteError } = await supabase.from("companies").delete().eq("id", params.id);
   if (deleteError) {
-    // Some other table still references this company (a new one of the
-    // "dozens" the PATCH comment mentions, not anticipated here) - surface
-    // exactly which constraint blocked it rather than failing silently.
+    // Some other table still references this company (one BUSINESS_TABLES
+    // didn't anticipate) - surface exactly which constraint blocked it
+    // rather than failing silently now that the team members are already gone.
     return NextResponse.json({ error: `Could not delete: ${deleteError.message}` }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, removedMembers: profiles?.length ?? 0 });
 }

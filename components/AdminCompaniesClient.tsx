@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
+import { CloseIcon } from "@/components/EditableCell";
+
+type TeamMember = { email: string; full_name: string | null; role: string; is_active: boolean; pending: boolean };
 
 type Company = {
   id: string;
@@ -13,6 +16,7 @@ type Company = {
   seats_used: number;
   admin_email: string;
   admin_pending: boolean;
+  team: TeamMember[];
 };
 
 // Ship-Sphere v2 design system's company-status badge map
@@ -89,6 +93,11 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
   const [deleteSaving, setDeleteSaving] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Read-only roster view - the table only ever shows one admin email per
+  // company, but the platform owner managing every client's access
+  // reasonably needs to see everyone on that team, not just its contact.
+  const [viewingTeam, setViewingTeam] = useState<Company | null>(null);
+
   const activeCount = companies.filter((c) => c.subscription_status === "active" || c.subscription_status === "trial").length;
   const trialCount = companies.filter((c) => c.subscription_status === "trial").length;
   const totalSeatsUsed = companies.reduce((sum, c) => sum + c.seats_used, 0);
@@ -111,6 +120,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
     if (status === "cancelled" || status === "suspended") {
       const company = companies.find((c) => c.id === id);
       setConfirming({ id, name: company?.name ?? "", status });
+      setCompanySuccess(null);
       return;
     }
     applyStatus(id, status);
@@ -291,7 +301,10 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
 
       {companySuccess && (
         <div className="banner bn-ok" role="status">
-          <span>{companySuccess}</span>
+          <span style={{ flex: 1 }}>{companySuccess}</span>
+          <button onClick={() => setCompanySuccess(null)} aria-label="Dismiss" className="ib">
+            <CloseIcon />
+          </button>
         </div>
       )}
 
@@ -380,7 +393,15 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                 const pct = c.seat_limit > 0 ? Math.min(100, Math.round((c.seats_used / c.seat_limit) * 100)) : 0;
                 return (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{c.name}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setViewingTeam(c)}
+                        style={{ background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit", fontWeight: 600, color: "var(--accent)", textAlign: "left" }}
+                      >
+                        {c.name}
+                      </button>
+                    </td>
                     <td className="text-text-2">
                       {c.admin_email}
                       {c.admin_pending && c.admin_email !== "—" && <span className="badge b-warn" style={{ marginLeft: 8 }}>Pending</span>}
@@ -419,7 +440,14 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                         <button onClick={() => openEditAdmin(c)} className="btn btn-xs">
                           Edit Admin
                         </button>
-                        <button onClick={() => { setDeleting({ id: c.id, name: c.name }); setDeleteError(null); }} className="btn btn-xs btn-d">
+                        <button
+                          onClick={() => {
+                            setDeleting({ id: c.id, name: c.name });
+                            setDeleteError(null);
+                            setCompanySuccess(null);
+                          }}
+                          className="btn btn-xs btn-d"
+                        >
                           Delete
                         </button>
                       </span>
@@ -553,8 +581,9 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
             </div>
             <div className="mb">
               <p className="lbl">
-                This permanently removes the company. It only works if it has no team members - if it does, cancel or suspend it instead so its
-                data stays intact.
+                This permanently removes the company. If it has any real bookings, invoices, documents or other activity, this is refused -
+                cancel or suspend it instead so that history stays intact. If it only has unused team-member accounts (no activity anywhere),
+                those accounts are removed too and their emails are freed up.
               </p>
               {deleteError && <div className="err">{deleteError}</div>}
             </div>
@@ -565,6 +594,52 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
               <button type="button" onClick={deleteCompany} disabled={deleteSaving} className="btn btn-dp">
                 {deleteSaving ? "Deleting…" : "Delete Company"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingTeam && (
+        <div className="scrim" onClick={() => setViewingTeam(null)}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <div>
+                <h2 className="h2">"{viewingTeam.name}" team</h2>
+              </div>
+              <button type="button" onClick={() => setViewingTeam(null)} aria-label="Close" className="ib">
+                <CloseIcon />
+              </button>
+            </div>
+            <div style={{ borderTop: "1px solid var(--line)" }}>
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewingTeam.team.map((t) => (
+                    <tr key={t.email}>
+                      <td>{t.email}</td>
+                      <td className={t.full_name ? "" : "dash"}>{t.full_name || "—"}</td>
+                      <td><span className="badge b-info">{t.role}</span></td>
+                      <td>
+                        <span className={`badge ${!t.is_active ? "b-neu" : t.pending ? "b-warn" : "b-ok"}`}>
+                          {!t.is_active ? "Removed" : t.pending ? "Pending" : "Active"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {viewingTeam.team.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-muted">No team members yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -36,13 +36,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--surf);color:var(--tx);font:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none}
 .btn:hover{background:var(--surf2);text-decoration:none}
 .btn-p{background:var(--accent);border-color:var(--accent);color:var(--onAccent)}.btn-p:hover{background:var(--accentH)}
-.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:var(--surf)}.btn-ok:hover{background:var(--ok);filter:brightness(0.9)}
 .btn-d{color:var(--crit)}.btn-d:hover{background:var(--critS)}
-.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}
+.btn-dp{background:var(--crit);border-color:var(--crit);color:var(--surf)}.btn-dp:hover{background:var(--crit);filter:brightness(0.9)}
 .btn-g{border-color:transparent;background:transparent}
 .btn-s{height:32px;padding:0 12px;font-size:13px;border-radius:8px}
 .btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn-p[disabled],.btn-dp[disabled],.btn-ok[disabled]{opacity:1;filter:brightness(0.85);cursor:not-allowed}
 .ib{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--tx2);cursor:pointer}
 .ib:hover{background:var(--surf2);border-color:var(--line)}
 .input,.select,.textarea{height:40px;padding:0 12px;border:1px solid var(--line2);border-radius:9px;background:var(--surf);color:var(--tx);font:inherit;font-size:14px;width:100%}

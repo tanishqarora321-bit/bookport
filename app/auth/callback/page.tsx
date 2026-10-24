@@ -31,13 +31,17 @@ export default function AuthCallbackPage() {
 function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "confirm" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  // Held until the person actually clicks "Continue" below - see the
+  // "confirm" status branch for why this can't just run from the effect.
+  const [pendingTokens, setPendingTokens] = useState<{ access_token: string; refresh_token: string } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -86,23 +90,42 @@ function AuthCallbackInner() {
       return;
     }
 
-    const supabase = createClient();
-    supabase.auth.setSession({ access_token, refresh_token }).then(({ data, error }) => {
-      if (error) {
-        setErrorMessage(error.message);
-        setStatus("error");
-        return;
-      }
-      if (data.session) {
-        // Clear the token hash from the URL/history now that it's been
-        // used - it's a live credential and shouldn't linger in the
-        // address bar or browser history.
-        window.history.replaceState(null, "", window.location.pathname);
-        setAccessToken(data.session.access_token);
-        setStatus("ready");
-      }
-    });
+    // Hold the tokens rather than calling setSession() immediately - this
+    // hash-based link can only be consumed once, and a real person isn't
+    // the only thing that can load this page: a corporate email scanner
+    // or link-preview bot visiting it (some execute JS, not just an HTTP
+    // GET) would burn it before the actual invitee ever clicks, leaving
+    // them an "expired" link moments later with nothing they did wrong.
+    // Requiring an explicit "Continue" click (below) before the token is
+    // ever exchanged means a passive page load can't consume it - only a
+    // deliberate click can. The PKCE/?code= path above doesn't need this:
+    // it's already immune, since completing it requires a code_verifier
+    // only the real browser that requested the link ever has.
+    setPendingTokens({ access_token, refresh_token });
+    setStatus("confirm");
   }, []);
+
+  async function confirmInvite() {
+    if (!pendingTokens) return;
+    setConfirming(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.setSession(pendingTokens);
+    if (error) {
+      setErrorMessage(error.message);
+      setStatus("error");
+      setConfirming(false);
+      return;
+    }
+    if (data.session) {
+      // Clear the token hash from the URL/history now that it's been
+      // used - it's a live credential and shouldn't linger in the
+      // address bar or browser history.
+      window.history.replaceState(null, "", window.location.pathname);
+      setAccessToken(data.session.access_token);
+      setStatus("ready");
+    }
+    setConfirming(false);
+  }
 
   async function setNewPassword(e: React.FormEvent) {
     e.preventDefault();
@@ -158,6 +181,25 @@ function AuthCallbackInner() {
           {status === "loading" && (
             <div className="banner bn-info" role="status" style={{ fontSize: 13 }}>
               <span style={{ flex: 1 }}>Confirming your invite…</span>
+            </div>
+          )}
+
+          {status === "confirm" && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <span className="badge b-acc">Invite received</span>
+                <h1 className="h1" style={{ marginTop: 12 }}>Accept your invite</h1>
+                <p className="sub">Click below to confirm this invite and set your password.</p>
+              </div>
+              <button
+                type="button"
+                onClick={confirmInvite}
+                disabled={confirming}
+                className="btn btn-p w-full"
+                style={{ height: 44, fontSize: 15 }}
+              >
+                {confirming ? "Confirming…" : "Continue"}
+              </button>
             </div>
           )}
 
