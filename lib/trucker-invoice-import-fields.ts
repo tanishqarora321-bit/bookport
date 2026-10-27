@@ -10,6 +10,12 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
   { key: "booking_number", label: "Booking Number", required: true },
   { key: "container_number", label: "Container Number" },
   { key: "location", label: "Location (new bookings only)" },
+  // A booking created here with no ERD is invisible on Booking &
+  // Instructions forever - that page filters out anything with no
+  // Month of Loading/ERD under every year, with no other way to set one
+  // short of opening the booking there and editing it by hand. Mapping
+  // this lets the sheet's own date (if it has one) carry straight over.
+  { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
   { key: "invoice_number", label: "Invoice Number" },
   { key: "invoice_date", label: "Invoice Date" },
   { key: "invoice_due_date", label: "Due Date" },
@@ -26,7 +32,7 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
 // brand-new booking - "location" becomes the invoice's own field (not a
 // booking column), so it's intentionally excluded here unlike
 // forwarder's pol/pod/carrier.
-export const TRUCKER_INVOICE_BOOKING_CREATE_KEYS = new Set<string>([]);
+export const TRUCKER_INVOICE_BOOKING_CREATE_KEYS = new Set<string>(["erd"]);
 
 export const TRUCKER_INVOICE_DATE_KEYS = new Set(["invoice_date", "invoice_due_date"]);
 export const TRUCKER_INVOICE_NUMERIC_KEYS = new Set([

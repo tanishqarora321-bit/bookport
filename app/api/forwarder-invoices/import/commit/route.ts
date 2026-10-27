@@ -320,7 +320,13 @@ export async function POST(req: NextRequest) {
       };
       for (const key of FORWARDER_INVOICE_BOOKING_CREATE_KEYS) {
         const raw = get(key);
-        if (raw) bookingFields[key] = raw;
+        if (!raw) continue;
+        if (key === "erd") {
+          const parsed = parseDateish(raw);
+          if (parsed) bookingFields.erd = parsed.toISOString().slice(0, 10);
+        } else {
+          bookingFields[key] = raw;
+        }
       }
 
       const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();

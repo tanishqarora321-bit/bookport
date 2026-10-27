@@ -15,6 +15,12 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
   { key: "pod", label: "Port of Discharge (new bookings only)" },
   { key: "final_destination", label: "Port of Delivery (new bookings only)" },
   { key: "carrier", label: "Shipping Line (new bookings only)" },
+  // A booking created here with no ERD is invisible on Booking &
+  // Instructions forever - that page filters out anything with no
+  // Month of Loading/ERD under every year, with no other way to set one
+  // short of opening the booking there and editing it by hand. Mapping
+  // this lets the sheet's own date (if it has one) carry straight over.
+  { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
   { key: "invoice_number", label: "Invoice Number" },
   { key: "invoice_date", label: "Invoice Date" },
   { key: "invoice_due_date", label: "Due Date" },
@@ -29,7 +35,7 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
 
 // Only meaningful when this row's Booking Number requires creating a
 // brand-new booking - these become that booking's own columns.
-export const FORWARDER_INVOICE_BOOKING_CREATE_KEYS = new Set(["pol", "pod", "final_destination", "carrier"]);
+export const FORWARDER_INVOICE_BOOKING_CREATE_KEYS = new Set(["pol", "pod", "final_destination", "carrier", "erd"]);
 
 export const FORWARDER_INVOICE_DATE_KEYS = new Set(["invoice_date", "invoice_due_date"]);
 export const FORWARDER_INVOICE_NUMERIC_KEYS = new Set([
