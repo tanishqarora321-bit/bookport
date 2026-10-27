@@ -31,17 +31,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("system");
 
   useEffect(() => {
+    let resolved: Theme = "system";
     try {
       const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
       if (stored === "light" || stored === "dark" || stored === "system") {
-        setThemeState(stored);
+        resolved = stored;
       }
-      // The inline anti-flash script already applied the right class
-      // before paint - nothing to do here even if localStorage read
-      // fails (private window / blocked storage), default stays "system".
     } catch {
       /* private window / blocked storage - default (system) is fine */
     }
+    setThemeState(resolved);
+    // Re-apply the class here too, rather than trusting the inline
+    // anti-flash script (app/layout.tsx) to have already done it. That
+    // script runs before paint in the ordinary case, but it has no
+    // fallback if it simply never executes - confirmed live: a freshly
+    // opened tab rendered with no th-light/th-dark/th-system class on
+    // <html> at all, so every CSS variable the design system depends on
+    // (--nav, --accent, --line, ...) resolved to nothing and the whole
+    // app looked unstyled, recovering only once someone manually used
+    // the theme switcher (which calls this same applyClass()). Calling
+    // it again here is a no-op when the inline script did run, and the
+    // only fix when it didn't.
+    applyClass(resolved);
   }, []);
 
   function setTheme(t: Theme) {
