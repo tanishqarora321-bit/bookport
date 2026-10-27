@@ -25,5 +25,5 @@ export default async function SuppliersPage() {
 
   if (error) return <p className="text-red-600 p-6">{error.message}</p>;
 
-  return <SuppliersClient initialSuppliers={suppliers ?? []} />;
+  return <SuppliersClient initialSuppliers={suppliers ?? []} isAdmin={me.role === "admin"} />;
 }

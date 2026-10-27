@@ -24,6 +24,6 @@ export default async function TruckersPage() {
 
   if (error) return <p className="text-red-600 p-6">{error.message}</p>;
 
-  return <TruckersClient initialTruckers={truckers ?? []} />;
+  return <TruckersClient initialTruckers={truckers ?? []} isAdmin={me.role === "admin"} />;
 }
 

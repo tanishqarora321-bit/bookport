@@ -42,5 +42,5 @@ export default async function PartiesPage() {
     return { ...rest, gst_entry: gst_entries?.[0] ?? null };
   });
 
-  return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} />;
+  return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} isAdmin={me.role === "admin"} />;
 }

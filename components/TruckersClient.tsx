@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Truck, CheckCircle2, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
+import BulkActionBar from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Trucker = {
   id: string;
@@ -15,7 +17,7 @@ type Trucker = {
   is_active: boolean;
 };
 
-export default function TruckersClient({ initialTruckers }: { initialTruckers: Trucker[] }) {
+export default function TruckersClient({ initialTruckers, isAdmin = false }: { initialTruckers: Trucker[]; isAdmin?: boolean }) {
   const [truckers, setTruckers] = useState(initialTruckers);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
@@ -86,6 +88,58 @@ export default function TruckersClient({ initialTruckers }: { initialTruckers: T
         (t.short_code ?? "").toLowerCase().includes(q) ||
         (t.country ?? "").toLowerCase().includes(q)
     );
+
+  const visibleIds = visible.map((t) => t.id);
+  const bulk = useBulkSelection(visibleIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIds.join(",")]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    const succeeded: string[] = [];
+    const failures: string[] = [];
+    for (const id of ids) {
+      const target = truckers.find((t) => t.id === id);
+      const name = target?.legal_name ?? id;
+      try {
+        if (target?.is_active) {
+          const deactivateRes = await fetch(`/api/truckers/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_active: false }),
+          });
+          if (!deactivateRes.ok) {
+            const json = await deactivateRes.json().catch(() => ({}));
+            failures.push(`${name}: ${json.error || "couldn't remove before deleting"}`);
+            continue;
+          }
+        }
+        const res = await fetch(`/api/truckers/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          succeeded.push(id);
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${name}: ${err?.message || "network error"}`);
+      }
+    }
+    setTruckers((prev) => prev.filter((t) => !succeeded.includes(t.id)));
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -162,10 +216,25 @@ export default function TruckersClient({ initialTruckers }: { initialTruckers: T
         />
       </div>
 
+      {isAdmin && (
+        <BulkActionBar
+          count={bulk.selectedCount}
+          itemLabel="trucker"
+          onDeleteClick={() => setBulkConfirming(true)}
+          onClear={bulk.clear}
+          deleting={bulkDeleting}
+        />
+      )}
+
       <div className="bg-surface border border-line rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-muted border-b border-line">
+              {isAdmin && (
+                <th className="px-3 py-2 w-8">
+                  <input type="checkbox" aria-label="Select all truckers" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
+                </th>
+              )}
               <th className="px-3 py-2">Trucker Name</th>
               <th className="px-3 py-2">Short Code</th>
               <th className="px-3 py-2">Country</th>
@@ -178,6 +247,16 @@ export default function TruckersClient({ initialTruckers }: { initialTruckers: T
           <tbody>
             {visible.map((t) => (
               <tr key={t.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!t.is_active ? "opacity-40" : ""}`}>
+                {isAdmin && (
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${t.legal_name}`}
+                      checked={bulk.selected.has(t.id)}
+                      onChange={() => bulk.toggle(t.id)}
+                    />
+                  </td>
+                )}
                 <td className="px-3 py-2 font-medium text-ink">{t.legal_name}</td>
                 <td className="px-3 py-2 text-text-2">{t.short_code || "—"}</td>
                 <td className="px-3 py-2 text-text-2">{t.country || "—"}</td>
@@ -257,6 +336,42 @@ export default function TruckersClient({ initialTruckers }: { initialTruckers: T
             setMerging(null);
           }}
         />
+      )}
+
+      {bulkConfirming && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">
+              Delete {bulk.selectedCount} trucker{bulk.selectedCount === 1 ? "" : "s"}?
+            </h2>
+            <p className="text-sm text-muted">
+              This permanently removes each selected trucker. Any still linked to a booking/invoice fails to delete and is
+              reported rather than removed - clear that link first if it really needs to go.
+            </p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">
+                Cancel
+              </button>
+              <button onClick={bulkDeleteSelected} disabled={bulkDeleting} className="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setBulkError(null)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">Some deletes failed</h2>
+            <p className="text-sm text-muted whitespace-pre-wrap">{bulkError}</p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkError(null)} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

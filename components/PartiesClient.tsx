@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Users, Package, CheckCircle2 } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import InlineEditText from "@/components/ui/InlineEditText";
+import BulkActionBar from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type GstEntry = {
   id: string;
@@ -41,9 +43,11 @@ type Item = {
 export default function PartiesClient({
   initialParties,
   initialItems,
+  isAdmin = false,
 }: {
   initialParties: Party[];
   initialItems: Item[];
+  isAdmin?: boolean;
 }) {
   const [tab, setTab] = useState<"parties" | "items">("parties");
   const [parties, setParties] = useState(initialParties);
@@ -86,7 +90,7 @@ export default function PartiesClient({
       </div>
 
       {tab === "parties" ? (
-        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} />
+        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} />
       ) : (
         <ItemsTab items={items} setItems={setItems} showInactive={showInactive} />
       )}
@@ -100,10 +104,12 @@ function PartiesTab({
   parties,
   setParties,
   showInactive,
+  isAdmin,
 }: {
   parties: Party[];
   setParties: (p: Party[]) => void;
   showInactive: boolean;
+  isAdmin: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
@@ -173,6 +179,58 @@ function PartiesTab({
 
   const visible = parties.filter((p) => showInactive || p.is_active);
 
+  const visibleIds = visible.map((p) => p.id);
+  const bulk = useBulkSelection(visibleIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIds.join(",")]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    const succeeded: string[] = [];
+    const failures: string[] = [];
+    for (const id of ids) {
+      const target = parties.find((p) => p.id === id);
+      const name = target?.legal_name ?? id;
+      try {
+        if (target?.is_active) {
+          const deactivateRes = await fetch(`/api/parties/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_active: false }),
+          });
+          if (!deactivateRes.ok) {
+            const json = await deactivateRes.json().catch(() => ({}));
+            failures.push(`${name}: ${json.error || "couldn't remove before deleting"}`);
+            continue;
+          }
+        }
+        const res = await fetch(`/api/parties/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          succeeded.push(id);
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${name}: ${err?.message || "network error"}`);
+      }
+    }
+    setParties(parties.filter((p) => !succeeded.includes(p.id)));
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+  }
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="flex justify-end gap-2 mb-3">
@@ -230,10 +288,25 @@ function PartiesTab({
         </div>
       )}
 
+      {isAdmin && (
+        <BulkActionBar
+          count={bulk.selectedCount}
+          itemLabel="account"
+          onDeleteClick={() => setBulkConfirming(true)}
+          onClear={bulk.clear}
+          deleting={bulkDeleting}
+        />
+      )}
+
       <div className="bg-surface border border-line rounded-xl overflow-hidden">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-muted border-b border-line">
+              {isAdmin && (
+                <th className="px-3 py-2 w-8">
+                  <input type="checkbox" aria-label="Select all accounts" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
+                </th>
+              )}
               <th className="px-3 py-2 font-medium">Account Name</th>
               <th className="px-3 py-2 font-medium">Short Code</th>
               <th className="px-3 py-2 font-medium">Country</th>
@@ -248,6 +321,16 @@ function PartiesTab({
             {visible.map((p) => (
               <>
                 <tr key={p.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!p.is_active ? "opacity-40" : ""}`}>
+                  {isAdmin && (
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${p.legal_name}`}
+                        checked={bulk.selected.has(p.id)}
+                        onChange={() => bulk.toggle(p.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <InlineEditText value={p.legal_name} onSave={(v) => updateField(parties, setParties, p, "legal_name", v)} />
                   </td>
@@ -302,7 +385,7 @@ function PartiesTab({
                 </tr>
                 {expanded[p.id] && (
                   <tr className="border-b border-line bg-surface-2">
-                    <td colSpan={8} className="px-6 py-3">
+                    <td colSpan={isAdmin ? 9 : 8} className="px-6 py-3">
                       <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
                     </td>
                   </tr>
@@ -342,6 +425,42 @@ function PartiesTab({
             setMerging(null);
           }}
         />
+      )}
+
+      {bulkConfirming && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">
+              Delete {bulk.selectedCount} account{bulk.selectedCount === 1 ? "" : "s"}?
+            </h2>
+            <p className="text-sm text-muted">
+              This permanently removes each selected buyer/customer account. Any still linked to a booking/invoice fails to
+              delete and is reported rather than removed - clear that link first if it really needs to go.
+            </p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">
+                Cancel
+              </button>
+              <button onClick={bulkDeleteSelected} disabled={bulkDeleting} className="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setBulkError(null)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">Some deletes failed</h2>
+            <p className="text-sm text-muted whitespace-pre-wrap">{bulkError}</p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkError(null)} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
