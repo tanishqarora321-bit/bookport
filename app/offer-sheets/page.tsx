@@ -40,5 +40,5 @@ export default async function OfferSheetsPage({
     sheets = (data ?? []).map((s: any) => ({ ...s, row_count: s.rows?.[0]?.count ?? 0 }));
   }
 
-  return <OfferSheetsListClient types={types ?? []} selectedTypeId={selectedTypeId} sheets={sheets} />;
+  return <OfferSheetsListClient types={types ?? []} selectedTypeId={selectedTypeId} sheets={sheets} isAdmin={me.role === "admin"} />;
 }

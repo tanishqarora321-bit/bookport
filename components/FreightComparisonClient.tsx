@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import BulkActionBar from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Entry = {
   id: string;
@@ -103,6 +105,7 @@ export default function FreightComparisonClient({
   selectedMonth,
   selectedDestination,
   initialSheets,
+  isAdmin = false,
 }: {
   yearOptions: string[];
   selectedYear: string;
@@ -111,11 +114,53 @@ export default function FreightComparisonClient({
   selectedMonth: string;
   selectedDestination: string;
   initialSheets: RateSheet[];
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [sheets, setSheets] = useState(initialSheets);
   const [uploading, setUploading] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+
+  const visibleSheetIds = useMemo(() => sheets.map((s) => s.id), [sheets]);
+  const bulk = useBulkSelection(visibleSheetIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleSheetIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSheetIds.join(",")]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    const succeeded: string[] = [];
+    const failures: string[] = [];
+    for (const id of ids) {
+      const target = sheets.find((s) => s.id === id);
+      const name = target?.forwarder_name ?? id;
+      try {
+        const res = await fetch(`/api/rate-sheets/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          succeeded.push(id);
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${name}: ${err?.message || "network error"}`);
+      }
+    }
+    setSheets((prev) => prev.filter((s) => !succeeded.includes(s.id)));
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+    if (succeeded.length > 0) router.refresh();
+  }
 
   function navigate(month: string, destination: string, year: string = selectedYear) {
     router.push(`/freight-comparison?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}&destination=${encodeURIComponent(destination)}`);
@@ -400,6 +445,15 @@ export default function FreightComparisonClient({
         </button>
         {manageOpen && (
           <div style={{ padding: "0 18px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {isAdmin && (
+              <BulkActionBar
+                count={bulk.selectedCount}
+                itemLabel="rate sheet"
+                onDeleteClick={() => setBulkConfirming(true)}
+                onClear={bulk.clear}
+                deleting={bulkDeleting}
+              />
+            )}
             {sheets.map((s) => (
               <SheetManageCard
                 key={s.id}
@@ -409,12 +463,54 @@ export default function FreightComparisonClient({
                   router.refresh();
                 }}
                 onChanged={() => router.refresh()}
+                isAdmin={isAdmin}
+                selected={bulk.selected.has(s.id)}
+                onToggleSelect={() => bulk.toggle(s.id)}
               />
             ))}
             {sheets.length === 0 && <p className="meta">No sheets for this month/destination yet.</p>}
           </div>
         )}
       </section>
+
+      {bulkConfirming && (
+        <div className="scrim" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Delete {bulk.selectedCount} rate sheet{bulk.selectedCount === 1 ? "" : "s"}?</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl">This permanently removes each selected rate sheet and all of its rate rows. This cannot be undone.</p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="btn btn-g">
+                Cancel
+              </button>
+              <button type="button" onClick={bulkDeleteSelected} disabled={bulkDeleting} className="btn btn-dp">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="scrim" onClick={() => setBulkError(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Some deletes failed</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl" style={{ whiteSpace: "pre-wrap" }}>{bulkError}</p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkError(null)} className="btn btn-p">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -696,10 +792,16 @@ function SheetManageCard({
   sheet,
   onDeleted,
   onChanged,
+  isAdmin = false,
+  selected = false,
+  onToggleSelect,
 }: {
   sheet: RateSheet;
   onDeleted: () => void;
   onChanged: () => void;
+  isAdmin?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState(sheet.entries);
@@ -737,6 +839,14 @@ function SheetManageCard({
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--surf2)" }}>
+        {isAdmin && (
+          <input
+            type="checkbox"
+            aria-label={`Select rate sheet ${sheet.forwarder_name}`}
+            checked={selected}
+            onChange={onToggleSelect}
+          />
+        )}
         <button
           type="button"
           onClick={() => setOpen(!open)}

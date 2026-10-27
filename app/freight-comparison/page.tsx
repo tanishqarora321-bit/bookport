@@ -68,6 +68,7 @@ export default async function FreightComparisonPage({
       selectedMonth={selectedMonth}
       selectedDestination={selectedDestination}
       initialSheets={sorted}
+      isAdmin={me.role === "admin"}
     />
   );
 }

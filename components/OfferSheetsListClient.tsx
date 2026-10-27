@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CloseIcon } from "@/components/EditableCell";
+import BulkActionBar from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type ColumnDef = { key: string; label: string; kind: string; hidden?: boolean };
 type OfferSheetType = { id: string; name: string; columns: ColumnDef[]; created_at: string };
@@ -18,15 +20,57 @@ export default function OfferSheetsListClient({
   types,
   selectedTypeId,
   sheets,
+  isAdmin = false,
 }: {
   types: OfferSheetType[];
   selectedTypeId: string | null;
   sheets: Sheet[];
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [creatingSection, setCreatingSection] = useState(false);
   const [creatingSheet, setCreatingSheet] = useState(false);
   const selectedType = types.find((t) => t.id === selectedTypeId);
+
+  const visibleSheetIds = useMemo(() => sheets.map((s) => s.id), [sheets]);
+  const bulk = useBulkSelection(visibleSheetIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleSheetIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleSheetIds.join(",")]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    let succeededCount = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      const target = sheets.find((s) => s.id === id);
+      const name = target?.title ?? id;
+      try {
+        const res = await fetch(`/api/offer-sheets/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          succeededCount++;
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${name}: ${err?.message || "network error"}`);
+      }
+    }
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (succeededCount > 0) router.refresh();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+  }
 
   return (
     <div className="flex flex-col" style={{ gap: 20 }}>
@@ -73,9 +117,23 @@ export default function OfferSheetsListClient({
               </div>
               <button onClick={() => setCreatingSheet(true)} className="btn btn-s">+ New Sheet</button>
             </div>
+            {isAdmin && (
+              <BulkActionBar
+                count={bulk.selectedCount}
+                itemLabel="sheet"
+                onDeleteClick={() => setBulkConfirming(true)}
+                onClear={bulk.clear}
+                deleting={bulkDeleting}
+              />
+            )}
             <table className="tbl">
               <thead>
                 <tr>
+                  {isAdmin && (
+                    <th>
+                      <input type="checkbox" aria-label="Select all sheets" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
+                    </th>
+                  )}
                   <th>Title</th>
                   <th>Period</th>
                   <th className="r">Rows</th>
@@ -85,6 +143,16 @@ export default function OfferSheetsListClient({
               <tbody>
                 {sheets.map((s) => (
                   <tr key={s.id}>
+                    {isAdmin && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${s.title}`}
+                          checked={bulk.selected.has(s.id)}
+                          onChange={() => bulk.toggle(s.id)}
+                        />
+                      </td>
+                    )}
                     <td style={{ fontWeight: 600 }}>{s.title}</td>
                     <td className={s.period ? "" : "dash"}>{fmtPeriod(s.period)}</td>
                     <td className="r num">{s.row_count}</td>
@@ -97,7 +165,7 @@ export default function OfferSheetsListClient({
                 ))}
                 {sheets.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="meta" style={{ textAlign: "center", padding: "32px 12px" }}>
+                    <td colSpan={isAdmin ? 5 : 4} className="meta" style={{ textAlign: "center", padding: "32px 12px" }}>
                       No sheets yet in this section. Click &quot;+ New Sheet&quot; to add one.
                     </td>
                   </tr>
@@ -107,6 +175,45 @@ export default function OfferSheetsListClient({
           </section>
         )}
       </div>
+
+      {bulkConfirming && (
+        <div className="scrim" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Delete {bulk.selectedCount} sheet{bulk.selectedCount === 1 ? "" : "s"}?</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl">This permanently removes each selected offer sheet and all of its rows. This cannot be undone.</p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="btn btn-g">
+                Cancel
+              </button>
+              <button type="button" onClick={bulkDeleteSelected} disabled={bulkDeleting} className="btn btn-dp">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="scrim" onClick={() => setBulkError(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Some deletes failed</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl" style={{ whiteSpace: "pre-wrap" }}>{bulkError}</p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkError(null)} className="btn btn-p">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {creatingSection && (
         <NewSectionPanel
