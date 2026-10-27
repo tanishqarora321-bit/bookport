@@ -36,6 +36,7 @@ export default async function BookingsPage() {
       suppliers={suppliers ?? []}
       buyers={buyers ?? []}
       duplicateGroupCount={duplicateGroupCount}
+      isAdmin={me.role === "admin"}
     />
   );
 }

@@ -13,7 +13,9 @@ import StatusCell from "@/components/StatusCell";
 import PackingItemsCell, { PackingItem } from "@/components/PackingItemsCell";
 import SendInstructionsCell from "@/components/SendInstructionsCell";
 import UploadBlCell from "@/components/UploadBlCell";
+import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useYear } from "@/lib/year-context";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -97,12 +99,17 @@ export default function BookingsClient({
   buyers,
   variant = "single",
   duplicateGroupCount = 0,
+  isAdmin = false,
 }: {
   rows: Row[];
   forwarders: PartyOption[];
   truckers: PartyOption[];
   suppliers: PartyOption[];
   buyers: PartyOption[];
+  // Only an admin sees the select-rows/bulk-delete controls - this is a
+  // testing-cleanup tool, not something every teammate should be able to
+  // reach for on live customer data once the app is in real use.
+  isAdmin?: boolean;
   // "single": the normal Booking & Instructions page - every row here has
   // a carrier_booking_no that's unique for this company right now (or no
   // number yet). "multiple": the Multiple Bookings & Instructions page -
@@ -233,6 +240,49 @@ export default function BookingsClient({
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
   const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
+
+  // Selection unit is booking_id, not rowKey() - a booking with several
+  // containers shows several rows here, but "delete" always acts on the
+  // whole booking (see deleteBooking above), so checking any one of its
+  // rows selects the booking itself and checks every row that shares it.
+  const visibleBookingIds = useMemo(() => Array.from(new Set(paginated.map((r) => r.booking_id))), [paginated]);
+  const bulk = useBulkSelection(visibleBookingIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleBookingIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleBookingIds]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    const succeeded: string[] = [];
+    const failures: string[] = [];
+    for (const bookingId of ids) {
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}`, { method: "DELETE" });
+        if (res.ok) {
+          succeeded.push(bookingId);
+        } else {
+          const json = await res.json().catch(() => ({}));
+          const bookingNo = rows.find((r) => r.booking_id === bookingId)?.carrier_booking_no ?? bookingId;
+          failures.push(`${bookingNo}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${bookingId}: ${err?.message || "network error"}`);
+      }
+    }
+    setRows((prev) => prev.filter((r) => !succeeded.includes(r.booking_id)));
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+  }
 
   const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
   const cutoffSoonCount = rows.filter((r) => {
@@ -489,6 +539,16 @@ export default function BookingsClient({
           )}
         </div>
 
+      {isAdmin && (
+        <BulkActionBar
+          count={bulk.selectedCount}
+          itemLabel="booking"
+          onDeleteClick={() => setBulkConfirming(true)}
+          onClear={bulk.clear}
+          deleting={bulkDeleting}
+        />
+      )}
+
       <div className="tw" style={{ flex: 1, minHeight: 0 }}>
         <table className="tbl">
           <thead>
@@ -500,7 +560,16 @@ export default function BookingsClient({
                 "Container Number", "Container Size", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
                 <th key={i} className={i === 0 ? "stk" : i === 1 ? "stk2" : undefined} style={i === 0 ? { zIndex: 3, width: 56, minWidth: 56 } : i === 1 ? { zIndex: 3 } : undefined}>
-                  {label}
+                  {i === 0 && isAdmin ? (
+                    <input
+                      type="checkbox"
+                      aria-label="Select all bookings on this page"
+                      checked={bulk.allVisibleSelected}
+                      onChange={bulk.toggleAll}
+                    />
+                  ) : (
+                    label
+                  )}
                 </th>
               ))}
             </tr>
@@ -510,7 +579,18 @@ export default function BookingsClient({
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
                 <tr key={rowKey(r)}>
-                  <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>{pageStart + idx + 1}</td>
+                  <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>
+                    {isAdmin ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`Select booking ${r.carrier_booking_no ?? ""}`}
+                        checked={bulk.selected.has(r.booking_id)}
+                        onChange={() => bulk.toggle(r.booking_id)}
+                      />
+                    ) : (
+                      pageStart + idx + 1
+                    )}
+                  </td>
                   <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky bold />
                   <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
@@ -676,6 +756,48 @@ export default function BookingsClient({
           </div>
         </div>
       </section>
+
+      {bulkConfirming && (
+        <div className="scrim" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Delete {bulk.selectedCount} booking{bulk.selectedCount === 1 ? "" : "s"}?</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl">
+                This permanently removes each selected booking and everything on it (containers, documents, tracking,
+                amendments, and any forwarder/trucker/supplier invoices tied to it). This cannot be undone.
+              </p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="btn btn-g">
+                Cancel
+              </button>
+              <button type="button" onClick={bulkDeleteSelected} disabled={bulkDeleting} className="btn btn-dp">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount} Booking${bulk.selectedCount === 1 ? "" : "s"}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="scrim" onClick={() => setBulkError(null)}>
+          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="mh">
+              <h2 className="h2">Some deletes failed</h2>
+            </div>
+            <div className="mb">
+              <p className="lbl" style={{ whiteSpace: "pre-wrap" }}>{bulkError}</p>
+            </div>
+            <div className="mf">
+              <button type="button" onClick={() => setBulkError(null)} className="btn btn-p">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -33,6 +33,7 @@ export default async function MultipleBookingsPage() {
       suppliers={suppliers ?? []}
       buyers={buyers ?? []}
       variant="multiple"
+      isAdmin={me.role === "admin"}
     />
   );
 }
