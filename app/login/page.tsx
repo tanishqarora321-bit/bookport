@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter } from "next/font/google";
 import { Eye, EyeOff } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, createAuthActionClient } from "@/lib/supabase/client";
 import Logo from "@/components/ui/Logo";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -123,10 +123,15 @@ function LoginForm() {
     setResetSending(true);
     setResetError(null);
     try {
-      const supabase = createClient();
-      // app/auth/callback already handles a recovery link's #access_token
-      // the same way it handles an invite link's - setSession, then show
-      // the "set a new password" form. No new page needed for this.
+      // createAuthActionClient(), not createClient(): the regular
+      // ssr-wrapped client silently forces PKCE regardless of its own
+      // flowType option (see lib/supabase/client.ts), which only ever
+      // works back in the exact browser that requested the reset - this
+      // dedicated client actually honors flowType: "implicit" so the
+      // link works from any device. app/auth/callback already handles a
+      // recovery link's #access_token the same way it handles an
+      // invite's - setSession, then show the "set a new password" form.
+      const supabase = createAuthActionClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback`,
       });

@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 
 // detectSessionInUrl defaults to true, which meant ANY client created
 // anywhere on ANY page (e.g. Sidebar - mounted globally in
@@ -33,6 +34,43 @@ export function createClient() {
         // "Continue" click, so a passive visit (human or bot) can't
         // consume the link before a real click does.
         flowType: "implicit",
+      },
+    }
+  );
+}
+
+// resetPasswordForEmail() ONLY - never use this for sign-in/sign-out/
+// session management, which must keep going through createClient() above
+// so middleware.ts's cookie-based session check keeps working.
+//
+// createClient() above still sends PKCE's code_challenge regardless of
+// the flowType option it's given: @supabase/ssr's createBrowserClient()
+// hardcodes flowType: "pkce" (and detectSessionInUrl: true) INSIDE its
+// own auth options object, placed after it spreads in whatever options
+// are passed to it - so any flowType this file requests is silently
+// thrown away before supabase-js ever sees it. Confirmed by reading
+// node_modules/@supabase/ssr/dist/main/createBrowserClient.js directly -
+// this isn't a config mistake, the override is unconditional in this
+// library version (0.4.1) and can't be worked around through its own
+// options. The result was every reset link's /auth/v1/recover request
+// still carrying a code_challenge no matter what flowType.ts said,
+// because createBrowserClient() was never actually honoring it.
+//
+// This client bypasses @supabase/ssr entirely and talks to supabase-js
+// directly, which does respect flowType. It has no session to persist
+// (persistSession: false) since its only job is to trigger the reset
+// email send - it never needs cookies, storage, or auth-state
+// listeners, so none of that is wired up here.
+export function createAuthActionClient() {
+  return createSupabaseJsClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        flowType: "implicit",
+        detectSessionInUrl: false,
+        persistSession: false,
+        autoRefreshToken: false,
       },
     }
   );
