@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
+import BulkActionBar from "@/components/ui/BulkActionBar";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" };
 
@@ -114,11 +116,13 @@ export default function InvoiceLedgerClient({
   forwarderName,
   initialInvoices,
   initialCustomColumns,
+  isAdmin = false,
 }: {
   forwarderId: string;
   forwarderName: string;
   initialInvoices: Invoice[];
   initialCustomColumns: CustomColumn[];
+  isAdmin?: boolean;
 }) {
   const [invoices, setInvoices] = useState(initialInvoices);
   const [customColumns, setCustomColumns] = useState(initialCustomColumns);
@@ -188,6 +192,46 @@ export default function InvoiceLedgerClient({
     });
   }, [invoices, statusFilter, paidFilter]);
 
+  const visibleIds = useMemo(() => filtered.map((i) => i.id), [filtered]);
+  const bulk = useBulkSelection(visibleIds);
+  useEffect(() => {
+    bulk.pruneToVisible(new Set(visibleIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleIds.join(",")]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  async function bulkDeleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+    const ids = bulk.selectedIds;
+    const succeeded: string[] = [];
+    const failures: string[] = [];
+    for (const id of ids) {
+      const target = invoices.find((i) => i.id === id);
+      const name = target?.invoice_number || target?.booking_number || id;
+      try {
+        const res = await fetch(`/api/forwarder-invoices/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          succeeded.push(id);
+        } else {
+          const json = await res.json().catch(() => ({}));
+          failures.push(`${name}: ${json.error || "failed"}`);
+        }
+      } catch (err: any) {
+        failures.push(`${name}: ${err?.message || "network error"}`);
+      }
+    }
+    setInvoices((prev) => prev.filter((i) => !succeeded.includes(i.id)));
+    setBulkDeleting(false);
+    setBulkConfirming(false);
+    bulk.clear();
+    if (failures.length > 0) {
+      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+    }
+  }
+
   // KPI cards reflect the whole ledger regardless of the filters above
   // (same convention as Booking & Instructions' stat cards).
   const pendingCount = invoices.filter((i) => !i.invoice_number).length;
@@ -255,10 +299,25 @@ export default function InvoiceLedgerClient({
         </select>
       </div>
 
+      {isAdmin && (
+        <BulkActionBar
+          count={bulk.selectedCount}
+          itemLabel="invoice"
+          onDeleteClick={() => setBulkConfirming(true)}
+          onClear={bulk.clear}
+          deleting={bulkDeleting}
+        />
+      )}
+
       <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
         <table className="text-sm border-collapse min-w-[2300px]">
           <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-muted border-b border-line">
+              {isAdmin && (
+                <Th>
+                  <input type="checkbox" aria-label="Select all invoices" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
+                </Th>
+              )}
               <Th>Booking Number</Th>
               <Th>Container Number</Th>
               <Th>Month of Loading</Th>
@@ -308,11 +367,14 @@ export default function InvoiceLedgerClient({
                 onChange={(patch) => updateLocal(inv.id, patch)}
                 onEnterInvoice={() => setEnteringInvoice(inv)}
                 onDeleted={() => setInvoices((prev) => prev.filter((x) => x.id !== inv.id))}
+                isAdmin={isAdmin}
+                selected={bulk.selected.has(inv.id)}
+                onToggleSelect={() => bulk.toggle(inv.id)}
               />
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={columnCount} className="px-3 py-10 text-center text-muted">
+                <td colSpan={isAdmin ? columnCount + 1 : columnCount} className="px-3 py-10 text-center text-muted">
                   {invoices.length === 0
                     ? <>No invoices yet — one appears here automatically as soon as a container with this forwarder assigned is added in Booking &amp; Instructions.</>
                     : "No invoices match these filters."}
@@ -323,7 +385,7 @@ export default function InvoiceLedgerClient({
           {filtered.length > 0 && (
             <tfoot>
               <tr className="font-medium bg-surface-2 border-t border-line">
-                <td colSpan={10} className="px-3 py-2 text-right text-text-2">Totals (converted to USD):</td>
+                <td colSpan={isAdmin ? 11 : 10} className="px-3 py-2 text-right text-text-2">Totals (converted to USD):</td>
                 {CHARGE_KEYS.map((key) => (
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
                 ))}
@@ -351,6 +413,42 @@ export default function InvoiceLedgerClient({
           }}
         />
       )}
+
+      {bulkConfirming && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">
+              Delete {bulk.selectedCount} invoice{bulk.selectedCount === 1 ? "" : "s"}?
+            </h2>
+            <p className="text-sm text-muted">
+              This permanently removes each selected invoice and clears this forwarder from Booking &amp; Instructions wherever
+              it was their only invoice there. This cannot be undone.
+            </p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">
+                Cancel
+              </button>
+              <button onClick={bulkDeleteSelected} disabled={bulkDeleting} className="text-sm bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
+                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkError && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setBulkError(null)}>
+          <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-ink mb-2">Some deletes failed</h2>
+            <p className="text-sm text-muted whitespace-pre-wrap">{bulkError}</p>
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setBulkError(null)} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -365,13 +463,16 @@ function Td({ children }: { children: React.ReactNode }) {
 // ---------------- One invoice row ----------------
 
 function InvoiceRow({
-  inv, customColumns, onChange, onEnterInvoice, onDeleted
+  inv, customColumns, onChange, onEnterInvoice, onDeleted, isAdmin = false, selected = false, onToggleSelect
 }: {
   inv: Invoice;
   customColumns: CustomColumn[];
   onChange: (patch: Partial<Invoice>) => void;
   onEnterInvoice: () => void;
   onDeleted: () => void;
+  isAdmin?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   async function handleDelete() {
     if (!confirm(`Delete this invoice (${inv.booking_number || "no booking"} / ${inv.container_number || "no container"})? This cannot be undone, and clears this forwarder from Booking & Instructions if it was their only invoice there.`)) return;
@@ -385,6 +486,11 @@ function InvoiceRow({
   }
   return (
     <tr className="border-b border-line hover:bg-surface-2">
+      {isAdmin && (
+        <td className="px-3 py-2">
+          <input type="checkbox" aria-label={`Select invoice ${inv.invoice_number || inv.booking_number || ""}`} checked={selected} onChange={onToggleSelect} />
+        </td>
+      )}
       <Td>{inv.booking_number || "—"}</Td>
       <Td>{inv.container_number || "—"}</Td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>

@@ -60,6 +60,7 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
       forwarderName={forwarder.legal_name}
       initialInvoices={invoices ?? []}
       initialCustomColumns={customColumns ?? []}
+      isAdmin={me.role === "admin"}
     />
   );
 }
