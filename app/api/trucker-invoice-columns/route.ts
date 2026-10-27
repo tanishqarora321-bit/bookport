@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const label = (body.label ?? "").toString().trim();
   if (!label) return NextResponse.json({ error: "Column name is required" }, { status: 400 });
-  const valueType = body.value_type === "text" ? "text" : "number";
+  const valueType = ["text", "date"].includes(body.value_type) ? body.value_type : "number";
 
   const supabase = createServiceClient();
 

@@ -8,8 +8,9 @@ import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import AddColumnPanel from "@/components/ui/AddColumnPanel";
 
-type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" };
+type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
 
 type Invoice = {
   id: string;
@@ -62,7 +63,7 @@ async function patchTracking(trackingId: string, updates: Record<string, any>) {
   return json;
 }
 
-async function createCustomColumn(label: string, valueType: "number" | "text"): Promise<CustomColumn> {
+async function createCustomColumn(label: string, valueType: "number" | "text" | "date"): Promise<CustomColumn> {
   const res = await fetch("/api/trucker-invoice-columns", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -98,7 +99,7 @@ const CHARGE_KEYS = ["trucking", "fuel_surcharge", "chassis_rental", "stop_off",
 // DB once any custom column has a value. Mirrors the identical pattern
 // on the Forwarders ledger.
 function customChargesSum(inv: Invoice, columns: CustomColumn[]) {
-  return columns.filter((c) => c.value_type !== "text").reduce((s, c) => s + (Number(inv.custom_charges?.[c.key]) || 0), 0);
+  return columns.filter((c) => c.value_type === "number").reduce((s, c) => s + (Number(inv.custom_charges?.[c.key]) || 0), 0);
 }
 function invoiceTotal(inv: Invoice, columns: CustomColumn[]) {
   return inv.total + customChargesSum(inv, columns);
@@ -125,7 +126,7 @@ export default function TruckerInvoiceLedgerClient({
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
-  const [addingColumn, setAddingColumn] = useState(false);
+  const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
@@ -156,29 +157,6 @@ export default function TruckerInvoiceLedgerClient({
     }
   }
 
-  async function handleAddColumn() {
-    const label = prompt("New charge column name:")?.trim();
-    if (!label) return;
-    if (customColumns.length >= MAX_CUSTOM_COLUMNS) {
-      alert(`You already have ${MAX_CUSTOM_COLUMNS} custom columns, the maximum.`);
-      return;
-    }
-    const isText = confirm(
-      `Is "${label}" a NUMBER column (a charge amount, included in the invoice total) or a TEXT column (a reference/note, not a dollar amount)?\n\nOK = Text column\nCancel = Number column`
-    );
-    if (!confirm(`Add "${label}" as a new ${isText ? "text" : "number"} column? It will show up on every trucker's invoice ledger, not just ${truckerName}'s.`)) {
-      return;
-    }
-    setAddingColumn(true);
-    try {
-      const column = await createCustomColumn(label, isText ? "text" : "number");
-      setCustomColumns((prev) => [...prev, column]);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setAddingColumn(false);
-    }
-  }
 
   const filtered = useMemo(() => {
     return invoices.filter((inv) => {
@@ -260,15 +238,32 @@ export default function TruckerInvoiceLedgerClient({
             Import Excel
           </Link>
           <button
-            onClick={handleAddColumn}
-            disabled={addingColumn || customColumns.length >= MAX_CUSTOM_COLUMNS}
+            onClick={() => setAddColumnOpen((v) => !v)}
+            disabled={customColumns.length >= MAX_CUSTOM_COLUMNS}
             className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center gap-1 disabled:opacity-50"
-            title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a charge column"}
+            title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a column"}
           >
             <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
           </button>
         </div>
       </div>
+
+      {addColumnOpen && (
+        <div className="mb-4 shrink-0">
+          <AddColumnPanel
+            open={addColumnOpen}
+            onClose={() => setAddColumnOpen(false)}
+            columnCount={customColumns.length}
+            maxColumns={MAX_CUSTOM_COLUMNS}
+            entityLabel="trucker"
+            createEndpoint="/api/trucker-invoice-columns"
+            onCreated={(column) => {
+              setCustomColumns((prev) => [...prev, column]);
+              setAddColumnOpen(false);
+            }}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
         <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
@@ -383,7 +378,7 @@ export default function TruckerInvoiceLedgerClient({
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
                 ))}
                 {customColumns.map((col) => (
-                  <td key={col.key} className="px-3 py-2 whitespace-nowrap">{col.value_type === "text" ? "—" : fmtMoney(customTotalsUsd[col.key], "USD")}</td>
+                  <td key={col.key} className="px-3 py-2 whitespace-nowrap">{col.value_type === "number" ? fmtMoney(customTotalsUsd[col.key], "USD") : "—"}</td>
                 ))}
                 <td className="px-3 py-2 text-muted">—</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
@@ -512,6 +507,13 @@ function InvoiceRow({
             value={String(inv.custom_charges?.[col.key] ?? "")}
             onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: v } }).then((r) => onChange(r.invoice))}
             display={String(inv.custom_charges?.[col.key] ?? "—")}
+          />
+        ) : col.value_type === "date" ? (
+          <EditableCell
+            key={col.key}
+            value={(inv.custom_charges?.[col.key] as unknown as string) ?? null}
+            isDate
+            onSave={(v) => patchInvoice(inv.id, { custom_charges: { [col.key]: v } }).then((r) => onChange(r.invoice))}
           />
         ) : (
           <EditableCell
@@ -692,7 +694,7 @@ function EnterInvoiceModal({
     fx_rate: String(inv.fx_rate ?? 1),
   });
   const [customValues, setCustomValues] = useState<Record<string, string>>(
-    Object.fromEntries(customColumns.map((c) => [c.key, String(inv.custom_charges?.[c.key] ?? (c.value_type === "text" ? "" : 0))]))
+    Object.fromEntries(customColumns.map((c) => [c.key, String(inv.custom_charges?.[c.key] ?? (c.value_type === "number" ? 0 : ""))]))
   );
   const [suggestedCharges, setSuggestedCharges] = useState<{ name: string; amount: number }[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -794,7 +796,7 @@ function EnterInvoiceModal({
       };
       if (customColumns.length > 0) {
         updates.custom_charges = Object.fromEntries(
-          customColumns.map((c) => [c.key, c.value_type === "text" ? customValues[c.key] ?? "" : Number(customValues[c.key]) || 0])
+          customColumns.map((c) => [c.key, c.value_type === "number" ? Number(customValues[c.key]) || 0 : customValues[c.key] ?? ""])
         );
       }
       const result = await patchInvoice(inv.id, updates);
@@ -852,8 +854,8 @@ function EnterInvoiceModal({
             <LabeledInput
               key={col.key}
               label={col.label}
-              type={col.value_type === "text" ? "text" : "number"}
-              value={customValues[col.key] ?? (col.value_type === "text" ? "" : "0")}
+              type={col.value_type === "number" ? "number" : col.value_type === "date" ? "date" : "text"}
+              value={customValues[col.key] ?? (col.value_type === "number" ? "0" : "")}
               onChange={(v) => setCustomValues({ ...customValues, [col.key]: v })}
             />
           ))}

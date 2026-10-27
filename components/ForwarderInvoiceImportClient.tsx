@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { FORWARDER_INVOICE_IMPORT_FIELDS } from "@/lib/forwarder-invoice-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
+import AddColumnPanel from "@/components/ui/AddColumnPanel";
 
 type CustomColumn = { key: string; label: string };
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; customColumns: CustomColumn[] };
@@ -29,7 +30,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [addingColumnFor, setAddingColumnFor] = useState<string | null>(null);
+  const [addColumnForHeader, setAddColumnForHeader] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<CommitResult | null>(null);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
@@ -85,30 +86,10 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
     }
   }
 
-  async function addColumnFromHeader(header: string) {
-    if (customColumns.length >= MAX_CUSTOM_COLUMNS) {
-      alert(`You already have ${MAX_CUSTOM_COLUMNS} custom columns, the maximum.`);
-      return;
-    }
-    if (!confirm(`Add "${header}" as a new charge column? It will show up on every forwarder's invoice ledger, and this sheet's "${header}" column will map to it.`)) {
-      return;
-    }
-    setAddingColumnFor(header);
-    try {
-      const res = await fetch("/api/forwarder-invoice-columns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: header }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to add column");
-      setCustomColumns((prev) => [...prev, json.column]);
-      setMapping((prev) => ({ ...prev, [json.column.key]: header }));
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setAddingColumnFor(null);
-    }
+  function columnCreatedFromHeader(header: string, column: CustomColumn) {
+    setCustomColumns((prev) => [...prev, column]);
+    setMapping((prev) => ({ ...prev, [column.key]: header }));
+    setAddColumnForHeader(null);
   }
 
   // Checks whether any row would reassign an already-booked shipment away
@@ -288,15 +269,30 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
                     <div key={h} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
                       <span>{h}</span>
                       <button
-                        onClick={() => addColumnFromHeader(h)}
-                        disabled={addingColumnFor === h || customColumns.length >= MAX_CUSTOM_COLUMNS}
+                        onClick={() => setAddColumnForHeader(h)}
+                        disabled={customColumns.length >= MAX_CUSTOM_COLUMNS}
                         className="btn btn-xs"
                       >
-                        {addingColumnFor === h ? "Adding…" : "+ Add as charge column"}
+                        + Add Column
                       </button>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {addColumnForHeader && (
+              <div style={{ margin: 16 }}>
+                <AddColumnPanel
+                  open={!!addColumnForHeader}
+                  onClose={() => setAddColumnForHeader(null)}
+                  defaultName={addColumnForHeader}
+                  columnCount={customColumns.length}
+                  maxColumns={MAX_CUSTOM_COLUMNS}
+                  entityLabel="forwarder"
+                  createEndpoint="/api/forwarder-invoice-columns"
+                  onCreated={(column) => columnCreatedFromHeader(addColumnForHeader, column)}
+                />
               </div>
             )}
           </section>

@@ -73,8 +73,12 @@ export async function POST(req: NextRequest) {
 
   // A text-type custom column (a reference/note, not a charge amount)
   // must never go through parseNumeric() - without this, mapping an
-  // import column onto one would silently turn real text into 0.
+  // import column onto one would silently turn real text into 0. A
+  // date-type column needs the opposite special case: run through
+  // parseDateish() like invoice_date/invoice_due_date, not left as the
+  // sheet's raw (possibly Excel-serial) value.
   const textCustomKeys = new Set<string>();
+  const dateCustomKeys = new Set<string>();
   if (customKeys.length > 0) {
     const { data: colDefs } = await supabase
       .from("trucker_invoice_custom_columns")
@@ -83,6 +87,7 @@ export async function POST(req: NextRequest) {
       .in("key", customKeys);
     for (const c of colDefs ?? []) {
       if (c.value_type === "text") textCustomKeys.add(c.key);
+      if (c.value_type === "date") dateCustomKeys.add(c.key);
     }
   }
 
@@ -382,7 +387,14 @@ export async function POST(req: NextRequest) {
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
-        customCharges[key] = textCustomKeys.has(key) ? raw : parseNumeric(raw);
+        if (textCustomKeys.has(key)) {
+          customCharges[key] = raw;
+        } else if (dateCustomKeys.has(key)) {
+          const parsed = parseDateish(raw);
+          customCharges[key] = parsed ? parsed.toISOString().slice(0, 10) : "";
+        } else {
+          customCharges[key] = parseNumeric(raw);
+        }
       } else if (TRUCKER_INVOICE_DATE_KEYS.has(key)) {
         const parsed = parseDateish(raw);
         updates[key] = parsed ? parsed.toISOString().slice(0, 10) : null;
