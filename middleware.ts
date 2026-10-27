@@ -111,6 +111,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(homeUrl);
   }
 
+  // An already-signed-in visit to "/" (e.g. a brand-new tab typing the
+  // bare domain while logged in elsewhere) used to fall through to
+  // app/page.tsx's own redirect("/bookings") - a framework-level
+  // redirect during rendering, not a plain HTTP one. That left the root
+  // layout's anti-flash script (which sets the th-light/th-dark/
+  // th-system class on <html> before paint - see app/layout.tsx) never
+  // actually applying: confirmed live by opening a fresh tab to the
+  // bare domain while already logged in and finding <html> had no theme
+  // class at all, even seconds later, rendering the whole app colorless
+  // (CSS custom properties like --nav all resolve to nothing without
+  // it). A real HTTP redirect here, before Next ever renders anything -
+  // exactly how the /login case above and the unauthenticated case below
+  // already work - sidesteps that entirely.
+  if (user && pathname === "/") {
+    const bookingsUrl = request.nextUrl.clone();
+    bookingsUrl.pathname = "/bookings";
+    return NextResponse.redirect(bookingsUrl);
+  }
+
   // Hand the already-verified user down to getCurrentProfile() (used by
   // nearly every page/route) via a request header, so it doesn't have to
   // make its own redundant getUser() round trip to Supabase for a token
