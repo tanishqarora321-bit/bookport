@@ -59,6 +59,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
       truckerName={trucker.legal_name}
       initialInvoices={invoices ?? []}
       initialCustomColumns={customColumns ?? []}
+      isAdmin={me.role === "admin"}
     />
   );
 }

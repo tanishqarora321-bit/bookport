@@ -54,6 +54,7 @@ export default async function BuyerInvoicesPage({ params }: { params: { id: stri
       buyerId={params.id}
       buyerName={buyer.legal_name}
       initialInvoices={sorted}
+      isAdmin={me.role === "admin"}
     />
   );
 }

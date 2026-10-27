@@ -54,6 +54,7 @@ export default async function SupplierInvoicesPage({ params }: { params: { id: s
       supplierId={params.id}
       supplierName={supplier.legal_name}
       initialInvoices={sorted}
+      isAdmin={me.role === "admin"}
     />
   );
 }
