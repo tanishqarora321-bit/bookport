@@ -431,6 +431,19 @@ function LoginForm() {
           padding: clamp(24px, 5vw, 72px);
           overflow: auto;
         }
+        /* The "signed out elsewhere" notice (and any other alert) adds
+           real height that the panel's normal padding wasn't budgeted
+           for, which was enough on plenty of ordinary window sizes to
+           make this side auto-scroll just to show a few lines of text.
+           Trimming the panel's own padding - and the notice's and
+           intro's - only while an alert is actually present (:has(),
+           not a media query) keeps the spacious default look everywhere
+           else and only tightens up when there's something to make room
+           for. */
+        .panel:has(.alert) {
+          padding-top: 40px;
+          padding-bottom: 40px;
+        }
         .form {
           width: min(100%, 410px);
           margin: auto;
@@ -611,10 +624,10 @@ function LoginForm() {
         }
         .alert {
           border-radius: 9px;
-          padding: 12px 14px;
+          padding: 10px 14px;
           font-size: 13px;
-          line-height: 1.55;
-          margin-bottom: 22px;
+          line-height: 1.5;
+          margin-bottom: 14px;
         }
         .alert-info {
           background: #e5f2fa;
@@ -626,6 +639,9 @@ function LoginForm() {
           color: #047857;
           border: 1px solid #b9e8d2;
           margin-bottom: 0;
+        }
+        .panel:has(.alert) .intro {
+          margin-bottom: 18px;
         }
         button:focus-visible,
         .toggle:focus-visible,
@@ -719,6 +735,10 @@ function LoginForm() {
           .panel {
             padding-top: 18px;
             padding-bottom: 18px;
+          }
+          .panel:has(.alert) {
+            padding-top: 10px;
+            padding-bottom: 10px;
           }
           .intro {
             margin-bottom: 16px;
