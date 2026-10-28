@@ -14,7 +14,7 @@ export default async function BookingsPage() {
 
   const supabase = createServiceClient();
 
-  const [{ error, singleRows, duplicateGroupCount }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }] =
+  const [{ error, singleRows, duplicateRows, duplicateGroupCount }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }] =
     await Promise.all([
       fetchBookingsSplitByDuplicates(supabase, companyId),
       // Forwarders/Truckers/Suppliers/Buyers are all `parties` rows,
@@ -31,6 +31,7 @@ export default async function BookingsPage() {
   return (
     <BookingsClient
       rows={singleRows}
+      duplicateRows={duplicateRows}
       forwarders={forwarders ?? []}
       truckers={truckers ?? []}
       suppliers={suppliers ?? []}

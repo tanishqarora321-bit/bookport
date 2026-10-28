@@ -68,6 +68,18 @@ function rowKey(r: Row) {
   return `${r.booking_id}__${r.container_id ?? "none"}`;
 }
 
+// A booking with no ERD yet can't belong to any year, so it's excluded
+// here the same way it's excluded from the grid itself (see the `filtered`
+// memo) - shared so the KPI cards above the grid can never show a total
+// the grid itself has no way to display a single row of.
+function inYearScope(r: Pick<Row, "erd">, year: number, monthFilter: string): boolean {
+  if (!r.erd) return false;
+  const erdDate = new Date(r.erd);
+  if (erdDate.getFullYear() !== year) return false;
+  if (monthFilter !== "all" && erdDate.getMonth() !== Number(monthFilter)) return false;
+  return true;
+}
+
 function toCsv(rows: Row[]) {
   const headers = [
     "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
@@ -93,6 +105,7 @@ function toCsv(rows: Row[]) {
 
 export default function BookingsClient({
   rows: initialRows,
+  duplicateRows = [],
   forwarders,
   truckers,
   suppliers,
@@ -102,6 +115,12 @@ export default function BookingsClient({
   isAdmin = false,
 }: {
   rows: Row[];
+  // "single" only: the Multiple Bookings & Instructions rows for this same
+  // company - these never appear in this page's own grid, but the KPI
+  // cards above it are meant to reflect every real booking regardless of
+  // which of the two pages it currently lands on (see totalBookings/etc.
+  // below), not just the ones this particular grid happens to list.
+  duplicateRows?: Row[];
   forwarders: PartyOption[];
   truckers: PartyOption[];
   suppliers: PartyOption[];
@@ -207,10 +226,7 @@ export default function BookingsClient({
       // with no Month of Loading/ERD yet can't belong to any year, so it
       // drops out until it has one. The Month filter then narrows further
       // within that year.
-      if (!r.erd) return false;
-      const erdDate = new Date(r.erd);
-      if (erdDate.getFullYear() !== year) return false;
-      if (monthFilter !== "all" && erdDate.getMonth() !== Number(monthFilter)) return false;
+      if (!inYearScope(r, year, monthFilter)) return false;
       if (cutoffSoonOnly) {
         if (!r.cargo_cutoff) return false;
         const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
@@ -284,16 +300,29 @@ export default function BookingsClient({
     }
   }
 
-  const totalBookings = useMemo(() => new Set(rows.map((r) => r.booking_id)).size, [rows]);
-  const cutoffSoonCount = rows.filter((r) => {
+  // The KPI cards reflect every booking actually in play for the selected
+  // Working Year - combining this page's rows with the Multiple Bookings &
+  // Instructions ones (duplicateRows), since a booking only lands on one
+  // page or the other depending on whether its number is currently shared,
+  // but it's still one real booking either way. Scoped by the same
+  // ERD/year/month gate as the grid itself (inYearScope) so these numbers
+  // can never show a total the grid has no rows to back up - unlike the
+  // secondary dropdown filters (status/forwarder/etc.), which are this
+  // page's own drill-down and intentionally don't shrink the KPIs.
+  const kpiRows = useMemo(
+    () => [...rows, ...duplicateRows].filter((r) => inYearScope(r, year, monthFilter)),
+    [rows, duplicateRows, year, monthFilter]
+  );
+  const totalBookings = useMemo(() => new Set(kpiRows.map((r) => r.booking_id)).size, [kpiRows]);
+  const cutoffSoonCount = kpiRows.filter((r) => {
     if (!r.cargo_cutoff) return false;
     const diff = new Date(r.cargo_cutoff).getTime() - Date.now();
     return diff > 0 && diff < 48 * 3600 * 1000;
   }).length;
-  const confirmedCount = new Set(rows.filter((r) => r.status === "confirmed").map((r) => r.booking_id)).size;
-  const inTransitCount = new Set(rows.filter((r) => r.status === "in_transit").map((r) => r.booking_id)).size;
-  const deliveredCount = new Set(rows.filter((r) => r.status === "delivered").map((r) => r.booking_id)).size;
-  const instructionsSentCount = new Set(rows.filter((r) => r.instruction_status === "sent").map((r) => r.booking_id)).size;
+  const confirmedCount = new Set(kpiRows.filter((r) => r.status === "confirmed").map((r) => r.booking_id)).size;
+  const inTransitCount = new Set(kpiRows.filter((r) => r.status === "in_transit").map((r) => r.booking_id)).size;
+  const deliveredCount = new Set(kpiRows.filter((r) => r.status === "delivered").map((r) => r.booking_id)).size;
+  const instructionsSentCount = new Set(kpiRows.filter((r) => r.instruction_status === "sent").map((r) => r.booking_id)).size;
 
   function updateRowsForBooking(bookingId: string, patch: Partial<Row>) {
     setRows((prev) => prev.map((r) => (r.booking_id === bookingId ? { ...r, ...patch } : r)));
