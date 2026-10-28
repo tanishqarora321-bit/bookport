@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CloseIcon } from "@/components/EditableCell";
 
 export type CustomColumnType = "number" | "text" | "date";
 export type NewCustomColumn = { id: string; key: string; label: string; value_type: CustomColumnType };
@@ -82,37 +81,23 @@ export default function AddColumnPanel({
   }
 
   return (
-    <section className="card" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 className="h2">Add Column — 3 steps</h2>
-        <button type="button" onClick={onClose} className="ib" aria-label="Close">
-          <CloseIcon />
-        </button>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <StepNumber n={1} />
-            <b style={{ fontSize: 13 }}>Name</b>
-          </div>
-          <div className="field">
-            <label htmlFor="add-col-name">New column name:</label>
-            <input
-              id="add-col-name"
-              className="input input-s"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
-          </div>
+    <section className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
+        <div className="field" style={{ flex: "1 1 180px", minWidth: 0 }}>
+          <label htmlFor="add-col-name">Column name</label>
+          <input
+            id="add-col-name"
+            className="input input-s"
+            placeholder="e.g. Port Storage"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+          />
         </div>
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <StepNumber n={2} />
-            <b style={{ fontSize: 13 }}>Type</b>
-          </div>
-          <div className="seg" role="radiogroup" aria-label="Column type">
+        <div className="field" style={{ flex: "0 0 auto" }}>
+          <label htmlFor="add-col-type-group">Type</label>
+          <div id="add-col-type-group" className="seg" role="radiogroup" aria-label="Column type">
             <button type="button" role="radio" aria-checked={type === "number"} className={type === "number" ? "on" : ""} onClick={() => setType("number")}>
               Number
             </button>
@@ -123,50 +108,20 @@ export default function AddColumnPanel({
               Date
             </button>
           </div>
-          <span className="help">{TYPE_HELP[type]}</span>
         </div>
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <StepNumber n={3} />
-            <b style={{ fontSize: 13 }}>Confirm</b>
-          </div>
-          <span className="lbl">
-            {trimmed ? `"${trimmed}"` : "This column"} appears on every {entityLabel}&apos;s ledger. {slotsLeftAfter} of {maxColumns} column slots left.
-          </span>
-          {error && <span className="err">{error}</span>}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn btn-xs" onClick={onClose} disabled={saving}>
-              Cancel
-            </button>
-            <button type="button" className="btn btn-p btn-xs" onClick={handleAdd} disabled={saving || !trimmed || atLimit}>
-              {saving ? "Adding…" : "Add column"}
-            </button>
-          </div>
+        <div style={{ display: "flex", gap: 8, flex: "0 0 auto", marginLeft: "auto" }}>
+          <button type="button" className="btn btn-s" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn-p btn-s" onClick={handleAdd} disabled={saving || !trimmed || atLimit}>
+            {saving ? "Adding…" : "Add Column"}
+          </button>
         </div>
       </div>
+      <span className="help">
+        {TYPE_HELP[type]} — appears on every {entityLabel}&apos;s ledger. {slotsLeftAfter} of {maxColumns} slots left.
+      </span>
+      {error && <span className="err">{error}</span>}
     </section>
-  );
-}
-
-function StepNumber({ n }: { n: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 700,
-        background: "var(--accentS)",
-        color: "var(--accent)",
-        flexShrink: 0,
-      }}
-    >
-      {n}
-    </span>
   );
 }

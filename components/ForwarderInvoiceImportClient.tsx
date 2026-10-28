@@ -234,10 +234,10 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
 
   if (step === "mapping" && parsed) {
     return (
-      <>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {backBar}
-      <div className="max-w-6xl mx-auto space-y-5 py-6">
-        <div>
+      <div className="max-w-6xl mx-auto w-full" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20, padding: "24px 16px" }}>
+        <div style={{ flexShrink: 0 }}>
           <h1 className="h1">Match your columns</h1>
           <p className="sub">
             {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess for
@@ -245,16 +245,16 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </p>
         </div>
 
-        {stepsNav}
+        <div style={{ flexShrink: 0 }}>{stepsNav}</div>
 
         {parsed.suggestionFailed && (
-          <p className="err">
+          <p className="err" style={{ flexShrink: 0 }}>
             Couldn&apos;t generate auto-mapping suggestions for this file — map each field below by hand.
           </p>
         )}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
-          <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, display: "flex", flexDirection: "column", maxHeight: 640 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "stretch", flex: 1, minHeight: 320 }}>
+          <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ padding: "16px 18px 12px", flexShrink: 0 }}>
               <h2 id="mp" className="h2">Ship-Sphere field</h2>
             </div>
@@ -346,11 +346,11 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
             </div>
           </section>
 
-          <section className="card" aria-labelledby="pv" style={{ flex: "1 1 480px", minWidth: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px 12px" }}>
+          <section className="card" aria-labelledby="pv" style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ padding: "16px 18px 12px", flexShrink: 0 }}>
               <h2 id="pv" className="h2">Preview (first 3 rows)</h2>
             </div>
-            <div className="tw">
+            <div className="tw" style={{ flex: 1, minHeight: 0 }}>
               <table className="tbl">
                 <thead>
                   <tr>
@@ -370,7 +370,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
                 </tbody>
               </table>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)", flexShrink: 0 }}>
               <span className="meta">{parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"}</span>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setStep("upload")} className="btn">Back</button>
@@ -382,9 +382,9 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </section>
         </div>
 
-        {error && <p className="err">{error}</p>}
+        {error && <p className="err" style={{ flexShrink: 0 }}>{error}</p>}
       </div>
-      </>
+      </div>
     );
   }
 
