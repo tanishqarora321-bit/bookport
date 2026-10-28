@@ -309,12 +309,12 @@ export default function InvoiceLedgerClient({
           <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
-                <Th>
+                <th className="px-3 py-2 whitespace-nowrap font-medium sticky left-0 z-20 bg-surface-2 w-10">
                   <input type="checkbox" aria-label="Select all invoices" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
-                </Th>
+                </th>
               )}
-              <Th>Booking Number</Th>
-              <Th>Container Number</Th>
+              <th className={`px-3 py-2 whitespace-nowrap font-medium sticky z-20 bg-surface-2 w-40 ${isAdmin ? "left-10" : "left-0"}`}>Booking Number</th>
+              <th className={`px-3 py-2 whitespace-nowrap font-medium sticky z-20 bg-surface-2 w-40 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-40"}`}>Container Number</th>
               <Th>Month of Loading</Th>
               <Th>Shipping Line</Th>
               <Th>Consignee</Th>
@@ -480,14 +480,14 @@ function InvoiceRow({
     onDeleted();
   }
   return (
-    <tr className="border-b border-line hover:bg-surface-2">
+    <tr className="group border-b border-line hover:bg-surface-2">
       {isAdmin && (
-        <td className="px-3 py-2">
+        <td className="px-3 py-2 sticky left-0 z-10 bg-surface group-hover:bg-surface-2 w-10">
           <input type="checkbox" aria-label={`Select invoice ${inv.invoice_number || inv.booking_number || ""}`} checked={selected} onChange={onToggleSelect} />
         </td>
       )}
-      <Td>{inv.booking_number || "—"}</Td>
-      <Td>{inv.container_number || "—"}</Td>
+      <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface group-hover:bg-surface-2 w-40 font-semibold text-accent ${isAdmin ? "left-10" : "left-0"}`}>{inv.booking_number || "—"}</td>
+      <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface group-hover:bg-surface-2 w-40 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-40"}`}>{inv.container_number || "—"}</td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>
       <Td>{inv.shipping_line || "—"}</Td>
       <Td>{inv.consignee_name || "—"}</Td>

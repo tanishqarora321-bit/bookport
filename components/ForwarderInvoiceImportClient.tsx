@@ -30,7 +30,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
   // to borrow a year from - same "pre-fill, don't invent data" role the
   // sidebar's Working Year already plays for Payment History's "Applies to
   // Year" (see lib/year-context.tsx).
-  const { year: workingYear } = useYear();
+  const { year: workingYear, setYear } = useYear();
   const [step, setStep] = useState<Step>("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,13 +173,25 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
   }
 
   const backHref = `/forwarders/${forwarderId}/invoices`;
+  const currentCalendarYear = new Date().getFullYear();
+  const importYears = Array.from({ length: 6 }, (_, i) => currentCalendarYear - 2 + i);
+
+  // Flush against the shared Header/sidebar, not indented inside the
+  // centered content column like the rest of each step - rendered the
+  // same on every step so there's always an obvious way back.
+  const backBar = (
+    <div style={{ padding: "10px 24px", borderBottom: "1px solid var(--line)", background: "var(--surf)" }}>
+      <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
+        ← Back to {forwarderName}&apos;s Invoices
+      </Link>
+    </div>
+  );
 
   if (step === "upload") {
     return (
-      <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
-          ← Back to {forwarderName}&apos;s Invoices
-        </Link>
+      <>
+        {backBar}
+        <div className="max-w-2xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Import Invoice Charges from Excel</h1>
           <p className="sub">
@@ -193,6 +205,18 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
         {stepsNav}
 
         <section className="card" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="field" style={{ maxWidth: 220 }}>
+            <label htmlFor="import-year">Year this sheet applies to</label>
+            <select id="import-year" className="select" value={workingYear} onChange={(e) => setYear(Number(e.target.value))}>
+              {importYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <span className="help">
+              Used when a new booking&apos;s Month of Loading has no year of its own (e.g. just &quot;JANUARY&quot;) -
+              and also sets the Working Year, so new entries show up on Booking &amp; Instructions right away.
+            </span>
+          </div>
           <label className="drop" style={{ cursor: "pointer" }}>
             <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 16V4M7 9l5-5 5 5M4 20h16" />
@@ -203,12 +227,15 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </label>
           {error && <p className="err" style={{ textAlign: "center" }}>{error}</p>}
         </section>
-      </div>
+        </div>
+      </>
     );
   }
 
   if (step === "mapping" && parsed) {
     return (
+      <>
+      {backBar}
       <div className="max-w-6xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Match your columns</h1>
@@ -357,11 +384,14 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
 
         {error && <p className="err">{error}</p>}
       </div>
+      </>
     );
   }
 
   if (step === "duplicates") {
     return (
+      <>
+      {backBar}
       <div className="max-w-4xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Some bookings are assigned to a different forwarder</h1>
@@ -440,11 +470,14 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </div>
         </section>
       </div>
+      </>
     );
   }
 
   if (step === "result" && result) {
     return (
+      <>
+      {backBar}
       <div className="max-w-2xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Import Invoice Charges from Excel</h1>
@@ -481,6 +514,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </Link>
         </section>
       </div>
+      </>
     );
   }
 

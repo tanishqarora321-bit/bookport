@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useYear } from "@/lib/year-context";
+import PartyPaymentImportModal from "@/components/PartyPaymentImportModal";
 
 type Payment = {
   id: string;
@@ -38,6 +39,7 @@ export default function PartyPaymentHistory({
   const [expanded, setExpanded] = useState(false);
   const [payments, setPayments] = useState<Payment[] | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -99,6 +101,13 @@ export default function PartyPaymentHistory({
     if (!confirm("Remove this payment? This cannot be undone.")) return;
     const res = await fetch(`/api/party-payments/${id}`, { method: "DELETE" });
     if (res.ok) setPayments((prev) => (prev ?? []).filter((p) => p.id !== id));
+  }
+
+  function refreshPayments() {
+    fetch(`/api/party-payments?party_id=${partyId}`)
+      .then((r) => r.json())
+      .then((json) => setPayments(json.payments ?? []))
+      .catch(() => {});
   }
 
   return (
@@ -262,14 +271,30 @@ export default function PartyPaymentHistory({
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => setAdding(true)}
-              className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium self-start"
-            >
-              + Add Payment
-            </button>
+            <div className="flex gap-2 self-start">
+              <button
+                onClick={() => setAdding(true)}
+                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
+              >
+                + Add Payment
+              </button>
+              <button
+                onClick={() => setImporting(true)}
+                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
+              >
+                ↥ Import Excel
+              </button>
+            </div>
           )}
         </div>
+      )}
+
+      {importing && (
+        <PartyPaymentImportModal
+          partyId={partyId}
+          onClose={() => setImporting(false)}
+          onImported={refreshPayments}
+        />
       )}
     </section>
   );
