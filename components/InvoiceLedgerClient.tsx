@@ -124,8 +124,8 @@ const CHARGE_KEYS = ["freight_charges", "bl_fees", "aes_fees", "extra_charges", 
 // Consignee, POL, POD, Invoice Number, Invoice Date, Due Date, Freight,
 // BL Fees, AES Fees, Extra, Correction, Demurrage, [...custom columns],
 // Total, Total (USD), ETA (live), Status (live), Paid, Delete.
-const LEDGER_COLUMN_WIDTHS = [140, 140, 130, 110, 150, 110, 110, 130, 110, 110, 100, 90, 90, 90, 100, 100];
-const LEDGER_TRAILING_COLUMN_WIDTHS = [110, 120, 110, 130, 100, 70];
+const LEDGER_COLUMN_WIDTHS = [160, 180, 165, 130, 160, 110, 110, 150, 120, 110, 100, 90, 90, 90, 110, 110];
+const LEDGER_TRAILING_COLUMN_WIDTHS = [110, 130, 120, 150, 100, 70];
 const CHECKBOX_COLUMN_WIDTH = 40;
 const CUSTOM_COLUMN_WIDTH = 130;
 
@@ -372,7 +372,7 @@ export default function InvoiceLedgerClient({
             style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
           />
         </label>
-        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: "auto" }}>
+        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
           <option value="all">All Months</option>
           {monthOptions.map((k) => (
             <option key={k} value={k}>
@@ -380,19 +380,19 @@ export default function InvoiceLedgerClient({
             </option>
           ))}
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select select-s" style={{ width: "auto" }}>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="select select-s" style={{ width: "auto" }}>
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
         </select>
         {lineOptions.length > 0 && (
-          <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Shipping line" className="select select-s select-filter">
+          <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: 150 }}>
             <option value="all">All Lines</option>
             {lineOptions.map((l) => (
               <option key={l} value={l}>{l}</option>
@@ -443,15 +443,15 @@ export default function InvoiceLedgerClient({
               <col key={i} style={{ width: w }} />
             ))}
           </colgroup>
-          <thead className="sticky top-0 bg-surface-2 z-10">
+          <thead>
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
-                <th className="px-3 py-2.5 whitespace-nowrap font-medium sticky left-0 z-20 bg-surface-2 w-10">
+                <th className="px-3 py-2.5 whitespace-nowrap font-medium sticky top-0 left-0 z-20 bg-surface-2">
                   <input type="checkbox" aria-label="Select all invoices" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
                 </th>
               )}
-              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky z-20 bg-surface-2 ${isAdmin ? "left-10" : "left-0"}`}>Booking Number</th>
-              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky z-20 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[180px]" : "left-[140px]"}`}>Container Number</th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 ${isAdmin ? "left-10" : "left-0"}`}>Booking Number</th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>Container Number</th>
               <Th>Month of Loading</Th>
               <Th>Shipping Line</Th>
               <Th>Consignee</Th>
@@ -609,7 +609,7 @@ export default function InvoiceLedgerClient({
 }
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium">{children}</th>;
+  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
@@ -647,7 +647,7 @@ function InvoiceRow({
         </td>
       )}
       <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent ${isAdmin ? "left-10" : "left-0"}`}>{inv.booking_number || "—"}</td>
-      <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[180px]" : "left-[140px]"}`}>{inv.container_number || "—"}</td>
+      <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>{inv.container_number || "—"}</td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>
       <Td>{inv.shipping_line || "—"}</Td>
       <Td>{inv.consignee_name || "—"}</Td>
