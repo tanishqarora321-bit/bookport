@@ -173,7 +173,8 @@ export default function SupplierInvoiceLedgerClient({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="shrink-0">
       <Link href="/suppliers" className="text-sm text-accent mb-2 w-fit">
         ← Back to Suppliers
       </Link>
@@ -189,7 +190,7 @@ export default function SupplierInvoiceLedgerClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 shrink-0">
         <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
         <StatCard icon={Ship} label="On Water" value={onWaterCount} />
         <StatCard icon={CheckCircle2} label="Released" value={releasedCount} tone="success" />
@@ -197,8 +198,12 @@ export default function SupplierInvoiceLedgerClient({
         <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div className="mt-4 shrink-0">
       <PartyPaymentHistory partyId={supplierId} totalInvoicedUsd={totalUsd} />
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
@@ -307,6 +312,7 @@ export default function SupplierInvoiceLedgerClient({
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       {bulkConfirming && (

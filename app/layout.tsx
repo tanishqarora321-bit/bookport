@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH_SCRIPT }} />
       </head>
-      <body className="bg-bg text-ink min-h-screen">
+      <body className="bg-bg text-ink h-screen overflow-hidden">
         <ThemeProvider>
           <YearProvider>
             <AppShell>{children}</AppShell>

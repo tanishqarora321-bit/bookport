@@ -310,7 +310,8 @@ export default function InvoiceLedgerClient({
     LEDGER_TRAILING_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="shrink-0">
       <Link href="/forwarders" className="text-sm text-accent mb-2 w-fit">
         ← Back to Forwarders
       </Link>
@@ -348,7 +349,7 @@ export default function InvoiceLedgerClient({
         </div>
       )}
 
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 shrink-0">
         <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
         <StatCard icon={Ship} label="On Water" value={onWaterCount} />
         <StatCard icon={CheckCircle2} label="Released" value={releasedCount} tone="success" />
@@ -356,8 +357,12 @@ export default function InvoiceLedgerClient({
         <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      <div className="mt-4 shrink-0">
       <PartyPaymentHistory partyId={forwarderId} totalInvoicedUsd={totalUsd} />
+      </div>
 
       <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
       <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-line shrink-0">
@@ -553,6 +558,7 @@ export default function InvoiceLedgerClient({
             Next
           </button>
         </div>
+      </div>
       </div>
       </div>
 
