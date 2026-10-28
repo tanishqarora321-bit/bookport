@@ -38,6 +38,7 @@ export default function PartyPaymentHistory({
   const { year } = useYear();
   const [expanded, setExpanded] = useState(false);
   const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [page, setPage] = useState(0);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,15 @@ export default function PartyPaymentHistory({
 
   const totalPaidUsd = (payments ?? []).reduce((s, p) => s + p.amount * (p.fx_rate || 1), 0);
   const netOwedUsd = totalInvoicedUsd - totalPaidUsd;
+
+  const PAGE_SIZE = 5;
+  const pageCount = Math.max(1, Math.ceil((payments ?? []).length / PAGE_SIZE));
+  const pageStart = page * PAGE_SIZE;
+  const paginatedPayments = (payments ?? []).slice(pageStart, pageStart + PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [page, pageCount]);
 
   async function addPayment() {
     const amount = Number(form.amount);
@@ -88,6 +98,7 @@ export default function PartyPaymentHistory({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to add payment");
       setPayments((prev) => [json.payment, ...(prev ?? [])]);
+      setPage(0);
       setForm({ amount: "", currency: "USD", fx_rate: "1", paid_on: new Date().toISOString().slice(0, 10), applies_to_year: String(year), note: "" });
       setAdding(false);
     } catch (err: any) {
@@ -106,7 +117,10 @@ export default function PartyPaymentHistory({
   function refreshPayments() {
     fetch(`/api/party-payments?party_id=${partyId}`)
       .then((r) => r.json())
-      .then((json) => setPayments(json.payments ?? []))
+      .then((json) => {
+        setPayments(json.payments ?? []);
+        setPage(0);
+      })
       .catch(() => {});
   }
 
@@ -147,10 +161,10 @@ export default function PartyPaymentHistory({
           {payments === null ? (
             <div className="text-sm text-muted">Loading…</div>
           ) : (
-            <div className="max-h-[30vh] overflow-y-auto border border-line rounded-lg">
+            <div className="border border-line rounded-lg overflow-hidden">
             <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 bg-surface z-10">
-                <tr className="text-left text-muted border-b border-line">
+              <thead>
+                <tr className="text-left text-muted border-b border-line bg-surface">
                   <th className="py-1.5 pr-2 pl-2 font-medium text-xs">Date</th>
                   <th className="py-1.5 pr-2 font-medium text-xs text-right">Amount</th>
                   <th className="py-1.5 pr-2 font-medium text-xs">Applies to Year</th>
@@ -159,8 +173,8 @@ export default function PartyPaymentHistory({
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => (
-                  <tr key={p.id} className="border-b border-line">
+                {paginatedPayments.map((p) => (
+                  <tr key={p.id} className="border-b border-line last:border-b-0">
                     <td className="py-2 pr-2 pl-2 tabular-nums">{new Date(p.paid_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
                     <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(p.amount, p.currency)}</td>
                     <td className="py-2 pr-2">{p.applies_to_year}</td>
@@ -181,6 +195,21 @@ export default function PartyPaymentHistory({
                 )}
               </tbody>
             </table>
+            {payments.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-3 px-3 py-2 border-t border-line bg-surface">
+                <span className="text-xs text-muted tabular-nums">
+                  Showing {pageStart + 1}-{Math.min(pageStart + PAGE_SIZE, payments.length)} of {payments.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="text-xs border border-line bg-surface hover:bg-surface-2 rounded-lg px-2.5 py-1 font-medium disabled:opacity-50">
+                    Previous
+                  </button>
+                  <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="text-xs border border-line bg-surface hover:bg-surface-2 rounded-lg px-2.5 py-1 font-medium disabled:opacity-50">
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
             </div>
           )}
 
