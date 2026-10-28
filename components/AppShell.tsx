@@ -22,9 +22,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="h-screen overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Sidebar is position:fixed (see components/Sidebar.tsx) so a page's
+          own content can never drag it into a page-level scroll - this
+          column reserves the matching width as a margin instead of relying
+          on flexbox, since a fixed element no longer takes part in normal
+          layout at all. The --sidebar-w custom property is kept in sync by
+          Sidebar itself as it expands/collapses. */}
+      <div
+        className="h-screen flex flex-col overflow-hidden transition-[margin-left] duration-150"
+        style={{ marginLeft: "var(--sidebar-w, 244px)" }}
+      >
         <Header />
         <main className="app-main flex-1 overflow-y-auto">{children}</main>
       </div>

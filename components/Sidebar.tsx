@@ -44,6 +44,20 @@ export default function Sidebar() {
     }
   }, []);
 
+  // The sidebar is position:fixed (see the <nav> below) so that NOTHING a
+  // page does - a tall expanded panel, a long list, any layout bug that
+  // lets content overflow its container - can ever drag it along with a
+  // page-level scroll the way a plain flex sibling could (found live: the
+  // whole sidebar, logo and account footer included, scrolling out of
+  // view together with page content on a long Payment History list).
+  // AppShell's content column isn't a flex sibling anymore either, so it
+  // needs this same width as its own margin-left to avoid sitting under
+  // the fixed sidebar - kept in sync here rather than lifting `collapsed`
+  // state up, since nothing else needs it.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sidebar-w", collapsed ? "64px" : "244px");
+  }, [collapsed]);
+
   // Stage-1 login groundwork: this only reflects whether a session
   // cookie exists, it doesn't gate access to anything yet (see
   // middleware.ts). Nothing breaks for the DEFAULT_COMPANY_ID flow if
@@ -122,8 +136,17 @@ export default function Sidebar() {
   return (
     <nav
       aria-label="Main"
-      style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 244 }}
-      className="h-full flex flex-col shrink-0 overflow-hidden transition-[width] duration-150"
+      style={{
+        background: "var(--nav)",
+        color: "var(--navTx)",
+        width: collapsed ? 64 : 244,
+        position: "fixed",
+        top: 0,
+        left: 0,
+        height: "100dvh",
+        zIndex: 30,
+      }}
+      className="flex flex-col shrink-0 overflow-hidden transition-[width] duration-150"
     >
       <div
         className={`flex items-center gap-3 ${collapsed ? "justify-center" : "px-[18px]"}`}
