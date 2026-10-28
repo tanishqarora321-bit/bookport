@@ -47,7 +47,7 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
     // supabase/migrations/0016_forwarder_invoice_custom_columns.sql.
     supabase
       .from("forwarder_invoice_custom_columns")
-      .select("id, key, label")
+      .select("id, key, label, value_type")
       .eq("company_id", companyId)
       .order("created_at"),
   ]);

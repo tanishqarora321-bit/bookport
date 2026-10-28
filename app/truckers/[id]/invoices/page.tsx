@@ -46,7 +46,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
     // supabase/migrations/0022_trucker_invoice_charges.sql.
     supabase
       .from("trucker_invoice_custom_columns")
-      .select("id, key, label")
+      .select("id, key, label, value_type")
       .eq("company_id", companyId)
       .order("created_at"),
   ]);
