@@ -102,11 +102,18 @@ export async function POST(req: NextRequest) {
 
   const { data: existingInvoices } = await supabase
     .from("supplier_invoices")
-    .select("booking_number, container_number")
+    .select("booking_number, container_number, invoice_number")
     .eq("company_id", companyId)
     .eq("supplier_id", supplierId);
-  const existingKeys = new Set(
-    (existingInvoices ?? []).map((inv: { booking_number: string | null; container_number: string | null }) => `${(inv.booking_number ?? "").toLowerCase()}::${(inv.container_number ?? "").toLowerCase()}`)
+  // A real statement bills the same booking+container more than once over
+  // time (separate invoice documents) - tracking invoice_number alongside
+  // the dedup key lets a genuinely different invoice through instead of
+  // silently dropping it (found live: a Walker International statement
+  // with repeat booking+container rows for later, separate invoices).
+  const existingByKey = new Map<string, string | null>(
+    (existingInvoices ?? []).map((inv: { booking_number: string | null; container_number: string | null; invoice_number: string | null }) =>
+      [`${(inv.booking_number ?? "").toLowerCase()}::${(inv.container_number ?? "").toLowerCase()}`, inv.invoice_number]
+    )
   );
 
   let imported = 0;
@@ -128,11 +135,24 @@ export async function POST(req: NextRequest) {
     const containerNumber = header["container_number"] || "";
 
     const dedupKey = `${bookingNumber.toLowerCase()}::${containerNumber.toLowerCase()}`;
-    if (existingKeys.has(dedupKey)) {
-      skipped.push({ row: group.startRow, reason: `An invoice for booking "${bookingNumber}"${containerNumber ? ` / container "${containerNumber}"` : ""} already exists for this supplier - skipped to avoid duplicating charges` });
-      return;
+    const newInvoiceNumber = (header["invoice_number"] || "").trim();
+    // True when this booking+container already has an invoice AND this
+    // group is a genuinely different one (non-blank, differing Invoice
+    // Number) - a later, separate invoice document, not a re-import of the
+    // one already on file. Also tracked below to skip linking tracking_id
+    // on it: supplier_invoices (like forwarder/trucker) only allows one row
+    // per tracking_id, which the first invoice for this container already
+    // holds.
+    let isSeparateInvoiceOfExisting = false;
+    if (existingByKey.has(dedupKey)) {
+      const existingInvoiceNumber = (existingByKey.get(dedupKey) || "").trim();
+      isSeparateInvoiceOfExisting = !!newInvoiceNumber && !!existingInvoiceNumber && newInvoiceNumber.toLowerCase() !== existingInvoiceNumber.toLowerCase();
+      if (!isSeparateInvoiceOfExisting) {
+        skipped.push({ row: group.startRow, reason: `An invoice for booking "${bookingNumber}"${containerNumber ? ` / container "${containerNumber}"` : ""} already exists for this supplier - skipped to avoid duplicating charges` });
+        return;
+      }
     }
-    existingKeys.add(dedupKey); // claim it now so a second identical group in this same file also skips, not double-imports.
+    existingByKey.set(dedupKey, newInvoiceNumber || existingByKey.get(dedupKey) || null); // claim it now so a third identical group in this same file compares against the latest invoice number too.
 
     // Live ETA/status link + fallback for any header field the sheet
     // didn't carry on its own - same matching priority the single
@@ -158,7 +178,7 @@ export async function POST(req: NextRequest) {
         tracking = byContainer;
       }
       if (tracking) {
-        trackingId = tracking.id;
+        if (!isSeparateInvoiceOfExisting) trackingId = tracking.id;
         monthOfLoading = tracking.eta ? tracking.eta.slice(0, 10) : null;
         const [{ data: party }, { data: forwarder }] = await Promise.all([
           tracking.party_id ? supabase.from("parties").select("legal_name").eq("id", tracking.party_id).single() : Promise.resolve({ data: null as any }),

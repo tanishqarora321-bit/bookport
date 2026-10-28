@@ -93,11 +93,16 @@ export async function POST(req: NextRequest) {
   const fields = [...TRUCKER_INVOICE_IMPORT_FIELDS, ...(customColumns ?? [])];
 
   let suggestedMapping: Record<string, string | null> = {};
+  let suggestionFailed = false;
   try {
     suggestedMapping = await suggestMapping(headers, fields, "trucker invoice charges");
-  } catch {
-    // A mapping suggestion is a convenience, not a requirement.
+  } catch (err) {
+    // See the identical fix (with full reasoning) on the Forwarders import
+    // parse route - a silent failure here used to be indistinguishable
+    // from "nothing to suggest".
+    console.error("[trucker-invoices/import/parse] suggestMapping failed:", err);
+    suggestionFailed = true;
   }
 
-  return NextResponse.json({ headers, rows, suggestedMapping, customColumns: customColumns ?? [] });
+  return NextResponse.json({ headers, rows, suggestedMapping, suggestionFailed, customColumns: customColumns ?? [] });
 }

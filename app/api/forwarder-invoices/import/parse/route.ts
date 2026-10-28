@@ -78,11 +78,20 @@ export async function POST(req: NextRequest) {
   const fields = [...FORWARDER_INVOICE_IMPORT_FIELDS, ...(customColumns ?? [])];
 
   let suggestedMapping: Record<string, string | null> = {};
+  let suggestionFailed = false;
   try {
     suggestedMapping = await suggestMapping(headers, fields, "forwarder invoice charges");
-  } catch {
-    // A mapping suggestion is a convenience, not a requirement.
+  } catch (err) {
+    // A mapping suggestion is a convenience, not a requirement - importing
+    // still works with everything mapped by hand - but a failure here used
+    // to be completely invisible (every field just showed "Skip", with no
+    // way to tell "the AI had nothing to suggest" apart from "the AI
+    // suggestion call itself broke"). Logging it and telling the client
+    // means a future failure is diagnosable instead of looking identical
+    // to user error.
+    console.error("[forwarder-invoices/import/parse] suggestMapping failed:", err);
+    suggestionFailed = true;
   }
 
-  return NextResponse.json({ headers, rows, suggestedMapping, customColumns: customColumns ?? [] });
+  return NextResponse.json({ headers, rows, suggestedMapping, suggestionFailed, customColumns: customColumns ?? [] });
 }

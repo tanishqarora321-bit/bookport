@@ -25,7 +25,8 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
   { key: "stop_off", label: "Stop Off" },
   { key: "chassis_split", label: "Chassis Split" },
   { key: "misc_charges", label: "Other/Misc Charges" },
-  { key: "currency", label: "Currency" }
+  { key: "currency", label: "Currency" },
+  { key: "paid_status", label: "Paid / Not Paid" }
 ];
 
 // Only meaningful when this row's Booking Number requires creating a

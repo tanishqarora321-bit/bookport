@@ -30,7 +30,8 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
   { key: "extra_charges", label: "Extra Charges" },
   { key: "correction_charges", label: "Correction Charges" },
   { key: "demurrage", label: "Demurrage" },
-  { key: "currency", label: "Currency" }
+  { key: "currency", label: "Currency" },
+  { key: "paid_status", label: "Paid / Not Paid" }
 ];
 
 // Only meaningful when this row's Booking Number requires creating a

@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   const [{ data: existingInvoices, error: fetchError }, { data: allBookings, error: bookingsError }] = await Promise.all([
     supabase
       .from("trucker_invoices")
-      .select("id, booking_number, container_number")
+      .select("id, booking_number, container_number, invoice_number")
       .eq("company_id", companyId)
       .eq("trucker_id", truckerId),
     supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", companyId)
@@ -105,12 +105,19 @@ export async function POST(req: NextRequest) {
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (bookingsError) return NextResponse.json({ error: bookingsError.message }, { status: 500 });
 
-  const byBooking = new Map<string, { id: string; container_number: string | null }[]>();
+  // Entries carry invoice_number too (kept current via latestInvoiceNumber
+  // below) so a later sheet row for the same booking+container can tell
+  // "filling in the same invoice" apart from "this is a separate, later
+  // invoice for the same container" - see the matchedCandidate/
+  // isSeparateInvoice logic in processRow (ported from the identical fix
+  // on the Forwarders import).
+  const byBooking = new Map<string, { id: string; container_number: string | null; invoice_number: string | null }[]>();
   for (const inv of existingInvoices ?? []) {
     const key = (inv.booking_number ?? "").toLowerCase();
     if (!byBooking.has(key)) byBooking.set(key, []);
-    byBooking.get(key)!.push({ id: inv.id, container_number: inv.container_number });
+    byBooking.get(key)!.push({ id: inv.id, container_number: inv.container_number, invoice_number: inv.invoice_number });
   }
+  const latestInvoiceNumber = new Map<string, string>();
 
   const bookingIdByNumber = new Map<string, string>();
   for (const b of allBookings ?? []) {
@@ -197,14 +204,59 @@ export async function POST(req: NextRequest) {
     // When a container number is given, only an EXACT container match
     // counts as "already resolved" - see the identical comment in the
     // Forwarders import for why a lone-candidate shortcut is unsafe.
+    // .filter().pop() rather than .find() - once a duplicate-invoice clone
+    // (below) pushes a second entry for the same container, a later row
+    // must compare against the MOST RECENT one, not the first.
     const matchedCandidate = containerNumber
-      ? candidates.find((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase())
+      ? candidates.filter((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase()).pop()
       : candidates.length === 1
       ? candidates[0]
       : undefined;
 
     if (matchedCandidate) {
-      targetId = matchedCandidate.id;
+      // Real statements bill the SAME booking+container more than once
+      // over time - those are genuinely separate invoice documents, not a
+      // correction to the first. See the identical fix (with full
+      // reasoning) on the Forwarders import commit route.
+      const rowInvoiceNumber = get("invoice_number");
+      const existingInvoiceNumber = (latestInvoiceNumber.get(matchedCandidate.id) ?? matchedCandidate.invoice_number ?? "").trim();
+      const isSeparateInvoice = !!rowInvoiceNumber && !!existingInvoiceNumber && rowInvoiceNumber.toLowerCase() !== existingInvoiceNumber.toLowerCase();
+
+      if (isSeparateInvoice) {
+        const { data: sourceRow, error: sourceError } = await supabase
+          .from("trucker_invoices")
+          .select("month_of_loading, location, currency")
+          .eq("id", matchedCandidate.id)
+          .single();
+        if (sourceError || !sourceRow) {
+          skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" already has a different invoice, but couldn't read it to start a new one: ${sourceError?.message ?? "not found"}` });
+          return;
+        }
+        const { data: clonedInvoice, error: cloneError } = await supabase
+          .from("trucker_invoices")
+          .insert({
+            company_id: companyId,
+            trucker_id: truckerId,
+            booking_number: bookingNumber,
+            container_number: containerNumber || null,
+            // tracking_id deliberately not copied - see the identical note
+            // on the Forwarders import commit route (unique constraint on
+            // tracking_id; NULL is exempt from it in Postgres).
+            ...sourceRow,
+          })
+          .select("id")
+          .single();
+        if (cloneError || !clonedInvoice) {
+          skipped.push({ row: sheetRow, reason: `Couldn't start a new invoice for booking "${bookingNumber}": ${cloneError?.message ?? "insert failed"}` });
+          return;
+        }
+        targetId = clonedInvoice.id;
+        wasCreated = true;
+        const key = bookingNumber.toLowerCase();
+        byBooking.get(key)!.push({ id: clonedInvoice.id, container_number: containerNumber || null, invoice_number: null });
+      } else {
+        targetId = matchedCandidate.id;
+      }
     } else if (!containerNumber && candidates.length > 1) {
       skipped.push({ row: sheetRow, reason: `Booking "${bookingNumber}" has multiple containers - map Container Number to disambiguate` });
       return;
@@ -285,7 +337,7 @@ export async function POST(req: NextRequest) {
       wasCreated = true;
       const key = bookingNumber.toLowerCase();
       if (!byBooking.has(key)) byBooking.set(key, []);
-      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null });
+      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null, invoice_number: null });
     } else {
       // Booking Number doesn't exist anywhere, OR it does but the user
       // explicitly chose "add" rather than let this reassign it away from
@@ -362,7 +414,7 @@ export async function POST(req: NextRequest) {
 
       const key = bookingNumber.toLowerCase();
       if (!byBooking.has(key)) byBooking.set(key, []);
-      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null });
+      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null, invoice_number: null });
     }
 
     const updates: Record<string, any> = {};
@@ -400,9 +452,15 @@ export async function POST(req: NextRequest) {
         updates[key] = parsed ? parsed.toISOString().slice(0, 10) : null;
       } else if (TRUCKER_INVOICE_NUMERIC_KEYS.has(key)) {
         updates[key] = parseNumeric(raw);
+      } else if (key === "paid_status") {
+        updates[key] = raw.trim().toUpperCase() === "PAID" ? "PAID" : "UNPAID";
       } else {
         updates[key] = raw;
       }
+    }
+
+    if (colIndex["invoice_number"] !== undefined) {
+      latestInvoiceNumber.set(targetId!, get("invoice_number") || (latestInvoiceNumber.get(targetId!) ?? ""));
     }
 
     if (Object.keys(customCharges).length > 0) {

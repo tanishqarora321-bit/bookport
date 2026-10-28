@@ -7,7 +7,7 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
 
 type CustomColumn = { key: string; label: string };
-type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; customColumns: CustomColumn[] };
+type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean; customColumns: CustomColumn[] };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
 type DuplicateGroup = { carrierBookingNo: string; currentTruckerName: string | null; sheetRows: number[] };
 type Resolution = "add" | "ignore";
@@ -211,6 +211,12 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
 
         {stepsNav}
 
+        {parsed.suggestionFailed && (
+          <p className="err">
+            Couldn&apos;t generate auto-mapping suggestions for this file — map each field below by hand.
+          </p>
+        )}
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
           <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden" }}>
             <div style={{ padding: "16px 18px 12px" }}>
@@ -263,7 +269,7 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warn)" }}>
                   These columns in your sheet aren&apos;t mapped to anything above:
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
                   {unmappedHeaders.map((h) => (
                     <div key={h} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
                       <span>{h}</span>
