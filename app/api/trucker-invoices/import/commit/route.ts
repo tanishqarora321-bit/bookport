@@ -203,6 +203,9 @@ export async function POST(req: NextRequest) {
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
     let targetId: string | null = null;
     let wasCreated = false;
+    // See the identical fallback (with full reasoning) on the Forwarders
+    // import commit route.
+    let newBookingErd: string | null = null;
 
     // When a container number is given, only an EXACT container match
     // counts as "already resolved" - see the identical comment in the
@@ -360,7 +363,10 @@ export async function POST(req: NextRequest) {
           // Forwarders import commit route.
           const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
           const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
-          if (parsed) bookingFields.erd = parsed.toISOString().slice(0, 10);
+          if (parsed) {
+            bookingFields.erd = parsed.toISOString().slice(0, 10);
+            newBookingErd = bookingFields.erd;
+          }
         } else {
           bookingFields[key] = raw;
         }
@@ -424,6 +430,12 @@ export async function POST(req: NextRequest) {
     }
 
     const updates: Record<string, any> = {};
+
+    // See the identical fix (with full reasoning) on the Forwarders import
+    // commit route - sync_container_to_tracking() never copies erd into
+    // tracking.eta, so the backfill below never fires for a brand-new
+    // booking.
+    if (newBookingErd) updates.month_of_loading = newBookingErd;
 
     // Backfills Month of Loading from the live tracking row's ETA when
     // it's still blank - covers every branch above (matched, linked, or

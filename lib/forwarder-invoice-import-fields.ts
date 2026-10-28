@@ -11,6 +11,11 @@
 export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: "booking_number", label: "Booking Number", required: true },
   { key: "container_number", label: "Container Number" },
+  // Unlike pol/pod/carrier/erd below, this writes directly onto the
+  // invoice (forwarder_invoices.consignee_name) on every mapped row, new
+  // booking or not - it was already a plain display column on the ledger
+  // with no way to set it from a sheet.
+  { key: "consignee_name", label: "Consignee" },
   { key: "pol", label: "POL (new bookings only)" },
   { key: "pod", label: "Port of Discharge (new bookings only)" },
   { key: "final_destination", label: "Port of Delivery (new bookings only)" },

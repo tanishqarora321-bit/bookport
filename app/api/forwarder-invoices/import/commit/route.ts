@@ -202,6 +202,11 @@ export async function POST(req: NextRequest) {
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
     let targetId: string | null = null;
     let wasCreated = false;
+    // Set below only when this row creates a brand-new booking with a
+    // resolved ERD - see where `updates` is built for why this can't just
+    // go through the generic per-field mapping loop (erd is explicitly
+    // "new bookings only" and skipped there).
+    let newBookingErd: string | null = null;
 
     // When a container number is given, only an EXACT container match
     // counts as "already resolved" - with multiple rows in the same
@@ -399,7 +404,10 @@ export async function POST(req: NextRequest) {
           // nothing here ever invents a year with no signal at all).
           const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
           const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
-          if (parsed) bookingFields.erd = parsed.toISOString().slice(0, 10);
+          if (parsed) {
+            bookingFields.erd = parsed.toISOString().slice(0, 10);
+            newBookingErd = bookingFields.erd;
+          }
         } else {
           bookingFields[key] = raw;
         }
@@ -473,6 +481,17 @@ export async function POST(req: NextRequest) {
     }
 
     const updates: Record<string, any> = {};
+
+    // A brand-new booking's own Month of Loading/ERD column goes straight
+    // onto its invoice shell's month_of_loading too - the tracking.eta
+    // backfill below never fires for it (sync_container_to_tracking()
+    // never copies erd into tracking.eta; eta is only ever set later, by
+    // hand, on the Shipment Tracking page), so without this the ledger's
+    // Month of Loading stayed blank forever even though the sheet had the
+    // exact value for it right there (found live: a real forwarder
+    // statement with "MONTH OF LOADING" mapped and matched, every new
+    // booking's invoice still showed no Month of Loading).
+    if (newBookingErd) updates.month_of_loading = newBookingErd;
 
     // Backfills Month of Loading from the live tracking row's ETA when
     // it's still blank - covers every branch above (matched, linked, or
