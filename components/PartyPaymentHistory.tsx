@@ -147,7 +147,7 @@ export default function PartyPaymentHistory({
           {payments === null ? (
             <div className="text-sm text-muted">Loading…</div>
           ) : (
-            <div className="max-h-[460px] overflow-y-auto border border-line rounded-lg">
+            <div className="max-h-[30vh] overflow-y-auto border border-line rounded-lg">
             <table className="w-full text-sm border-collapse">
               <thead className="sticky top-0 bg-surface z-10">
                 <tr className="text-left text-muted border-b border-line">
