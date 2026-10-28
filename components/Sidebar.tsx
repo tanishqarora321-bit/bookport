@@ -123,7 +123,7 @@ export default function Sidebar() {
     <nav
       aria-label="Main"
       style={{ background: "var(--nav)", color: "var(--navTx)", width: collapsed ? 64 : 244 }}
-      className="h-full flex flex-col shrink-0 overflow-y-auto transition-[width] duration-150"
+      className="h-full flex flex-col shrink-0 overflow-hidden transition-[width] duration-150"
     >
       <div
         className={`flex items-center gap-3 ${collapsed ? "justify-center" : "px-[18px]"}`}
