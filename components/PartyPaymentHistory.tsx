@@ -147,10 +147,11 @@ export default function PartyPaymentHistory({
           {payments === null ? (
             <div className="text-sm text-muted">Loading…</div>
           ) : (
+            <div className="max-h-80 overflow-y-auto border border-line rounded-lg">
             <table className="w-full text-sm border-collapse">
-              <thead>
+              <thead className="sticky top-0 bg-surface z-10">
                 <tr className="text-left text-muted border-b border-line">
-                  <th className="py-1.5 pr-2 font-medium text-xs">Date</th>
+                  <th className="py-1.5 pr-2 pl-2 font-medium text-xs">Date</th>
                   <th className="py-1.5 pr-2 font-medium text-xs text-right">Amount</th>
                   <th className="py-1.5 pr-2 font-medium text-xs">Applies to Year</th>
                   <th className="py-1.5 pr-2 font-medium text-xs">Note</th>
@@ -160,7 +161,7 @@ export default function PartyPaymentHistory({
               <tbody>
                 {payments.map((p) => (
                   <tr key={p.id} className="border-b border-line">
-                    <td className="py-2 pr-2 tabular-nums">{new Date(p.paid_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                    <td className="py-2 pr-2 pl-2 tabular-nums">{new Date(p.paid_on).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
                     <td className="py-2 pr-2 text-right tabular-nums">{fmtMoney(p.amount, p.currency)}</td>
                     <td className="py-2 pr-2">{p.applies_to_year}</td>
                     <td className="py-2 pr-2 text-text-2">{p.note || <span className="text-muted">—</span>}</td>
@@ -180,6 +181,7 @@ export default function PartyPaymentHistory({
                 )}
               </tbody>
             </table>
+            </div>
           )}
 
           {adding ? (
