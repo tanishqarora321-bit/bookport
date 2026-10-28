@@ -7,7 +7,7 @@ import {
   TRUCKER_INVOICE_BOOKING_CREATE_KEYS
 } from "@/lib/trucker-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { parseDateish } from "@/lib/parse-date";
+import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
 
@@ -52,6 +52,9 @@ export async function POST(req: NextRequest) {
   // separate booking for this trucker instead of reassigning the
   // existing one) or "ignore" (keep today's behavior: reassign).
   const duplicateResolutions: Record<string, "add" | "ignore"> = body.duplicateResolutions ?? {};
+  // See the identical fallback (with full reasoning) on the Forwarders
+  // import commit route.
+  const defaultYear: number | null = Number.isInteger(body.defaultYear) ? body.defaultYear : null;
 
   if (!truckerId) return NextResponse.json({ error: "truckerId is required" }, { status: 400 });
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -353,7 +356,10 @@ export async function POST(req: NextRequest) {
         const raw = get(key);
         if (!raw) continue;
         if (key === "erd") {
-          const parsed = parseDateish(raw);
+          // See the identical fallback chain (with full reasoning) on the
+          // Forwarders import commit route.
+          const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
+          const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
           if (parsed) bookingFields.erd = parsed.toISOString().slice(0, 10);
         } else {
           bookingFields[key] = raw;

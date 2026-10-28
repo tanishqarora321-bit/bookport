@@ -7,7 +7,7 @@ import {
   FORWARDER_INVOICE_BOOKING_CREATE_KEYS
 } from "@/lib/forwarder-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { parseDateish } from "@/lib/parse-date";
+import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
 
@@ -48,6 +48,11 @@ export async function POST(req: NextRequest) {
   // separate booking for this forwarder instead of reassigning the
   // existing one) or "ignore" (keep today's behavior: reassign).
   const duplicateResolutions: Record<string, "add" | "ignore"> = body.duplicateResolutions ?? {};
+  // Last-resort year for a new booking's Month of Loading/ERD when the
+  // mapped column is a bare month name ("JANUARY") with no Invoice Date on
+  // the same row to borrow a year from either - the sidebar's Working Year
+  // the user had selected while importing. See parseMonthish.
+  const defaultYear: number | null = Number.isInteger(body.defaultYear) ? body.defaultYear : null;
 
   if (!forwarderId) return NextResponse.json({ error: "forwarderId is required" }, { status: 400 });
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -387,7 +392,13 @@ export async function POST(req: NextRequest) {
         const raw = get(key);
         if (!raw) continue;
         if (key === "erd") {
-          const parsed = parseDateish(raw);
+          // A bare month name ("JANUARY", no year of its own) needs a year
+          // from somewhere: this row's own Invoice Date first (most
+          // specific to this exact charge), then the Working Year the user
+          // had selected while importing (the one deliberate fallback -
+          // nothing here ever invents a year with no signal at all).
+          const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
+          const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
           if (parsed) bookingFields.erd = parsed.toISOString().slice(0, 10);
         } else {
           bookingFields[key] = raw;

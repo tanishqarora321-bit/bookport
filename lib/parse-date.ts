@@ -24,3 +24,25 @@ export function parseDateish(v: string): Date | null {
   const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
+
+const MONTH_NAMES = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+// A real statement's "Month of Loading" column is often just the bare
+// month name ("JANUARY") with no year of its own - parseDateish() can't
+// turn that into a real date (new Date("JANUARY") is Invalid Date), so it
+// silently never got set on the booking it was mapped to, even though the
+// column WAS correctly mapped (found live: a forwarder statement with
+// "MONTH OF LOADING" matched to ERD, every resulting booking still had a
+// null ERD, which makes it invisible on Booking & Instructions forever).
+// `referenceDate` - typically this row's own Invoice Date, which DOES
+// carry a real year - fills in what the sheet left out.
+export function parseMonthish(v: string, referenceDate: Date | null): Date | null {
+  const s = (v ?? "").trim().toLowerCase();
+  if (!s || !referenceDate) return null;
+  const monthIndex = MONTH_NAMES.indexOf(s);
+  if (monthIndex === -1) return null;
+  return new Date(Date.UTC(referenceDate.getUTCFullYear(), monthIndex, 1));
+}

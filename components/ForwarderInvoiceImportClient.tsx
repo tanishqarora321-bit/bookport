@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FORWARDER_INVOICE_IMPORT_FIELDS } from "@/lib/forwarder-invoice-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import { useYear } from "@/lib/year-context";
 
 type CustomColumn = { key: string; label: string };
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean; customColumns: CustomColumn[] };
@@ -24,6 +25,12 @@ const STEP_LABELS: Record<Step, string> = {
 };
 
 export default function ForwarderInvoiceImportClient({ forwarderId, forwarderName }: { forwarderId: string; forwarderName: string }) {
+  // Used only as a last-resort fallback when a new booking's Month of
+  // Loading/ERD is a bare month name with no Invoice Date on the same row
+  // to borrow a year from - same "pre-fill, don't invent data" role the
+  // sidebar's Working Year already plays for Payment History's "Applies to
+  // Year" (see lib/year-context.tsx).
+  const { year: workingYear } = useYear();
   const [step, setStep] = useState<Step>("upload");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +158,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           mapping,
           customKeys: customColumns.map((c) => c.key),
           duplicateResolutions: finalResolutions,
+          defaultYear: workingYear,
         }),
       });
       const json = await res.json();
@@ -219,11 +227,18 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
         )}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
-          <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, overflow: "hidden" }}>
-            <div style={{ padding: "16px 18px 12px" }}>
+          <section className="card" aria-labelledby="mp" style={{ flex: "1 1 460px", minWidth: 0, display: "flex", flexDirection: "column", maxHeight: 640 }}>
+            <div style={{ padding: "16px 18px 12px", flexShrink: 0 }}>
               <h2 id="mp" className="h2">Ship-Sphere field</h2>
             </div>
-            <div className="tw" style={{ maxHeight: 520 }}>
+            {/* One scrollable region for the whole card body (table + the
+                unmapped-columns list below it) instead of each having its
+                own independent scrollbar - a sheet with many unmatched
+                columns used to grow a second, nested scroll box here, which
+                looked broken next to the single scrollbar everything else
+                on this page gets. */}
+            <div style={{ overflowY: "auto", minHeight: 0 }}>
+            <div className="tw">
               <table className="tbl">
                 <thead>
                   <tr>
@@ -270,7 +285,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--warn)" }}>
                   These columns in your sheet aren&apos;t mapped to anything above:
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {unmappedHeaders.map((h) => (
                     <div key={h} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 13 }}>
                       <span>{h}</span>
@@ -301,6 +316,7 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
                 />
               </div>
             )}
+            </div>
           </section>
 
           <section className="card" aria-labelledby="pv" style={{ flex: "1 1 480px", minWidth: 0, overflow: "hidden" }}>
