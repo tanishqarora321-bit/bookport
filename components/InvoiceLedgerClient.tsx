@@ -9,6 +9,7 @@ import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
 
@@ -78,6 +79,22 @@ async function createCustomColumn(label: string, valueType: "number" | "text" | 
 }
 
 const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
+
+// Same component the Platform Admin panel uses for its own status dropdown
+// (components/AdminCompaniesClient.tsx) - a native <select> styled as a
+// pill still opens with plain, unstyled OS/browser chrome for its list
+// (no colors, no checkmark), which is what StatusMenuButton replaces with
+// a real floating menu rendered via a portal, escaping this table's own
+// overflow:auto instead of being clipped or overlapping it.
+const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "", label: "— set —", badgeClass: "b-neu" },
+  { value: "On Water", label: "On Water", badgeClass: "b-info" },
+  { value: "Released", label: "Released", badgeClass: "b-ok" },
+];
+const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
+  { value: "PAID", label: "PAID", badgeClass: "b-ok" },
+];
 const MAX_CUSTOM_COLUMNS = 10;
 
 function fmtDate(d: string | null) {
@@ -664,26 +681,24 @@ function InvoiceRow({
         <Td><span className="text-muted">—</span></Td>
       )}
       {inv.tracking_id ? (
-        <td className="px-3 py-2 whitespace-nowrap">
-          <ReleaseStatusSelect
+        <td className="px-3 py-3.5 whitespace-nowrap">
+          <StatusMenuButton
             value={inv.tracking?.release_status ?? ""}
-            onSave={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
+            options={RELEASE_STATUS_MENU_OPTIONS}
+            ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
+            onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
           />
         </td>
       ) : (
-        <td className="px-3 py-2"><StatusPill value={null} /></td>
+        <td className="px-3 py-3.5"><StatusPill value={null} /></td>
       )}
-      <td className="px-3 py-2">
-        <select
+      <td className="px-3 py-3.5">
+        <StatusMenuButton
           value={inv.paid_status}
-          onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
-          className={`text-xs px-2 py-1 rounded-full font-medium border-0 ${
-            inv.paid_status === "PAID" ? "bg-success-soft text-success" : "bg-critical-soft text-critical"
-          }`}
-        >
-          <option value="UNPAID">UNPAID</option>
-          <option value="PAID">PAID</option>
-        </select>
+          options={PAID_STATUS_MENU_OPTIONS}
+          ariaLabel={`Paid status for ${inv.invoice_number ?? inv.booking_number ?? ""}`}
+          onChange={(v) => patchInvoice(inv.id, { paid_status: v }).then((r) => onChange(r.invoice))}
+        />
       </td>
       <td className="px-3 py-2">
         <button onClick={handleDelete} className="text-xs text-cutoff hover:underline" title="Delete this invoice">
@@ -691,40 +706,6 @@ function InvoiceRow({
         </button>
       </td>
     </tr>
-  );
-}
-
-// The select IS the pill - it used to render a separate colored
-// StatusPill next to a plain gray <select>, which looked like two
-// controls showing conflicting info for the same value. One control now.
-const RELEASE_STATUS_COLORS: Record<string, string> = {
-  "on water": "bg-info-soft text-info",
-  released: "bg-success-soft text-success",
-};
-
-function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
-  const [saving, setSaving] = useState(false);
-  async function handleChange(v: string) {
-    setSaving(true);
-    try {
-      await onSave(v);
-    } finally {
-      setSaving(false);
-    }
-  }
-  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-surface-2 text-text-2";
-  return (
-    <select
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      disabled={saving}
-      className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
-    >
-      <option value="">— set —</option>
-      {RELEASE_STATUS_OPTIONS.map((s) => (
-        <option key={s} value={s}>{s}</option>
-      ))}
-    </select>
   );
 }
 
