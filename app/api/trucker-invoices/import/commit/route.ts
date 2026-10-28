@@ -200,12 +200,19 @@ export async function POST(req: NextRequest) {
     const bookingNumber = get("booking_number");
     const containerNumber = get("container_number");
 
+    // See the identical fallback and reasoning on the Forwarders import
+    // commit route - resolved once per row and used both for a brand-new
+    // booking's own erd AND, unconditionally, as this row's invoice's
+    // month_of_loading (including an extra container added to a booking
+    // that already existed before this row ran).
+    const rowErdRaw = get("erd");
+    const rowErd = rowErdRaw
+      ? (parseDateish(rowErdRaw) ?? parseMonthish(rowErdRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null)))?.toISOString().slice(0, 10) ?? null
+      : null;
+
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
     let targetId: string | null = null;
     let wasCreated = false;
-    // See the identical fallback (with full reasoning) on the Forwarders
-    // import commit route.
-    let newBookingErd: string | null = null;
 
     // When a container number is given, only an EXACT container match
     // counts as "already resolved" - see the identical comment in the
@@ -356,20 +363,13 @@ export async function POST(req: NextRequest) {
         status: "confirmed"
       };
       for (const key of TRUCKER_INVOICE_BOOKING_CREATE_KEYS) {
+        if (key === "erd") {
+          if (rowErd) bookingFields.erd = rowErd;
+          continue;
+        }
         const raw = get(key);
         if (!raw) continue;
-        if (key === "erd") {
-          // See the identical fallback chain (with full reasoning) on the
-          // Forwarders import commit route.
-          const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
-          const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
-          if (parsed) {
-            bookingFields.erd = parsed.toISOString().slice(0, 10);
-            newBookingErd = bookingFields.erd;
-          }
-        } else {
-          bookingFields[key] = raw;
-        }
+        bookingFields[key] = raw;
       }
 
       const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();
@@ -432,10 +432,11 @@ export async function POST(req: NextRequest) {
     const updates: Record<string, any> = {};
 
     // See the identical fix (with full reasoning) on the Forwarders import
-    // commit route - sync_container_to_tracking() never copies erd into
-    // tracking.eta, so the backfill below never fires for a brand-new
-    // booking.
-    if (newBookingErd) updates.month_of_loading = newBookingErd;
+    // commit route - applies to every branch (new booking, linked booking,
+    // or an extra container on a booking that already existed before this
+    // row ran), since sync_container_to_tracking() never copies erd into
+    // tracking.eta, so the backfill below never fires for any of them.
+    if (rowErd) updates.month_of_loading = rowErd;
 
     // Backfills Month of Loading from the live tracking row's ETA when
     // it's still blank - covers every branch above (matched, linked, or

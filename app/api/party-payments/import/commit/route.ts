@@ -13,6 +13,25 @@ function parseNumeric(v: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+// A real sheet's Currency column is just as likely to have the symbol
+// ("$", "€") as the code ("USD", "EUR") - matches the same 5 currencies
+// the manual +Add Payment form offers (see PartyPaymentHistory.tsx's
+// CURRENCIES list).
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  "$": "USD",
+  "€": "EUR",
+  "₹": "INR",
+  "£": "GBP",
+  "AED": "AED",
+  "د.إ": "AED",
+};
+function normalizeCurrency(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "USD";
+  if (CURRENCY_SYMBOLS[trimmed]) return CURRENCY_SYMBOLS[trimmed];
+  return trimmed.toUpperCase();
+}
+
 type Skip = { row: number; reason: string };
 
 // Bulk version of the single POST in app/api/party-payments/route.ts -
@@ -82,7 +101,7 @@ export async function POST(req: NextRequest) {
       company_id: companyId,
       party_id: partyId,
       amount,
-      currency: get("currency") || "USD",
+      currency: normalizeCurrency(get("currency")),
       fx_rate: fxRate,
       paid_on: paidOn,
       applies_to_year: appliesToYear,

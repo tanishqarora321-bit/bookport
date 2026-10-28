@@ -220,6 +220,22 @@ that field's meaning.
 Respond with ONLY a JSON object whose keys are exactly: ${JSON.stringify(keys)}
 and whose values are each either one of the exact header strings above, or null.`;
 
-  const result = await model.generateContent(prompt);
-  return JSON.parse(result.response.text());
+  // Gemini's free tier returns a plain 503 "experiencing high demand" often
+  // enough in practice that a single failed call used to make every field
+  // on an import screen show up as "Skip" with zero explanation (found
+  // live, confirmed in production logs as a genuine transient error on
+  // Google's side, not a bug in this code). A couple of short, quiet
+  // retries clears most of them before the caller ever has to fall back to
+  // its own "suggestionFailed" messaging.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      return JSON.parse(result.response.text());
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }

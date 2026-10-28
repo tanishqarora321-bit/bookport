@@ -170,7 +170,20 @@ export default function InvoiceLedgerClient({
     });
   }, [invoices, statusFilter, paidFilter]);
 
-  const visibleIds = useMemo(() => filtered.map((i) => i.id), [filtered]);
+  // Pagination matches Booking & Instructions' own (see BookingsClient) -
+  // a 399-row ledger rendered as one giant table was the real cause of the
+  // reported scroll problems (not just a CSS tweak - the table had far too
+  // many rows in the DOM at once for its scroll container to behave).
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, paidFilter, pageSize]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = page * pageSize;
+  const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
+
+  const visibleIds = useMemo(() => paginated.map((i) => i.id), [paginated]);
   const bulk = useBulkSelection(visibleIds);
   useEffect(() => {
     bulk.pruneToVisible(new Set(visibleIds));
@@ -304,7 +317,8 @@ export default function InvoiceLedgerClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="text-sm border-collapse min-w-[2300px]">
           <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-muted border-b border-line">
@@ -354,7 +368,7 @@ export default function InvoiceLedgerClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((inv) => (
+            {paginated.map((inv) => (
               <InvoiceRow
                 key={inv.id}
                 inv={inv}
@@ -394,6 +408,29 @@ export default function InvoiceLedgerClient({
             </tfoot>
           )}
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-line">
+        <span className="text-xs text-muted tabular-nums">
+          {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+        </span>
+        <div className="flex items-center gap-2.5">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            Rows per page
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="border border-line rounded-lg px-2 py-1 text-xs bg-surface">
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Previous
+          </button>
+          <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Next
+          </button>
+        </div>
+      </div>
       </div>
 
       {enteringInvoice && (
@@ -564,7 +601,7 @@ function InvoiceRow({
         <select
           value={inv.paid_status}
           onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
-          className={`text-xs px-2 py-1 rounded-lg font-medium border-0 ${
+          className={`text-xs px-2 py-1 rounded-full font-medium border-0 ${
             inv.paid_status === "PAID" ? "bg-success-soft text-success" : "bg-critical-soft text-critical"
           }`}
         >

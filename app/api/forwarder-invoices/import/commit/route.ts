@@ -199,14 +199,27 @@ export async function POST(req: NextRequest) {
     const bookingNumber = get("booking_number");
     const containerNumber = get("container_number");
 
+    // Resolved once per row, used two ways below: it becomes the new
+    // booking's own erd when this row is the one that creates it, AND it
+    // always goes straight onto the invoice THIS row touches as
+    // month_of_loading - including a second (or third...) container added
+    // to an ALREADY-existing booking, which never goes through the
+    // "create a new booking" branch at all. Without the second use, a
+    // sheet with the same booking number repeated for multiple containers
+    // (an ordinary, correct multi-container booking - see the byBooking
+    // comment below) left every container after the first with a blank
+    // Month of Loading on its own invoice, even though every row plainly
+    // had the value and the shared booking's own erd was set correctly
+    // (found live: a real statement where only the first of 2 containers
+    // under one booking number showed a Month of Loading afterward).
+    const rowErdRaw = get("erd");
+    const rowErd = rowErdRaw
+      ? (parseDateish(rowErdRaw) ?? parseMonthish(rowErdRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null)))?.toISOString().slice(0, 10) ?? null
+      : null;
+
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
     let targetId: string | null = null;
     let wasCreated = false;
-    // Set below only when this row creates a brand-new booking with a
-    // resolved ERD - see where `updates` is built for why this can't just
-    // go through the generic per-field mapping loop (erd is explicitly
-    // "new bookings only" and skipped there).
-    let newBookingErd: string | null = null;
 
     // When a container number is given, only an EXACT container match
     // counts as "already resolved" - with multiple rows in the same
@@ -394,23 +407,13 @@ export async function POST(req: NextRequest) {
         status: "confirmed"
       };
       for (const key of FORWARDER_INVOICE_BOOKING_CREATE_KEYS) {
+        if (key === "erd") {
+          if (rowErd) bookingFields.erd = rowErd;
+          continue;
+        }
         const raw = get(key);
         if (!raw) continue;
-        if (key === "erd") {
-          // A bare month name ("JANUARY", no year of its own) needs a year
-          // from somewhere: this row's own Invoice Date first (most
-          // specific to this exact charge), then the Working Year the user
-          // had selected while importing (the one deliberate fallback -
-          // nothing here ever invents a year with no signal at all).
-          const invoiceYearRef = parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
-          const parsed = parseDateish(raw) ?? parseMonthish(raw, invoiceYearRef);
-          if (parsed) {
-            bookingFields.erd = parsed.toISOString().slice(0, 10);
-            newBookingErd = bookingFields.erd;
-          }
-        } else {
-          bookingFields[key] = raw;
-        }
+        bookingFields[key] = raw;
       }
 
       const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();
@@ -482,16 +485,19 @@ export async function POST(req: NextRequest) {
 
     const updates: Record<string, any> = {};
 
-    // A brand-new booking's own Month of Loading/ERD column goes straight
-    // onto its invoice shell's month_of_loading too - the tracking.eta
-    // backfill below never fires for it (sync_container_to_tracking()
-    // never copies erd into tracking.eta; eta is only ever set later, by
-    // hand, on the Shipment Tracking page), so without this the ledger's
-    // Month of Loading stayed blank forever even though the sheet had the
-    // exact value for it right there (found live: a real forwarder
-    // statement with "MONTH OF LOADING" mapped and matched, every new
-    // booking's invoice still showed no Month of Loading).
-    if (newBookingErd) updates.month_of_loading = newBookingErd;
+    // This row's own Month of Loading/ERD goes straight onto the invoice
+    // IT touches, regardless of which branch above handled it - a brand
+    // new booking, an existing one being linked, or (just as importantly)
+    // an extra container added to a booking that already existed before
+    // this row ran. The tracking.eta backfill below never fires for any of
+    // these (sync_container_to_tracking() never copies erd into
+    // tracking.eta; eta is only ever set later, by hand, on Shipment
+    // Tracking), so without this a booking with 2+ containers under one
+    // number left every invoice after the first with a blank Month of
+    // Loading, even though every row plainly had the value (found live: a
+    // real statement where only the first of 2 containers under one
+    // booking number ended up with a Month of Loading on its invoice).
+    if (rowErd) updates.month_of_loading = rowErd;
 
     // Backfills Month of Loading from the live tracking row's ETA when
     // it's still blank - covers every branch above (matched, linked, or
