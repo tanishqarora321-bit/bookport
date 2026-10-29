@@ -89,13 +89,32 @@ denied` lines on git commands are harmless noise — ignore them.
   exactly; import maps all columns incl. ETA/Status and writes tracking; booking
   matching + single/multiple-booking creation like Forwarders.
 - **Booking/Multiple split:** fixed to count containers.
+- **Import never drops a row (2026-10-30):** forwarder & trucker commit routes
+  now create the invoice shell directly as a fallback when an existing
+  booking+container's shell is missing, instead of skipping. (Found via QFS:
+  4 of 260 trucker rows were silently dropped because their containers already
+  existed from the forwarder import.)
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 
+## Import matching rule (owner requirement — must hold for ALL party imports)
+On import, match each row by **Booking Number + Container Number**:
+- If that combo already exists (Booking & Instructions OR Multiple Bookings),
+  **assign the party** (forwarder/trucker/supplier/buyer name) to that existing
+  booking — do NOT create a duplicate booking.
+- If it doesn't exist, create the booking (lands in B&I if single-container,
+  Multiple Bookings if the number has >1 container).
+- Only create a genuinely separate entry when the SAME booking+container combo
+  is deliberately reused with a different invoice number.
+Verified live for **Forwarder + Trucker** (assign-not-duplicate, idempotent on
+re-import). **Supplier + Buyer imports do NOT yet follow this** (older
+structure, no link-existing branch) — align them when doing those modules.
+
 ## Likely next work
-- Bring **Suppliers** and **Buyers** modules to the same parity (list redesign,
-  ledger sticky columns/filters/pagination, import all-columns + ETA/Status
-  where applicable). Supplier/Buyer ledgers + imports still use the older layout.
+- Bring **Suppliers** and **Buyers** modules to the same parity: list redesign,
+  ledger (sticky blue Booking/Container columns, merged filters, pagination,
+  StatusMenuButton), import (all columns mappable + ETA/Status, and the
+  booking+container match-or-create rule above, incl. the no-drop fallback).
 - Any further booking visibility / import reconciliation requests.
 
 ## Gotchas
@@ -103,6 +122,11 @@ denied` lines on git commands are harmless noise — ignore them.
   running balance, NOT a sum of the charge columns — the app sums the mapped
   charge columns (correct), so it will differ from that "Total" column. Map the
   real charge columns; don't map "Total".
+- **Writing to the real company's data (955acd8e) is gated** by the sandbox's
+  "modify shared resources" guard — direct prod inserts get blocked and need the
+  owner's explicit OK. Prefer fixing via the app's own import/UI path, or ask.
 - Payment History fetch can take a moment; in tests wait for it before asserting.
 - `body`/`html` are locked to the viewport (`overflow:hidden`) so only the app's
   own scroll regions scroll — keep that when adding full-height pages.
+- Test only against the test company `00000000-0000-0000-0000-000000000001` with
+  ZZTEST markers; never leave test rows in the real company.
