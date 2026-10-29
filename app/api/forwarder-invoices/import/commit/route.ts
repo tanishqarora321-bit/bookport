@@ -386,8 +386,32 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       targetId = linkedInvoice?.id ?? null;
       if (!targetId) {
-        skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but couldn't locate its invoice to fill in charges` });
-        return;
+        // The sync trigger normally creates a pending shell when we re-touch
+        // the container above, but in some states it leaves none, which used
+        // to silently skip (and drop) a real booking+container the user is
+        // importing. Create the shell directly instead, linked to the
+        // container's live tracking row when there is one (so ETA/Status
+        // still work), avoiding the tracking_id unique index when another
+        // invoice already holds it. Mirrors the trucker import's fallback.
+        let trackingId: string | null = null;
+        if (containerNumber) {
+          const { data: trk } = await supabase.from("tracking").select("id").eq("company_id", companyId).eq("booking_number", bookingNumber).eq("container_number", containerNumber).limit(1).maybeSingle();
+          trackingId = trk?.id ?? null;
+          if (trackingId) {
+            const { data: taken } = await supabase.from("forwarder_invoices").select("id").eq("tracking_id", trackingId).limit(1).maybeSingle();
+            if (taken) trackingId = null;
+          }
+        }
+        const { data: created, error: createErr } = await supabase
+          .from("forwarder_invoices")
+          .insert({ company_id: companyId, forwarder_id: forwarderId, tracking_id: trackingId, booking_number: bookingNumber, container_number: containerNumber || null, pol: get("pol") || null, pod: get("pod") || null, shipping_line: get("carrier") || null })
+          .select("id")
+          .single();
+        if (createErr || !created) {
+          skipped.push({ row: sheetRow, reason: `Forwarder linked to "${bookingNumber}", but couldn't create its invoice to fill in charges: ${createErr?.message ?? "insert failed"}` });
+          return;
+        }
+        targetId = created.id;
       }
       wasCreated = true;
       // So a later row for the same booking (e.g. a second container) in
@@ -395,7 +419,7 @@ export async function POST(req: NextRequest) {
       // of redundantly re-linking.
       const key = bookingNumber.toLowerCase();
       if (!byBooking.has(key)) byBooking.set(key, []);
-      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null, invoice_number: null });
+      byBooking.get(key)!.push({ id: targetId!, container_number: containerNumber || null, invoice_number: null });
     } else {
       // Booking Number doesn't exist anywhere, OR it does but the user
       // explicitly chose "add" rather than let this reassign it away from

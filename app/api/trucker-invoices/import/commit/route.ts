@@ -345,13 +345,40 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       targetId = linkedInvoice?.id ?? null;
       if (!targetId) {
-        skipped.push({ row: sheetRow, reason: `Trucker linked to "${bookingNumber}", but couldn't locate its invoice to fill in charges` });
-        return;
+        // The sync trigger normally creates a pending shell when we re-touch
+        // the container above, but in some states it leaves none - a
+        // container that already existed (e.g. created by the forwarder
+        // import, with repeat invoices on it) has been seen live to end up
+        // with the trucker assigned but no trucker invoice, so these rows
+        // were silently skipped and dropped from the ledger. Rather than
+        // skip a booking+container the user is genuinely importing, create
+        // the shell directly here, linked to the container's live tracking
+        // row when there is one (so ETA/Status still work), avoiding the
+        // tracking_id unique index when another invoice already holds it.
+        let trackingId: string | null = null;
+        if (containerNumber) {
+          const { data: trk } = await supabase.from("tracking").select("id").eq("company_id", companyId).eq("booking_number", bookingNumber).eq("container_number", containerNumber).limit(1).maybeSingle();
+          trackingId = trk?.id ?? null;
+          if (trackingId) {
+            const { data: taken } = await supabase.from("trucker_invoices").select("id").eq("tracking_id", trackingId).limit(1).maybeSingle();
+            if (taken) trackingId = null;
+          }
+        }
+        const { data: created, error: createErr } = await supabase
+          .from("trucker_invoices")
+          .insert({ company_id: companyId, trucker_id: truckerId, tracking_id: trackingId, booking_number: bookingNumber, container_number: containerNumber || null, location: get("location") || null })
+          .select("id")
+          .single();
+        if (createErr || !created) {
+          skipped.push({ row: sheetRow, reason: `Trucker linked to "${bookingNumber}", but couldn't create its invoice to fill in charges: ${createErr?.message ?? "insert failed"}` });
+          return;
+        }
+        targetId = created.id;
       }
       wasCreated = true;
       const key = bookingNumber.toLowerCase();
       if (!byBooking.has(key)) byBooking.set(key, []);
-      byBooking.get(key)!.push({ id: targetId, container_number: containerNumber || null, invoice_number: null });
+      byBooking.get(key)!.push({ id: targetId!, container_number: containerNumber || null, invoice_number: null });
     } else {
       // Booking Number doesn't exist anywhere, OR it does but the user
       // explicitly chose "add" rather than let this reassign it away from
