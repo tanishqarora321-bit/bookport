@@ -4,7 +4,8 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import {
   TRUCKER_INVOICE_DATE_KEYS,
   TRUCKER_INVOICE_NUMERIC_KEYS,
-  TRUCKER_INVOICE_BOOKING_CREATE_KEYS
+  TRUCKER_INVOICE_BOOKING_CREATE_KEYS,
+  TRUCKER_INVOICE_TRACKING_KEYS
 } from "@/lib/trucker-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
@@ -453,23 +454,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Backfills Month of Loading from the live tracking row's ETA when
-    // it's still blank - covers every branch above (matched, linked, or
-    // newly created). See the identical fix on the Forwarders import for
-    // why: a charges-only sheet has no Month of Loading column of its
-    // own to map, so without this it stays blank forever even once the
-    // booking has a real ETA.
+    // ETA and Status (live) live on the invoice's `tracking` row, not on
+    // trucker_invoices - collected here and written onto that tracking row
+    // below via tracking_id. Same as the Forwarders import.
+    const trackingUpdates: Record<string, any> = {};
+    if (colIndex["eta"] !== undefined) {
+      const etaRaw = get("eta");
+      if (etaRaw) {
+        const parsedEta = parseDateish(etaRaw) ?? parseMonthish(etaRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null));
+        if (parsedEta) trackingUpdates.eta = parsedEta.toISOString().slice(0, 10);
+      }
+    }
+    if (colIndex["release_status"] !== undefined) {
+      const statusRaw = get("release_status");
+      if (statusRaw) {
+        trackingUpdates.release_status = statusRaw.trim().toLowerCase() === "released" ? "Released" : "On Water";
+      }
+    }
+
+    // Read the invoice's tracking link + current month once - used to apply
+    // the ETA/Status above and to backfill Month of Loading from the live
+    // tracking ETA when the sheet didn't carry one. See the Forwarders import.
+    let trackingChanged = false;
     {
       const { data: existingRow } = await supabase.from("trucker_invoices").select("tracking_id, month_of_loading").eq("id", targetId).single();
-      if (existingRow && !existingRow.month_of_loading && existingRow.tracking_id) {
-        const { data: trackingRow } = await supabase.from("tracking").select("eta").eq("id", existingRow.tracking_id).single();
-        if (trackingRow?.eta) updates.month_of_loading = trackingRow.eta.slice(0, 10);
+      const trackingId = existingRow?.tracking_id ?? null;
+
+      if (Object.keys(trackingUpdates).length > 0 && trackingId) {
+        const { error: trackingError } = await supabase.from("tracking").update(trackingUpdates).eq("id", trackingId);
+        if (!trackingError) trackingChanged = true;
+      }
+
+      if (existingRow && !existingRow.month_of_loading && !updates.month_of_loading && trackingId) {
+        let eta: string | null = trackingUpdates.eta ?? null;
+        if (!eta) {
+          const { data: trackingRow } = await supabase.from("tracking").select("eta").eq("id", trackingId).single();
+          eta = trackingRow?.eta ?? null;
+        }
+        if (eta) updates.month_of_loading = String(eta).slice(0, 10);
       }
     }
 
     const customCharges: Record<string, number | string> = {};
     for (const [key] of Object.entries(mapping)) {
-      if (key === "booking_number" || key === "container_number" || TRUCKER_INVOICE_BOOKING_CREATE_KEYS.has(key)) continue;
+      if (key === "booking_number" || key === "container_number" || TRUCKER_INVOICE_BOOKING_CREATE_KEYS.has(key) || TRUCKER_INVOICE_TRACKING_KEYS.has(key)) continue;
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
@@ -502,7 +530,7 @@ export async function POST(req: NextRequest) {
       updates.custom_charges = { ...(existing?.custom_charges ?? {}), ...customCharges };
     }
 
-    if (Object.keys(updates).length === 0 && !wasCreated) {
+    if (Object.keys(updates).length === 0 && !wasCreated && !trackingChanged) {
       skipped.push({ row: sheetRow, reason: "No mapped charge fields had a value" });
       return;
     }

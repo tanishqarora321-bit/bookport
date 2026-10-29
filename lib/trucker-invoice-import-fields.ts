@@ -16,6 +16,12 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
   // short of opening the booking there and editing it by hand. Mapping
   // this lets the sheet's own date (if it has one) carry straight over.
   { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
+  // eta and release_status live on the `tracking` row this invoice points
+  // at (read live into the ledger's ETA / Status columns), not on
+  // trucker_invoices - the commit route writes these onto that tracking row
+  // via the invoice's tracking_id. Same as the Forwarders import.
+  { key: "eta", label: "ETA (live)" },
+  { key: "release_status", label: "Status (live)" },
   { key: "invoice_number", label: "Invoice Number" },
   { key: "invoice_date", label: "Invoice Date" },
   { key: "invoice_due_date", label: "Due Date" },
@@ -34,6 +40,9 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
 // booking column), so it's intentionally excluded here unlike
 // forwarder's pol/pod/carrier.
 export const TRUCKER_INVOICE_BOOKING_CREATE_KEYS = new Set<string>(["erd"]);
+
+// Written onto the invoice's `tracking` row, not trucker_invoices itself.
+export const TRUCKER_INVOICE_TRACKING_KEYS = new Set(["eta", "release_status"]);
 
 export const TRUCKER_INVOICE_DATE_KEYS = new Set(["invoice_date", "invoice_due_date"]);
 export const TRUCKER_INVOICE_NUMERIC_KEYS = new Set([

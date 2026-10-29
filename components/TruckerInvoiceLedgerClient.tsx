@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus } from "lucide-react";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
@@ -10,6 +10,7 @@ import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
 import BackButton from "@/components/ui/BackButton";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
 
@@ -76,7 +77,32 @@ async function createCustomColumn(label: string, valueType: "number" | "text" | 
 }
 
 const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
+
+// Mirrors the Forwarders ledger exactly - a real floating menu (rendered
+// via a portal, so it escapes the table's overflow:auto) in place of a
+// native <select>, which can't be styled past a plain OS list.
+const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "", label: "— set —", badgeClass: "b-neu" },
+  { value: "On Water", label: "On Water", badgeClass: "b-info" },
+  { value: "Released", label: "Released", badgeClass: "b-ok" },
+];
+const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
+  { value: "PAID", label: "PAID", badgeClass: "b-ok" },
+];
 const MAX_CUSTOM_COLUMNS = 10;
+
+// Fixed per-column widths (table-layout:fixed) so the sticky Booking/
+// Container Number columns' `left` offsets never drift - same approach and
+// reasoning as the Forwarders ledger. Order matches the <colgroup>/<thead>:
+// Booking Number, Container Number, Month of Loading, Location, Invoice
+// Number, Invoice Date, Due Date, Trucking, Fuel Surcharge, Chassis Rental,
+// Stop Off, Chassis Split, Misc Charges, [...custom], Total, Total (USD),
+// ETA (live), Status (live), Paid, Delete.
+const LEDGER_COLUMN_WIDTHS = [160, 180, 165, 160, 150, 120, 110, 110, 120, 120, 100, 110, 110];
+const LEDGER_TRAILING_COLUMN_WIDTHS = [110, 130, 120, 150, 100, 70];
+const CHECKBOX_COLUMN_WIDTH = 40;
+const CUSTOM_COLUMN_WIDTH = 130;
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -127,6 +153,9 @@ export default function TruckerInvoiceLedgerClient({
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [lineFilter, setLineFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
@@ -159,15 +188,47 @@ export default function TruckerInvoiceLedgerClient({
   }
 
 
+  // Month/Location filter options derived from this trucker's own invoices,
+  // same "derive from live data" approach as the Forwarders ledger.
+  const monthKey = (d: string | null) => (d ? d.slice(0, 7) : null); // "YYYY-MM"
+  const monthOptions = useMemo(() => {
+    const keys = new Set(invoices.map((i) => monthKey(i.month_of_loading)).filter((k): k is string => !!k));
+    return Array.from(keys).sort().reverse();
+  }, [invoices]);
+  const lineOptions = useMemo(
+    () => Array.from(new Set(invoices.map((i) => i.location).filter((l): l is string => !!l))).sort(),
+    [invoices]
+  );
+
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return invoices.filter((inv) => {
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
+      if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
+      if (lineFilter !== "all" && inv.location !== lineFilter) return false;
+      if (q) {
+        const haystack = [inv.booking_number, inv.container_number, inv.invoice_number, inv.location]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [invoices, statusFilter, paidFilter]);
+  }, [invoices, statusFilter, paidFilter, monthFilter, lineFilter, search]);
 
-  const visibleIds = useMemo(() => filtered.map((i) => i.id), [filtered]);
+  // Pagination matches the Forwarders ledger / Booking & Instructions.
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, paidFilter, monthFilter, lineFilter, search, pageSize]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = page * pageSize;
+  const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
+
+  const visibleIds = useMemo(() => paginated.map((i) => i.id), [paginated]);
   const bulk = useBulkSelection(visibleIds);
   useEffect(() => {
     bulk.pruneToVisible(new Set(visibleIds));
@@ -226,6 +287,11 @@ export default function TruckerInvoiceLedgerClient({
   }, {} as Record<string, number>);
 
   const columnCount = 19 + customColumns.length;
+  const tableWidth =
+    (isAdmin ? CHECKBOX_COLUMN_WIDTH : 0) +
+    LEDGER_COLUMN_WIDTHS.reduce((s, w) => s + w, 0) +
+    customColumns.length * CUSTOM_COLUMN_WIDTH +
+    LEDGER_TRAILING_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -282,18 +348,64 @@ export default function TruckerInvoiceLedgerClient({
       <PartyPaymentHistory partyId={truckerId} totalInvoicedUsd={totalUsd} />
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-line shrink-0">
+        <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
+          <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
+          <span className="sr-only">Search invoices</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search booking #, container #, invoice #…"
+            style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
+          />
+        </label>
+        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
+          <option value="all">All Months</option>
+          {monthOptions.map((k) => (
+            <option key={k} value={k}>
+              {new Date(`${k}-01`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+            </option>
+          ))}
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
           <option value="all">All Status</option>
           {RELEASE_STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
           <option value="all">All Paid</option>
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
         </select>
+        {lineOptions.length > 0 && (
+          <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Location" className="select select-s" style={{ width: 150 }}>
+            <option value="all">All Locations</option>
+            {lineOptions.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        )}
+        {(statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || lineFilter !== "all" || search) && (
+          <button
+            onClick={() => {
+              setStatusFilter("all");
+              setPaidFilter("all");
+              setMonthFilter("all");
+              setLineFilter("all");
+              setSearch("");
+            }}
+            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13 }}
+          >
+            Clear filters
+          </button>
+        )}
+        <div style={{ flex: "1 1 0" }} />
+        <span className="lbl num" aria-live="polite">
+          <b style={{ color: "var(--tx)" }}>{filtered.length}</b> invoice{filtered.length === 1 ? "" : "s"}
+        </span>
       </div>
 
       {isAdmin && (
@@ -306,17 +418,29 @@ export default function TruckerInvoiceLedgerClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
-        <table className="text-sm border-collapse min-w-[2100px]">
-          <thead className="sticky top-0 bg-surface-2 z-10">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <table className="text-sm border-collapse" style={{ tableLayout: "fixed", width: tableWidth, minWidth: "100%" }}>
+          <colgroup>
+            {isAdmin && <col style={{ width: CHECKBOX_COLUMN_WIDTH }} />}
+            {LEDGER_COLUMN_WIDTHS.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+            {customColumns.map((col) => (
+              <col key={col.key} style={{ width: CUSTOM_COLUMN_WIDTH }} />
+            ))}
+            {LEDGER_TRAILING_COLUMN_WIDTHS.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+          <thead>
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
-                <Th>
+                <th className="px-3 py-2.5 whitespace-nowrap font-medium sticky top-0 left-0 z-20 bg-surface-2">
                   <input type="checkbox" aria-label="Select all invoices" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
-                </Th>
+                </th>
               )}
-              <Th>Booking Number</Th>
-              <Th>Container Number</Th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 ${isAdmin ? "left-10" : "left-0"}`}>Booking Number</th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>Container Number</th>
               <Th>Month of Loading</Th>
               <Th>Location</Th>
               <Th>Invoice Number</Th>
@@ -353,7 +477,7 @@ export default function TruckerInvoiceLedgerClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((inv) => (
+            {paginated.map((inv) => (
               <InvoiceRow
                 key={inv.id}
                 inv={inv}
@@ -393,6 +517,29 @@ export default function TruckerInvoiceLedgerClient({
             </tfoot>
           )}
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-line">
+        <span className="text-xs text-muted tabular-nums">
+          {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+        </span>
+        <div className="flex items-center gap-2.5">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            Rows per page
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="border border-line rounded-lg px-2 py-1 text-xs bg-surface">
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Previous
+          </button>
+          <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Next
+          </button>
+        </div>
+      </div>
       </div>
       </div>
 
@@ -449,10 +596,10 @@ export default function TruckerInvoiceLedgerClient({
 }
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
+  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 whitespace-nowrap text-text-2">{children}</td>;
+  return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
 }
 
 // ---------------- One invoice row ----------------
@@ -480,14 +627,14 @@ function InvoiceRow({
     onDeleted();
   }
   return (
-    <tr className="border-b border-line hover:bg-surface-2">
+    <tr className="group border-b border-line hover:bg-surface-2">
       {isAdmin && (
-        <td className="px-3 py-2">
+        <td className="px-3 py-3.5 sticky left-0 z-10 bg-surface group-hover:bg-surface-2 w-10">
           <input type="checkbox" aria-label={`Select invoice ${inv.invoice_number || inv.booking_number || ""}`} checked={selected} onChange={onToggleSelect} />
         </td>
       )}
-      <Td>{inv.booking_number || "—"}</Td>
-      <Td>{inv.container_number || "—"}</Td>
+      <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent ${isAdmin ? "left-10" : "left-0"}`}>{inv.booking_number || "—"}</td>
+      <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>{inv.container_number || "—"}</td>
       <Td>{inv.month_of_loading ? new Date(inv.month_of_loading).toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : "—"}</Td>
       <EditableCell value={inv.location} onSave={(v) => patchInvoice(inv.id, { location: v }).then((r) => onChange(r.invoice))} />
       {inv.invoice_number ? (
@@ -548,26 +695,24 @@ function InvoiceRow({
         <Td><span className="text-muted">—</span></Td>
       )}
       {inv.tracking_id ? (
-        <td className="px-3 py-2 whitespace-nowrap">
-          <ReleaseStatusSelect
+        <td className="px-3 py-3.5 whitespace-nowrap">
+          <StatusMenuButton
             value={inv.tracking?.release_status ?? ""}
-            onSave={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
+            options={RELEASE_STATUS_MENU_OPTIONS}
+            ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
+            onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
           />
         </td>
       ) : (
-        <td className="px-3 py-2"><StatusPill value={null} /></td>
+        <td className="px-3 py-3.5"><StatusPill value={null} /></td>
       )}
-      <td className="px-3 py-2">
-        <select
+      <td className="px-3 py-3.5">
+        <StatusMenuButton
           value={inv.paid_status}
-          onChange={(e) => patchInvoice(inv.id, { paid_status: e.target.value }).then((r) => onChange(r.invoice))}
-          className={`text-xs px-2 py-1 rounded-lg font-medium border-0 ${
-            inv.paid_status === "PAID" ? "bg-success-soft text-success" : "bg-critical-soft text-critical"
-          }`}
-        >
-          <option value="UNPAID">UNPAID</option>
-          <option value="PAID">PAID</option>
-        </select>
+          options={PAID_STATUS_MENU_OPTIONS}
+          ariaLabel={`Paid status for ${inv.invoice_number ?? inv.booking_number ?? ""}`}
+          onChange={(v) => patchInvoice(inv.id, { paid_status: v }).then((r) => onChange(r.invoice))}
+        />
       </td>
       <td className="px-3 py-2">
         <button onClick={handleDelete} className="text-xs text-cutoff hover:underline" title="Delete this invoice">
@@ -575,40 +720,6 @@ function InvoiceRow({
         </button>
       </td>
     </tr>
-  );
-}
-
-// The select IS the pill - same reasoning as the Forwarders ledger: a
-// separate colored StatusPill next to a plain gray <select> looked like
-// two controls showing conflicting info for the same value.
-const RELEASE_STATUS_COLORS: Record<string, string> = {
-  "on water": "bg-info-soft text-info",
-  released: "bg-success-soft text-success",
-};
-
-function ReleaseStatusSelect({ value, onSave }: { value: string; onSave: (v: string) => Promise<any> }) {
-  const [saving, setSaving] = useState(false);
-  async function handleChange(v: string) {
-    setSaving(true);
-    try {
-      await onSave(v);
-    } finally {
-      setSaving(false);
-    }
-  }
-  const colorClass = RELEASE_STATUS_COLORS[value.toLowerCase()] ?? "bg-surface-2 text-text-2";
-  return (
-    <select
-      value={value}
-      onChange={(e) => handleChange(e.target.value)}
-      disabled={saving}
-      className={`text-xs font-medium px-2 py-1 rounded-full border-0 ${colorClass}`}
-    >
-      <option value="">— set —</option>
-      {RELEASE_STATUS_OPTIONS.map((s) => (
-        <option key={s} value={s}>{s}</option>
-      ))}
-    </select>
   );
 }
 
