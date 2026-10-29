@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Ship, CheckCircle2, Search } from "lucide-react";
+import { Ship, CheckCircle2, Search, ChevronUp, ChevronDown } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
+import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Forwarder = {
@@ -23,6 +24,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
   const [forwarders, setForwarders] = useState(initialForwarders);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -91,6 +93,10 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
         (f.short_code ?? "").toLowerCase().includes(q) ||
         (f.country ?? "").toLowerCase().includes(q)
     );
+  const sorted = [...visible].sort((a, b) =>
+    sortDir === "asc" ? a.legal_name.localeCompare(b.legal_name) : b.legal_name.localeCompare(a.legal_name)
+  );
+  const missingEmailCount = visible.filter((f) => !f.email).length;
 
   const visibleIds = visible.map((f) => f.id);
   const bulk = useBulkSelection(visibleIds);
@@ -152,12 +158,12 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">Forwarders</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Forwarders</h1>
+          <p className="text-sm text-muted mt-0.5">Freight forwarders — invoices, charges and booking instructions email</p>
+        </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-text-2">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-            Show removed
-          </label>
+          <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
           <Link href="/forwarders/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
@@ -170,7 +176,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
+      <div className="flex gap-3 mb-4 shrink-0">
         <StatCard icon={Ship} label="Total Forwarders" value={forwarders.length} />
         <StatCard icon={CheckCircle2} label="Active" value={forwarders.filter((f) => f.is_active).length} tone="success" />
       </div>
@@ -214,27 +220,36 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
         </div>
       )}
 
-      <div className="relative mb-3 max-w-xs">
-        <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
-        <input
-          placeholder="Search forwarders…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
-        />
-      </div>
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line shrink-0">
+          <div className="relative flex-1 min-w-[220px] max-w-xs">
+            <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+            <input
+              placeholder="Search name, code, country"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
+            />
+          </div>
+          {missingEmailCount > 0 && (
+            <span className="badge b-warn" style={{ height: "auto", padding: "6px 10px", fontSize: 13, fontWeight: 500 }}>
+              {missingEmailCount} forwarder{missingEmailCount === 1 ? "" : "s"} {missingEmailCount === 1 ? "has" : "have"} no email
+              — Send Instructions will ask for a recipient
+            </span>
+          )}
+        </div>
 
-      {isAdmin && (
-        <BulkActionBar
-          count={bulk.selectedCount}
-          itemLabel="forwarder"
-          onDeleteClick={() => setBulkConfirming(true)}
-          onClear={bulk.clear}
-          deleting={bulkDeleting}
-        />
-      )}
+        {isAdmin && (
+          <BulkActionBar
+            count={bulk.selectedCount}
+            itemLabel="forwarder"
+            onDeleteClick={() => setBulkConfirming(true)}
+            onClear={bulk.clear}
+            deleting={bulkDeleting}
+          />
+        )}
 
-      <div className="bg-surface border border-line rounded-xl">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-muted border-b border-line">
@@ -243,17 +258,28 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
                   <input type="checkbox" aria-label="Select all forwarders" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
                 </th>
               )}
-              <th className="px-3 py-2">Forwarder Name</th>
+              <th className="px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-sort={sortDir === "asc" ? "ascending" : "descending"}
+                  className="inline-flex items-center gap-1 hover:text-ink"
+                >
+                  Forwarder Name
+                  {sortDir === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              </th>
               <th className="px-3 py-2">Short Code</th>
               <th className="px-3 py-2">Country</th>
               <th className="px-3 py-2">Address</th>
+              <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2"></th>
               <th className="px-3 py-2"></th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((f) => (
+            {sorted.map((f) => (
               <tr key={f.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!f.is_active ? "opacity-40" : ""}`}>
                 {isAdmin && (
                   <td className="px-3 py-2">
@@ -266,10 +292,21 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
                   </td>
                 )}
                 <td className="px-3 py-2 font-medium text-ink">{f.legal_name}</td>
-                <td className="px-3 py-2 text-text-2">{f.short_code || "—"}</td>
+                <td className="px-3 py-2">
+                  {f.short_code ? (
+                    <span className="inline-flex items-center border border-line rounded-md px-2 py-0.5 text-xs font-mono text-text-2">
+                      {f.short_code}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-text-2">{f.country || "—"}</td>
-                <td className="px-3 py-2 text-muted max-w-[260px] truncate" title={f.address ?? ""}>
+                <td className="px-3 py-2 text-muted max-w-[220px] truncate" title={f.address ?? ""}>
                   {f.address || "—"}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {f.email ? <span className="text-text-2">{f.email}</span> : <span className="badge b-warn">No email</span>}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
                   <button onClick={() => setEditing(f)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1">
@@ -281,9 +318,9 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
                     </button>
                   )}
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 whitespace-nowrap">
                   <Link href={`/forwarders/${f.id}/invoices`} className="text-xs text-accent underline">
-                    Details →
+                    Invoices →
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -316,6 +353,11 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
             hint={forwarders.length === 0 ? 'Click "+ New Forwarder" above to add one.' : "Try a different search term."}
           />
         )}
+        </div>
+
+        <div className="px-3 py-2.5 text-xs text-muted border-t border-line shrink-0">
+          Removing keeps their bookings and invoices intact — restore any time from &quot;Show removed&quot;.
+        </div>
       </div>
 
       {editing && (

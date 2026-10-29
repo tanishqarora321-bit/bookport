@@ -17,7 +17,8 @@ type Payment = {
 const CURRENCIES = ["USD", "INR", "EUR", "GBP", "AED"];
 
 function fmtMoney(n: number, currency: string) {
-  return `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const amount = n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return currency === "USD" ? `$${amount}` : `${currency} ${amount}`;
 }
 
 // Shared by Forwarders/Suppliers/Truckers' invoice ledgers - a running
@@ -64,7 +65,7 @@ export default function PartyPaymentHistory({
   const totalPaidUsd = (payments ?? []).reduce((s, p) => s + p.amount * (p.fx_rate || 1), 0);
   const netOwedUsd = totalInvoicedUsd - totalPaidUsd;
 
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 4;
   const pageCount = Math.max(1, Math.ceil((payments ?? []).length / PAGE_SIZE));
   const pageStart = page * PAGE_SIZE;
   const paginatedPayments = (payments ?? []).slice(pageStart, pageStart + PAGE_SIZE);
@@ -131,14 +132,32 @@ export default function PartyPaymentHistory({
           <h2 id="payment-history-heading" className="text-base font-semibold text-ink">Payment History</h2>
           <p className="text-xs text-muted mt-0.5">Payments made to this party, counted against the invoiced total</p>
         </div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          aria-controls="payment-history-body"
-          className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium shrink-0"
-        >
-          {expanded ? "Hide ▲" : "Show ▼"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {expanded && (
+            <>
+              <button
+                onClick={() => setAdding(true)}
+                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
+              >
+                + Add Payment
+              </button>
+              <button
+                onClick={() => setImporting(true)}
+                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
+              >
+                ↥ Import Excel
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            aria-expanded={expanded}
+            aria-controls="payment-history-body"
+            className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
+          >
+            {expanded ? "Hide ▲" : "Show ▼"}
+          </button>
+        </div>
       </div>
 
       {expanded && (
@@ -213,7 +232,7 @@ export default function PartyPaymentHistory({
             </div>
           )}
 
-          {adding ? (
+          {adding && (
             <div className="border border-accent rounded-lg p-4 flex flex-col gap-3">
               <span className="text-sm font-semibold text-ink">+ Add Payment</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -300,21 +319,6 @@ export default function PartyPaymentHistory({
                   {saving ? "…" : "Save"}
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="flex gap-2 self-start">
-              <button
-                onClick={() => setAdding(true)}
-                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
-              >
-                + Add Payment
-              </button>
-              <button
-                onClick={() => setImporting(true)}
-                className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
-              >
-                ↥ Import Excel
-              </button>
             </div>
           )}
         </div>
