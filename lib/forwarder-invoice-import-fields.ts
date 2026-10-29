@@ -26,6 +26,15 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
   // short of opening the booking there and editing it by hand. Mapping
   // this lets the sheet's own date (if it has one) carry straight over.
   { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
+  // eta and release_status live on the `tracking` row this invoice points
+  // at (read live into the ledger's ETA / Status columns), not on
+  // forwarder_invoices itself - the commit route writes these onto that
+  // tracking row via the invoice's tracking_id instead of as plain
+  // invoice columns. A row whose invoice has no tracking link yet (a
+  // shell with no container, or a second invoice for one container) can't
+  // carry them and is left as-is.
+  { key: "eta", label: "ETA (live)" },
+  { key: "release_status", label: "Status (live)" },
   { key: "invoice_number", label: "Invoice Number" },
   { key: "invoice_date", label: "Invoice Date" },
   { key: "invoice_due_date", label: "Due Date" },
@@ -42,6 +51,12 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
 // Only meaningful when this row's Booking Number requires creating a
 // brand-new booking - these become that booking's own columns.
 export const FORWARDER_INVOICE_BOOKING_CREATE_KEYS = new Set(["pol", "pod", "final_destination", "carrier", "erd"]);
+
+// These don't live on forwarder_invoices at all - they're written onto
+// the `tracking` row the invoice links to (eta, release_status). The
+// commit route pulls them out of the normal invoice-column update loop
+// and applies them via the invoice's tracking_id.
+export const FORWARDER_INVOICE_TRACKING_KEYS = new Set(["eta", "release_status"]);
 
 export const FORWARDER_INVOICE_DATE_KEYS = new Set(["invoice_date", "invoice_due_date"]);
 export const FORWARDER_INVOICE_NUMERIC_KEYS = new Set([

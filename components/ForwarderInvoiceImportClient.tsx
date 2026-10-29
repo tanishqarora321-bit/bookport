@@ -5,6 +5,7 @@ import Link from "next/link";
 import { FORWARDER_INVOICE_IMPORT_FIELDS } from "@/lib/forwarder-invoice-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import BackButton from "@/components/ui/BackButton";
 import { useYear } from "@/lib/year-context";
 
 type CustomColumn = { key: string; label: string };
@@ -173,33 +174,24 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
   }
 
   const backHref = `/forwarders/${forwarderId}/invoices`;
+  const backLabel = `Back to ${forwarderName}'s Invoices`;
   const currentCalendarYear = new Date().getFullYear();
   const importYears = Array.from({ length: 6 }, (_, i) => currentCalendarYear - 2 + i);
 
-  // Flush against the shared Header/sidebar, not indented inside the
-  // centered content column like the rest of each step - rendered the
-  // same on every step so there's always an obvious way back.
-  const backBar = (
-    <div style={{ padding: "10px 24px", borderBottom: "1px solid var(--line)", background: "var(--surf)" }}>
-      <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
-        ← Back to {forwarderName}&apos;s Invoices
-      </Link>
-    </div>
-  );
-
   if (step === "upload") {
     return (
-      <>
-        {backBar}
-        <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <div>
-          <h1 className="h1">Import Invoice Charges from Excel</h1>
-          <p className="sub">
-            Fills in invoice numbers/charges on {forwarderName}&apos;s pending invoices, matched by Booking Number
-            (and Container Number if a booking has more than one). If a Booking Number isn&apos;t found anywhere yet,
-            it creates that booking with {forwarderName} assigned, using whatever POL/POD/container details this
-            sheet has for it.
-          </p>
+      <div className="max-w-2xl mx-auto space-y-5 py-6">
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label={backLabel} />
+          <div>
+            <h1 className="h1">Import Invoice Charges from Excel</h1>
+            <p className="sub">
+              Fills in invoice numbers/charges on {forwarderName}&apos;s pending invoices, matched by Booking Number
+              (and Container Number if a booking has more than one). If a Booking Number isn&apos;t found anywhere yet,
+              it creates that booking with {forwarderName} assigned, using whatever POL/POD/container details this
+              sheet has for it.
+            </p>
+          </div>
         </div>
 
         {stepsNav}
@@ -227,22 +219,23 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </label>
           {error && <p className="err" style={{ textAlign: "center" }}>{error}</p>}
         </section>
-        </div>
-      </>
+      </div>
     );
   }
 
   if (step === "mapping" && parsed) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {backBar}
       <div className="max-w-6xl mx-auto w-full" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20, padding: "24px 16px" }}>
-        <div style={{ flexShrink: 0 }}>
-          <h1 className="h1">Match your columns</h1>
-          <p className="sub">
-            {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess for
-            each field — review and correct anything before importing.
-          </p>
+        <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+          <BackButton href={backHref} label={backLabel} />
+          <div>
+            <h1 className="h1">Match your columns</h1>
+            <p className="sub">
+              {parsed.rows.length} row{parsed.rows.length === 1 ? "" : "s"} found. AI has pre-filled its best guess for
+              each field — review and correct anything before importing.
+            </p>
+          </div>
         </div>
 
         <div style={{ flexShrink: 0 }}>{stepsNav}</div>
@@ -390,17 +383,18 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
 
   if (step === "duplicates") {
     return (
-      <>
-      {backBar}
       <div className="max-w-4xl mx-auto space-y-5 py-6">
-        <div>
-          <h1 className="h1">Some bookings are assigned to a different forwarder</h1>
-          <p className="sub">
-            Reassigning these to {forwarderName} would move them away from whoever&apos;s currently on them. For each
-            one, choose whether this is really the same booking (reassign it) or a different shipment that
-            happens to reuse the number (add it as a separate entry — it&apos;ll show up on Multiple Bookings &amp;
-            Instructions).
-          </p>
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label={backLabel} />
+          <div>
+            <h1 className="h1">Some bookings are assigned to a different forwarder</h1>
+            <p className="sub">
+              Reassigning these to {forwarderName} would move them away from whoever&apos;s currently on them. For each
+              one, choose whether this is really the same booking (reassign it) or a different shipment that
+              happens to reuse the number (add it as a separate entry — it&apos;ll show up on Multiple Bookings &amp;
+              Instructions).
+            </p>
+          </div>
         </div>
 
         {stepsNav}
@@ -470,16 +464,14 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </div>
         </section>
       </div>
-      </>
     );
   }
 
   if (step === "result" && result) {
     return (
-      <>
-      {backBar}
       <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <div>
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label={backLabel} />
           <h1 className="h1">Import Invoice Charges from Excel</h1>
         </div>
 
@@ -514,7 +506,6 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
           </Link>
         </section>
       </div>
-      </>
     );
   }
 

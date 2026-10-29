@@ -176,7 +176,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
         </div>
       </div>
 
-      <div className="flex gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-2 gap-3 mb-4 shrink-0" style={{ maxWidth: 480 }}>
         <StatCard icon={Ship} label="Total Forwarders" value={forwarders.length} />
         <StatCard icon={CheckCircle2} label="Active" value={forwarders.filter((f) => f.is_active).length} tone="success" />
       </div>
@@ -319,8 +319,11 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
                   )}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <Link href={`/forwarders/${f.id}/invoices`} className="text-xs text-accent underline">
-                    Invoices →
+                  <Link
+                    href={`/forwarders/${f.id}/invoices`}
+                    className="inline-flex items-center gap-1 text-xs text-accent font-medium border border-line hover:bg-surface-2 rounded-lg px-2.5 py-1"
+                  >
+                    Details →
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">

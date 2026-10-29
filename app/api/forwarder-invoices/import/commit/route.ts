@@ -4,7 +4,8 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import {
   FORWARDER_INVOICE_DATE_KEYS,
   FORWARDER_INVOICE_NUMERIC_KEYS,
-  FORWARDER_INVOICE_BOOKING_CREATE_KEYS
+  FORWARDER_INVOICE_BOOKING_CREATE_KEYS,
+  FORWARDER_INVOICE_TRACKING_KEYS
 } from "@/lib/forwarder-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
@@ -499,23 +500,59 @@ export async function POST(req: NextRequest) {
     // booking number ended up with a Month of Loading on its invoice).
     if (rowErd) updates.month_of_loading = rowErd;
 
-    // Backfills Month of Loading from the live tracking row's ETA when
-    // it's still blank - covers every branch above (matched, linked, or
-    // newly created), since none of them ever had a way to set it before.
-    // A sheet importing charges onto an already-auto-created invoice has
-    // no Month of Loading column of its own to map, so without this it
-    // stays blank forever even once the booking has a real ETA.
+    // ETA and Status (live) don't live on forwarder_invoices - they're on
+    // the `tracking` row this invoice links to (the same values the
+    // ledger's ETA / Status columns read live). Collected here and written
+    // onto that tracking row below via the invoice's tracking_id.
+    const trackingUpdates: Record<string, any> = {};
+    if (colIndex["eta"] !== undefined) {
+      const etaRaw = get("eta");
+      if (etaRaw) {
+        const parsedEta = parseDateish(etaRaw) ?? parseMonthish(etaRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null));
+        if (parsedEta) trackingUpdates.eta = parsedEta.toISOString().slice(0, 10);
+      }
+    }
+    if (colIndex["release_status"] !== undefined) {
+      const statusRaw = get("release_status");
+      // Mirror the two values the manual Status control writes (see
+      // InvoiceLedgerClient's RELEASE_STATUS_OPTIONS) - anything that isn't
+      // clearly "Released" is treated as "On Water".
+      if (statusRaw) {
+        trackingUpdates.release_status = statusRaw.trim().toLowerCase() === "released" ? "Released" : "On Water";
+      }
+    }
+
+    // Read the invoice's tracking link + current Month of Loading once -
+    // used both to write the ETA/Status above and to backfill Month of
+    // Loading from the live tracking ETA when the sheet didn't carry one.
+    // (A sheet importing charges onto an already-auto-created invoice has
+    // no Month of Loading column of its own to map, so without the backfill
+    // it stays blank forever even once the booking has a real ETA.)
+    let trackingChanged = false;
     {
       const { data: existingRow } = await supabase.from("forwarder_invoices").select("tracking_id, month_of_loading").eq("id", targetId).single();
-      if (existingRow && !existingRow.month_of_loading && existingRow.tracking_id) {
-        const { data: trackingRow } = await supabase.from("tracking").select("eta").eq("id", existingRow.tracking_id).single();
-        if (trackingRow?.eta) updates.month_of_loading = trackingRow.eta.slice(0, 10);
+      const trackingId = existingRow?.tracking_id ?? null;
+
+      if (Object.keys(trackingUpdates).length > 0 && trackingId) {
+        const { error: trackingError } = await supabase.from("tracking").update(trackingUpdates).eq("id", trackingId);
+        if (!trackingError) trackingChanged = true;
+      }
+
+      if (existingRow && !existingRow.month_of_loading && !updates.month_of_loading && trackingId) {
+        // Prefer an ETA this row just set; otherwise whatever the tracking
+        // row already had.
+        let eta: string | null = trackingUpdates.eta ?? null;
+        if (!eta) {
+          const { data: trackingRow } = await supabase.from("tracking").select("eta").eq("id", trackingId).single();
+          eta = trackingRow?.eta ?? null;
+        }
+        if (eta) updates.month_of_loading = String(eta).slice(0, 10);
       }
     }
 
     const customCharges: Record<string, number | string> = {};
     for (const [key] of Object.entries(mapping)) {
-      if (key === "booking_number" || key === "container_number" || FORWARDER_INVOICE_BOOKING_CREATE_KEYS.has(key)) continue;
+      if (key === "booking_number" || key === "container_number" || FORWARDER_INVOICE_BOOKING_CREATE_KEYS.has(key) || FORWARDER_INVOICE_TRACKING_KEYS.has(key)) continue;
       const raw = get(key);
       if (!raw) continue;
       if (customKeys.includes(key)) {
@@ -553,11 +590,12 @@ export async function POST(req: NextRequest) {
       updates.custom_charges = { ...(existing?.custom_charges ?? {}), ...customCharges };
     }
 
-    if (Object.keys(updates).length === 0 && !wasCreated) {
+    if (Object.keys(updates).length === 0 && !wasCreated && !trackingChanged) {
       // Matched an existing invoice but had nothing new to fill in -
       // genuinely a no-op, unlike the wasCreated case where the booking
       // itself (and its invoice shell) is a real, successful outcome
-      // even with zero charges mapped.
+      // even with zero charges mapped. A row that only set ETA/Status on
+      // the live tracking row (trackingChanged) is a real update too.
       skipped.push({ row: sheetRow, reason: "No mapped charge fields had a value" });
       return;
     }
