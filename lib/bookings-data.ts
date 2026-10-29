@@ -62,37 +62,48 @@ export async function fetchBookingsSplitByDuplicates(supabase: SupabaseClient, c
 
   if (error) return { error, singleRows: [], duplicateRows: [], duplicateGroupCount: 0 };
 
-  // Only a non-blank carrier_booking_no can make a booking "a duplicate" -
-  // several bookings with no number yet are each their own normal entry,
-  // not a conflict to resolve.
+  // A booking number belongs on Multiple Bookings & Instructions when it
+  // carries MORE THAN ONE CONTAINER - i.e. the same booking number shows up
+  // in more than one container row, whether those containers sit under a
+  // single booking (the normal multi-container case) or across several
+  // booking rows that happen to share the number. A number that resolves to
+  // exactly one container row is an ordinary single booking and stays on the
+  // main page. (This is why we flatten FIRST, then count: counting booking
+  // rows alone would wrongly leave a one-booking/two-container shipment on
+  // the main page even though its number appears on two rows there.) A blank
+  // booking number is always its own single entry - several numberless
+  // bookings aren't "the same number".
+  const allRows = (bookings ?? []).flatMap(flattenBooking);
+
   const countByNumber = new Map<string, number>();
-  for (const b of (bookings ?? []) as any[]) {
-    const key = (b.carrier_booking_no ?? "").trim().toLowerCase();
+  for (const r of allRows) {
+    const key = (r.carrier_booking_no ?? "").trim().toLowerCase();
     if (!key) continue;
     countByNumber.set(key, (countByNumber.get(key) ?? 0) + 1);
   }
 
-  const singleBookings: any[] = [];
-  const duplicateBookings: any[] = [];
-  for (const b of (bookings ?? []) as any[]) {
-    const key = (b.carrier_booking_no ?? "").trim().toLowerCase();
-    if (key && (countByNumber.get(key) ?? 0) > 1) duplicateBookings.push(b);
-    else singleBookings.push(b);
+  const singleRows: any[] = [];
+  const duplicateRows: any[] = [];
+  for (const r of allRows) {
+    const key = (r.carrier_booking_no ?? "").trim().toLowerCase();
+    if (key && (countByNumber.get(key) ?? 0) > 1) duplicateRows.push(r);
+    else singleRows.push(r);
   }
 
-  // Sort duplicates so every booking sharing a number lands next to each
-  // other, instead of the default most-recent-first ordering scattering them.
-  duplicateBookings.sort((a, b) => {
+  // Keep rows sharing a number together on the Multiple page, instead of the
+  // default most-recent-first ordering scattering them; container_no as a
+  // stable secondary sort within a number.
+  duplicateRows.sort((a, b) => {
     const ka = (a.carrier_booking_no ?? "").trim().toLowerCase();
     const kb = (b.carrier_booking_no ?? "").trim().toLowerCase();
     if (ka !== kb) return ka < kb ? -1 : 1;
-    return (a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1;
+    return (a.container_no ?? "") < (b.container_no ?? "") ? -1 : 1;
   });
 
   return {
     error: null,
-    singleRows: singleBookings.flatMap(flattenBooking),
-    duplicateRows: duplicateBookings.flatMap(flattenBooking),
+    singleRows,
+    duplicateRows,
     duplicateGroupCount: Array.from(countByNumber.values()).filter((n) => n > 1).length,
   };
 }

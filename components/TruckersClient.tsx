@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Truck, CheckCircle2, Search } from "lucide-react";
+import { Truck, CheckCircle2, Search, ChevronUp, ChevronDown } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
+import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Trucker = {
@@ -21,6 +22,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
   const [truckers, setTruckers] = useState(initialTruckers);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -89,6 +91,10 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
         (t.country ?? "").toLowerCase().includes(q)
     );
 
+  const sorted = [...visible].sort((a, b) =>
+    sortDir === "asc" ? a.legal_name.localeCompare(b.legal_name) : b.legal_name.localeCompare(a.legal_name)
+  );
+
   const visibleIds = visible.map((t) => t.id);
   const bulk = useBulkSelection(visibleIds);
   useEffect(() => {
@@ -144,12 +150,12 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">Truckers</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Truckers</h1>
+          <p className="text-sm text-muted mt-0.5">Trucking companies — invoices and charges per booking</p>
+        </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-text-2">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-            Show removed
-          </label>
+          <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
           <Link href="/truckers/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
@@ -162,7 +168,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
+      <div className="grid grid-cols-2 gap-3 mb-4 shrink-0" style={{ maxWidth: 480 }}>
         <StatCard icon={Truck} label="Total Truckers" value={truckers.length} />
         <StatCard icon={CheckCircle2} label="Active" value={truckers.filter((t) => t.is_active).length} tone="success" />
       </div>
@@ -206,27 +212,30 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
         </div>
       )}
 
-      <div className="relative mb-3 max-w-xs">
-        <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
-        <input
-          placeholder="Search truckers…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
-        />
-      </div>
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line shrink-0">
+          <div className="relative flex-1 min-w-[220px] max-w-xs">
+            <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+            <input
+              placeholder="Search name, code, country"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
+            />
+          </div>
+        </div>
 
-      {isAdmin && (
-        <BulkActionBar
-          count={bulk.selectedCount}
-          itemLabel="trucker"
-          onDeleteClick={() => setBulkConfirming(true)}
-          onClear={bulk.clear}
-          deleting={bulkDeleting}
-        />
-      )}
+        {isAdmin && (
+          <BulkActionBar
+            count={bulk.selectedCount}
+            itemLabel="trucker"
+            onDeleteClick={() => setBulkConfirming(true)}
+            onClear={bulk.clear}
+            deleting={bulkDeleting}
+          />
+        )}
 
-      <div className="bg-surface border border-line rounded-xl">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-muted border-b border-line">
@@ -235,7 +244,17 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
                   <input type="checkbox" aria-label="Select all truckers" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
                 </th>
               )}
-              <th className="px-3 py-2">Trucker Name</th>
+              <th className="px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-sort={sortDir === "asc" ? "ascending" : "descending"}
+                  className="inline-flex items-center gap-1 hover:text-ink"
+                >
+                  Trucker Name
+                  {sortDir === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              </th>
               <th className="px-3 py-2">Short Code</th>
               <th className="px-3 py-2">Country</th>
               <th className="px-3 py-2">Address</th>
@@ -245,7 +264,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
             </tr>
           </thead>
           <tbody>
-            {visible.map((t) => (
+            {sorted.map((t) => (
               <tr key={t.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!t.is_active ? "opacity-40" : ""}`}>
                 {isAdmin && (
                   <td className="px-3 py-2">
@@ -258,9 +277,17 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
                   </td>
                 )}
                 <td className="px-3 py-2 font-medium text-ink">{t.legal_name}</td>
-                <td className="px-3 py-2 text-text-2">{t.short_code || "—"}</td>
+                <td className="px-3 py-2">
+                  {t.short_code ? (
+                    <span className="inline-flex items-center border border-line rounded-md px-2 py-0.5 text-xs font-mono text-text-2">
+                      {t.short_code}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-text-2">{t.country || "—"}</td>
-                <td className="px-3 py-2 text-muted max-w-[260px] truncate" title={t.address ?? ""}>
+                <td className="px-3 py-2 text-muted max-w-[220px] truncate" title={t.address ?? ""}>
                   {t.address || "—"}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
@@ -273,9 +300,12 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
                     </button>
                   )}
                 </td>
-                <td className="px-3 py-2">
-                  <Link href={`/truckers/${t.id}/invoices`} className="text-xs text-accent underline">
-                    Invoices →
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <Link
+                    href={`/truckers/${t.id}/invoices`}
+                    className="inline-flex items-center gap-1 text-xs text-accent font-medium border border-line hover:bg-surface-2 rounded-lg px-2.5 py-1"
+                  >
+                    Details →
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -308,6 +338,11 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
             hint={truckers.length === 0 ? 'Click "+ New Trucker" above to add one.' : "Try a different search term."}
           />
         )}
+        </div>
+
+        <div className="px-3 py-2.5 text-xs text-muted border-t border-line shrink-0">
+          Removing keeps their bookings and invoices intact — restore any time from &quot;Show removed&quot;.
+        </div>
       </div>
 
       {editing && (
