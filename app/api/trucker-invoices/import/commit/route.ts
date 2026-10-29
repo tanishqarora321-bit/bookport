@@ -438,6 +438,21 @@ export async function POST(req: NextRequest) {
     // tracking.eta, so the backfill below never fires for any of them.
     if (rowErd) updates.month_of_loading = rowErd;
 
+    // The booking's own erd must carry this month too, not just the invoice -
+    // Booking & Instructions filters bookings by booking.erd and hides any
+    // with none, so an import that only set month_of_loading on invoices left
+    // the booking invisible there. Backfill only when still null. See the
+    // identical fix on the Forwarders import.
+    if (rowErd) {
+      const bookingId = bookingIdByNumber.get(bookingNumber.toLowerCase());
+      if (bookingId) {
+        const { data: bk } = await supabase.from("bookings").select("erd").eq("id", bookingId).single();
+        if (bk && !bk.erd) {
+          await supabase.from("bookings").update({ erd: rowErd }).eq("id", bookingId);
+        }
+      }
+    }
+
     // Backfills Month of Loading from the live tracking row's ETA when
     // it's still blank - covers every branch above (matched, linked, or
     // newly created). See the identical fix on the Forwarders import for

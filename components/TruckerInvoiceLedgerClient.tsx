@@ -9,6 +9,7 @@ import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import BackButton from "@/components/ui/BackButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
 
@@ -229,11 +230,11 @@ export default function TruckerInvoiceLedgerClient({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="shrink-0">
-      <Link href="/truckers" className="text-sm text-accent mb-2 w-fit">
-        ← Back to Truckers
-      </Link>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">{truckerName} — Invoices</h1>
+        <div className="flex items-center gap-3">
+          <BackButton href="/truckers" label="Back to Truckers" />
+          <h1 className="text-xl font-semibold text-ink">{truckerName} — Invoices</h1>
+        </div>
         <div className="flex items-center gap-2">
           <Link href={`/truckers/${truckerId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel

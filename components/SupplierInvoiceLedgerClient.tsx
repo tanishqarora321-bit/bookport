@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import BackButton from "@/components/ui/BackButton";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
@@ -175,11 +176,11 @@ export default function SupplierInvoiceLedgerClient({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="shrink-0">
-      <Link href="/suppliers" className="text-sm text-accent mb-2 w-fit">
-        ← Back to Suppliers
-      </Link>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">{supplierName} — Invoices</h1>
+        <div className="flex items-center gap-3">
+          <BackButton href="/suppliers" label="Back to Suppliers" />
+          <h1 className="text-xl font-semibold text-ink">{supplierName} — Invoices</h1>
+        </div>
         <div className="flex items-center gap-2">
           <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel

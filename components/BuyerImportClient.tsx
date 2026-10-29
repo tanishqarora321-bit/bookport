@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { BUYER_IMPORT_FIELDS } from "@/lib/buyer-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
+import BackButton from "@/components/ui/BackButton";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
@@ -99,12 +100,12 @@ export default function BuyerImportClient() {
   if (step === "upload") {
     return (
       <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
-          ← Back to Buyers / Customers
-        </Link>
-        <div>
-          <h1 className="h1">Import Buyers / Customers from Excel</h1>
-          <p className="sub">Each row becomes one buyer account, with its GST/IEC/shipping details filled in directly.</p>
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label="Back to Buyers / Customers" />
+          <div>
+            <h1 className="h1">Import Buyers / Customers from Excel</h1>
+            <p className="sub">Each row becomes one buyer account, with its GST/IEC/shipping details filled in directly.</p>
+          </div>
         </div>
 
         {stepsNav}

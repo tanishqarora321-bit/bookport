@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SUPPLIER_INVOICE_IMPORT_FIELDS } from "@/lib/supplier-invoice-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
+import BackButton from "@/components/ui/BackButton";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
@@ -111,16 +112,16 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
   if (step === "upload") {
     return (
       <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
-          ← Back to {supplierName}&apos;s Invoices
-        </Link>
-        <div>
-          <h1 className="h1">Import Invoices from Excel</h1>
-          <p className="sub">
-            A statement where one invoice spans several rows - a row with a Booking Number starts a new invoice, and
-            the Description/Weight/Unit Price rows under it (Booking Number left blank) become that invoice&apos;s cost
-            lines, until the next Booking Number starts the next invoice.
-          </p>
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label={`Back to ${supplierName}'s Invoices`} />
+          <div>
+            <h1 className="h1">Import Invoices from Excel</h1>
+            <p className="sub">
+              A statement where one invoice spans several rows - a row with a Booking Number starts a new invoice, and
+              the Description/Weight/Unit Price rows under it (Booking Number left blank) become that invoice&apos;s cost
+              lines, until the next Booking Number starts the next invoice.
+            </p>
+          </div>
         </div>
 
         {stepsNav}

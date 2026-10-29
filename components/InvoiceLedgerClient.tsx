@@ -9,6 +9,7 @@ import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import BackButton from "@/components/ui/BackButton";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
@@ -312,11 +313,11 @@ export default function InvoiceLedgerClient({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="shrink-0">
-      <Link href="/forwarders" className="text-sm text-accent mb-2 w-fit">
-        ← Back to Forwarders
-      </Link>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">{forwarderName} — Invoices</h1>
+        <div className="flex items-center gap-3">
+          <BackButton href="/forwarders" label="Back to Forwarders" />
+          <h1 className="text-xl font-semibold text-ink">{forwarderName} — Invoices</h1>
+        </div>
         <div className="flex items-center gap-2">
           <Link href={`/forwarders/${forwarderId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel

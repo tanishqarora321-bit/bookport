@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import BackButton from "@/components/ui/BackButton";
 import StatusPill from "@/components/ui/StatusPill";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
@@ -181,11 +182,11 @@ export default function BuyerInvoiceLedgerClient({
 
   return (
     <div className="h-full flex flex-col">
-      <Link href="/parties" className="text-sm text-accent hover:underline mb-2 w-fit">
-        ← Back to Buyers / Customers
-      </Link>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">{buyerName} — Invoices</h1>
+        <div className="flex items-center gap-3">
+          <BackButton href="/parties" label="Back to Buyers / Customers" />
+          <h1 className="text-xl font-semibold text-ink">{buyerName} — Invoices</h1>
+        </div>
         <div className="flex items-center gap-2">
           <Link href={`/parties/${buyerId}/invoices/import`} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
             Import Excel

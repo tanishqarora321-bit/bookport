@@ -500,6 +500,26 @@ export async function POST(req: NextRequest) {
     // booking number ended up with a Month of Loading on its invoice).
     if (rowErd) updates.month_of_loading = rowErd;
 
+    // The booking's OWN erd must carry this month too, not just the invoice.
+    // Booking & Instructions filters bookings by booking.erd and hides any
+    // with none (lib/bookings-data + inYearScope), so an import that only
+    // ever set month_of_loading on invoices left the booking itself with a
+    // null erd - invisible on Booking & Instructions even though its
+    // invoices clearly showed the month (found live: a 2-container booking
+    // imported with charges that never appeared on Booking & Instructions
+    // at all). Backfill it only when still null, so a real erd set elsewhere
+    // (the booking's own import, or an edit on Booking & Instructions) is
+    // never overwritten.
+    if (rowErd) {
+      const bookingId = bookingIdByNumber.get(bookingNumber.toLowerCase());
+      if (bookingId) {
+        const { data: bk } = await supabase.from("bookings").select("erd").eq("id", bookingId).single();
+        if (bk && !bk.erd) {
+          await supabase.from("bookings").update({ erd: rowErd }).eq("id", bookingId);
+        }
+      }
+    }
+
     // ETA and Status (live) don't live on forwarder_invoices - they're on
     // the `tracking` row this invoice links to (the same values the
     // ledger's ETA / Status columns read live). Collected here and written

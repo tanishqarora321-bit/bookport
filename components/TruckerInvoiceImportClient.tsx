@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TRUCKER_INVOICE_IMPORT_FIELDS } from "@/lib/trucker-invoice-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
+import BackButton from "@/components/ui/BackButton";
 import { useYear } from "@/lib/year-context";
 
 type CustomColumn = { key: string; label: string };
@@ -174,16 +175,16 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
   if (step === "upload") {
     return (
       <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <Link href={backHref} className="lbl" style={{ display: "inline-flex", alignItems: "center", gap: 4, width: "fit-content" }}>
-          ← Back to {truckerName}&apos;s Invoices
-        </Link>
-        <div>
-          <h1 className="h1">Import Invoice Charges from Excel</h1>
-          <p className="sub">
-            Fills in invoice numbers/charges on {truckerName}&apos;s pending invoices, matched by Booking Number
-            (and Container Number if a booking has more than one). If a Booking Number isn&apos;t found anywhere yet,
-            it creates that booking with {truckerName} assigned.
-          </p>
+        <div className="flex items-center gap-3">
+          <BackButton href={backHref} label={`Back to ${truckerName}'s Invoices`} />
+          <div>
+            <h1 className="h1">Import Invoice Charges from Excel</h1>
+            <p className="sub">
+              Fills in invoice numbers/charges on {truckerName}&apos;s pending invoices, matched by Booking Number
+              (and Container Number if a booking has more than one). If a Booking Number isn&apos;t found anywhere yet,
+              it creates that booking with {truckerName} assigned.
+            </p>
+          </div>
         </div>
 
         {stepsNav}
