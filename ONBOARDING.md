@@ -100,6 +100,13 @@ denied` lines on git commands are harmless noise — ignore them.
   year picker; they're created with ERD = that year + the sheet's month
   (Month of Loading → Invoice Date → ETA → January). >1 container is flagged
   as going to Multiple Bookings. Not yet ported to Forwarders/Suppliers/Buyers.
+- **Suppliers module (2026-10-30):** list page = Truckers layout; ledger has
+  frozen blue Booking/Container columns, merged filters, pagination,
+  StatusMenuButton pills, editable live ETA/Status; Cost section button styled
+  like "Details". Import is now match-or-assign like Trucker (Duplicates +
+  New bookings steps, Month of Loading / ETA / Status / Paid mappable); one
+  invoice = a Booking Number row + the cost-line rows under it; re-importing
+  REPLACES that invoice's cost lines (never doubles them).
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 
@@ -113,14 +120,23 @@ On import, match each row by **Booking Number + Container Number**:
 - Only create a genuinely separate entry when the SAME booking+container combo
   is deliberately reused with a different invoice number.
 Verified live for **Forwarder + Trucker** (assign-not-duplicate, idempotent on
-re-import). **Supplier + Buyer imports do NOT yet follow this** (older
-structure, no link-existing branch) — align them when doing those modules.
+re-import). **Supplier** now follows it too (2026-10-30, see below). **Buyer
+import does NOT yet** (older structure, no link-existing branch).
+
+Repeat invoices on one booking+container: the commit route matches the
+existing invoice with the SAME invoice number first, then a pending (blank)
+one, and only then adds a separate invoice - Trucker + Supplier do this; the
+**Forwarder** route still compares only against the newest invoice, so
+re-importing a sheet with repeat invoices there can duplicate them (fix it
+the same way). A bare month name ("MARCH") on an existing booking takes the
+booking's own ERD year (Trucker + Supplier).
 
 ## Likely next work
-- Bring **Suppliers** and **Buyers** modules to the same parity: list redesign,
-  ledger (sticky blue Booking/Container columns, merged filters, pagination,
-  StatusMenuButton), import (all columns mappable + ETA/Status, and the
-  booking+container match-or-create rule above, incl. the no-drop fallback).
+- Bring **Buyers** to the same parity: list redesign, ledger (sticky blue
+  Booking/Container columns, merged filters, pagination, StatusMenuButton),
+  import (all columns mappable + ETA/Status, the booking+container
+  match-or-create rule, the no-drop fallback, the New bookings year step).
+- Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
 
 ## Gotchas
