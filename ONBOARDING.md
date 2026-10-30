@@ -94,6 +94,12 @@ denied` lines on git commands are harmless noise — ignore them.
   booking+container's shell is missing, instead of skipping. (Found via QFS:
   4 of 260 trucker rows were silently dropped because their containers already
   existed from the forwarder import.)
+- **Trucker import asks the year for new bookings (2026-10-30):** matching
+  existing Booking+Container ignores the year. Booking numbers not found in
+  ANY year are listed on a new "New bookings" step (after Duplicates) with a
+  year picker; they're created with ERD = that year + the sheet's month
+  (Month of Loading → Invoice Date → ETA → January). >1 container is flagged
+  as going to Multiple Bookings. Not yet ported to Forwarders/Suppliers/Buyers.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 
