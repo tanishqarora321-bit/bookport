@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       .select("id, booking_number, container_number, invoice_number")
       .eq("company_id", companyId)
       .eq("trucker_id", truckerId),
-    supabase.from("bookings").select("id, carrier_booking_no").eq("company_id", companyId)
+    supabase.from("bookings").select("id, carrier_booking_no, erd").eq("company_id", companyId)
   ]);
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (bookingsError) return NextResponse.json({ error: bookingsError.message }, { status: 500 });
@@ -131,8 +131,14 @@ export async function POST(req: NextRequest) {
   const latestInvoiceNumber = new Map<string, string>();
 
   const bookingIdByNumber = new Map<string, string>();
+  // Each existing booking's own ERD - the year a bare month name on the
+  // sheet ("MARCH") belongs to, so a re-import never moves an invoice's
+  // Month of Loading into the sidebar's Working Year instead.
+  const bookingErdByNumber = new Map<string, string>();
   for (const b of allBookings ?? []) {
-    if (b.carrier_booking_no) bookingIdByNumber.set(b.carrier_booking_no.toLowerCase(), b.id);
+    if (!b.carrier_booking_no) continue;
+    bookingIdByNumber.set(b.carrier_booking_no.toLowerCase(), b.id);
+    if (b.erd) bookingErdByNumber.set(b.carrier_booking_no.toLowerCase(), String(b.erd).slice(0, 10));
   }
 
   // Which trucker (if any) is currently assigned to each of this
@@ -288,10 +294,11 @@ export async function POST(req: NextRequest) {
     // so its containers' invoices all carry the same Month of Loading.
     const rowErdRaw = get("erd");
     const isNewBooking = newBookingKeys.has(bookingNumber.toLowerCase());
+    const knownErd = isNewBooking ? null : bookingErdByNumber.get(bookingNumber.toLowerCase()) ?? null;
     const rowErd = isNewBooking && newBookingYear
       ? newBookingErd(bookingNumber.toLowerCase(), row, newBookingYear)
       : rowErdRaw
-      ? (parseDateish(rowErdRaw) ?? parseMonthish(rowErdRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null)))?.toISOString().slice(0, 10) ?? null
+      ? (parseDateish(rowErdRaw) ?? parseMonthish(rowErdRaw, (knownErd ? new Date(`${knownErd}T00:00:00Z`) : null) ?? parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null)))?.toISOString().slice(0, 10) ?? null
       : null;
 
     const candidates = byBooking.get(bookingNumber.toLowerCase()) ?? [];
@@ -304,20 +311,29 @@ export async function POST(req: NextRequest) {
     // .filter().pop() rather than .find() - once a duplicate-invoice clone
     // (below) pushes a second entry for the same container, a later row
     // must compare against the MOST RECENT one, not the first.
-    const matchedCandidate = containerNumber
-      ? candidates.filter((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase()).pop()
+    //
+    // Among this trucker's invoices for that booking+container, prefer the
+    // one with the SAME Invoice Number, then a still-pending one (no number
+    // yet) - re-importing a statement with repeat invoices for a container
+    // used to compare only against the newest one, so every older invoice
+    // looked "different" and got copied again on each re-import.
+    const sameContainer = containerNumber
+      ? candidates.filter((c) => (c.container_number ?? "").toLowerCase() === containerNumber.toLowerCase())
       : candidates.length === 1
-      ? candidates[0]
-      : undefined;
+      ? candidates
+      : [];
+    const rowInvoiceNumber = get("invoice_number");
+    const numberOf = (c: { id: string; invoice_number: string | null }) => (latestInvoiceNumber.get(c.id) ?? c.invoice_number ?? "").trim().toLowerCase();
+    const sameNumber = rowInvoiceNumber ? sameContainer.find((c) => numberOf(c) === rowInvoiceNumber.toLowerCase()) : undefined;
+    const pending = sameContainer.find((c) => !numberOf(c));
+    const matchedCandidate = sameNumber ?? pending ?? sameContainer[sameContainer.length - 1];
 
     if (matchedCandidate) {
       // Real statements bill the SAME booking+container more than once
       // over time - those are genuinely separate invoice documents, not a
       // correction to the first. See the identical fix (with full
       // reasoning) on the Forwarders import commit route.
-      const rowInvoiceNumber = get("invoice_number");
-      const existingInvoiceNumber = (latestInvoiceNumber.get(matchedCandidate.id) ?? matchedCandidate.invoice_number ?? "").trim();
-      const isSeparateInvoice = !!rowInvoiceNumber && !!existingInvoiceNumber && rowInvoiceNumber.toLowerCase() !== existingInvoiceNumber.toLowerCase();
+      const isSeparateInvoice = !sameNumber && !pending && !!rowInvoiceNumber;
 
       if (isSeparateInvoice) {
         const { data: sourceRow, error: sourceError } = await supabase

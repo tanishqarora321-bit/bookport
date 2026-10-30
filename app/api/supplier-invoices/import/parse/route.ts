@@ -84,11 +84,16 @@ export async function POST(req: NextRequest) {
   }
 
   let suggestedMapping: Record<string, string | null> = {};
+  let suggestionFailed = false;
   try {
     suggestedMapping = await suggestMapping(headers, SUPPLIER_INVOICE_IMPORT_FIELDS, "supplier invoice statement");
-  } catch {
-    // A mapping suggestion is a convenience, not a requirement.
+  } catch (err) {
+    // A mapping suggestion is a convenience, not a requirement - but say
+    // so, so "nothing pre-filled" isn't mistaken for "nothing matched"
+    // (same as the Forwarders/Truckers parse routes).
+    console.error("[supplier-invoices/import/parse] suggestMapping failed:", err);
+    suggestionFailed = true;
   }
 
-  return NextResponse.json({ headers, rows, suggestedMapping });
+  return NextResponse.json({ headers, rows, suggestedMapping, suggestionFailed });
 }
