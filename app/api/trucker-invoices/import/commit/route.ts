@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
   // See the identical fallback (with full reasoning) on the Forwarders
   // import commit route.
   const defaultYear: number | null = Number.isInteger(body.defaultYear) ? body.defaultYear : null;
+  // The year the user picked on the "New bookings" step for booking numbers
+  // that don't exist in ANY year yet. Matching existing bookings ignores the
+  // year entirely (a booking+container is the same shipment whichever year
+  // it's under), so this only decides where genuinely new ones land:
+  // Booking & Instructions / Multiple Bookings filter by booking.erd's year,
+  // so a new booking's ERD always takes this year (month from the sheet).
+  const newBookingYear: number | null = Number.isInteger(body.newBookingYear) ? body.newBookingYear : null;
 
   if (!truckerId) return NextResponse.json({ error: "truckerId is required" }, { status: 400 });
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -152,8 +159,12 @@ export async function POST(req: NextRequest) {
   // and (b) the booking is currently assigned to a DIFFERENT trucker -
   // no assignment yet means nothing to lose, so that's not flagged.
   const conflictedGroups = new Map<string, { sheetRows: number[]; currentTruckerName: string | null }>();
+  // Booking numbers this sheet would have to CREATE because they aren't in
+  // any year at all - listed on the client's "New bookings" step so the user
+  // picks which year they go in (see newBookingYear above).
+  const unknownKeys = new Set<string>();
+  const seenRows = new Map<string, number[]>();
   {
-    const seenRows = new Map<string, number[]>();
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const bookingNumber = (colIndex["booking_number"] !== undefined ? (row[colIndex["booking_number"]] ?? "").trim() : "");
@@ -165,7 +176,10 @@ export async function POST(req: NextRequest) {
     for (const [key, sheetRows] of seenRows) {
       if (byBooking.has(key)) continue;
       const bookingId = bookingIdByNumber.get(key);
-      if (!bookingId) continue;
+      if (!bookingId) {
+        unknownKeys.add(key);
+        continue;
+      }
       const current = currentTruckerByBookingId.get(bookingId);
       if (current && current.id !== truckerId) {
         conflictedGroups.set(key, { sheetRows, currentTruckerName: current.name });
@@ -173,13 +187,74 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Every booking number that ends up as a brand-new booking: unknown ones,
+  // plus conflicted ones the user chose to "add" as a separate booking.
+  const newBookingKeys = new Set<string>(unknownKeys);
+  for (const key of conflictedGroups.keys()) {
+    if (duplicateResolutions[key] === "add") newBookingKeys.add(key);
+  }
+
+  const cell = (row: string[], key: string) => (colIndex[key] !== undefined ? (row[colIndex[key]] ?? "").trim() : "");
+
+  // Month (0-11) and day a new booking's ERD should use, taken from the
+  // row's own Month of Loading, else its Invoice Date, else its ETA. The
+  // year is never taken from here - it's the one the user picked. Null when
+  // the row carries no usable month at all.
+  function rowMonthDay(row: string[]): { month: number; day: number } | null {
+    for (const key of ["erd", "invoice_date", "eta"]) {
+      const raw = cell(row, key);
+      if (!raw) continue;
+      const d = parseDateish(raw) ?? parseMonthish(raw, new Date(Date.UTC(2000, 0, 1)));
+      if (d) return { month: d.getUTCMonth(), day: key === "erd" ? d.getUTCDate() : 1 };
+    }
+    return null;
+  }
+
+  // A new booking with no month anywhere on its row(s) still needs SOME erd
+  // or it's invisible on Booking & Instructions under every year - borrow
+  // the month from another row of the same booking, else January.
+  function newBookingErd(key: string, row: string[], year: number): string {
+    let md = rowMonthDay(row);
+    if (!md) {
+      for (const r of seenRows.get(key) ?? []) {
+        md = rowMonthDay(rows[r - 2]);
+        if (md) break;
+      }
+    }
+    const { month, day } = md ?? { month: 0, day: 1 };
+    // Clamp e.g. 29 Feb onto a year that doesn't have one.
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    return new Date(Date.UTC(year, month, Math.min(day, lastDay))).toISOString().slice(0, 10);
+  }
+
+  // Per-booking summary for the "New bookings" step: which containers the
+  // sheet lists (>1 -> it'll land on Multiple Bookings & Instructions) and
+  // which month it'll be filed under.
+  function newBookingSummary(key: string) {
+    const sheetRows = seenRows.get(key) ?? [];
+    const containers = new Set<string>();
+    let month: number | null = null;
+    for (const r of sheetRows) {
+      const row = rows[r - 2];
+      const c = cell(row, "container_number");
+      if (c) containers.add(c.toUpperCase());
+      if (month === null) month = rowMonthDay(row)?.month ?? null;
+    }
+    return {
+      carrierBookingNo: cell(rows[sheetRows[0] - 2], "booking_number"),
+      sheetRows,
+      containers: Array.from(containers),
+      month,
+    };
+  }
+
   if (dryRun) {
     const duplicateGroups = Array.from(conflictedGroups.entries()).map(([key, g]) => ({
-      carrierBookingNo: rows[g.sheetRows[0] - 2][colIndex["booking_number"]].trim(),
+      ...newBookingSummary(key),
       currentTruckerName: g.currentTruckerName,
-      sheetRows: g.sheetRows,
     }));
-    return NextResponse.json({ dryRun: true, duplicateGroups });
+    const newBookingGroups = Array.from(unknownKeys).map(newBookingSummary);
+    return NextResponse.json({ dryRun: true, duplicateGroups, newBookingGroups });
   }
 
   // Upper bound: every row could turn out to need a new booking. Unused
@@ -192,6 +267,7 @@ export async function POST(req: NextRequest) {
 
   const skipped: Skip[] = [];
   let imported = 0;
+  let bookingsCreated = 0;
 
   async function processRow(i: number) {
     const row = rows[i];
@@ -206,8 +282,15 @@ export async function POST(req: NextRequest) {
     // booking's own erd AND, unconditionally, as this row's invoice's
     // month_of_loading (including an extra container added to a booking
     // that already existed before this row ran).
+    //
+    // A booking number this import is creating from scratch goes in the year
+    // the user picked on the "New bookings" step instead - every row of it,
+    // so its containers' invoices all carry the same Month of Loading.
     const rowErdRaw = get("erd");
-    const rowErd = rowErdRaw
+    const isNewBooking = newBookingKeys.has(bookingNumber.toLowerCase());
+    const rowErd = isNewBooking && newBookingYear
+      ? newBookingErd(bookingNumber.toLowerCase(), row, newBookingYear)
+      : rowErdRaw
       ? (parseDateish(rowErdRaw) ?? parseMonthish(rowErdRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null)))?.toISOString().slice(0, 10) ?? null
       : null;
 
@@ -406,6 +489,7 @@ export async function POST(req: NextRequest) {
         return;
       }
       bookingIdByNumber.set(bookingNumber.toLowerCase(), newBooking.id);
+      bookingsCreated++;
 
       const { error: bpError } = await supabase.from("booking_parties").insert({ booking_id: newBooking.id, party_id: truckerId, role: "trucker" });
       if (bpError) {
@@ -488,7 +572,8 @@ export async function POST(req: NextRequest) {
     if (colIndex["eta"] !== undefined) {
       const etaRaw = get("eta");
       if (etaRaw) {
-        const parsedEta = parseDateish(etaRaw) ?? parseMonthish(etaRaw, parseDateish(get("invoice_date")) ?? (defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null));
+        const etaYear = isNewBooking && newBookingYear ? newBookingYear : defaultYear;
+        const parsedEta = parseDateish(etaRaw) ?? parseMonthish(etaRaw, parseDateish(get("invoice_date")) ?? (etaYear ? new Date(Date.UTC(etaYear, 0, 1)) : null));
         if (parsedEta) trackingUpdates.eta = parsedEta.toISOString().slice(0, 10);
       }
     }
@@ -603,5 +688,5 @@ export async function POST(req: NextRequest) {
     await Promise.all(groupList.slice(i, i + CONCURRENCY).map(processGroup));
   }
 
-  return NextResponse.json({ imported, total: rows.length, skipped });
+  return NextResponse.json({ imported, total: rows.length, skipped, bookingsCreated, newBookingYear });
 }

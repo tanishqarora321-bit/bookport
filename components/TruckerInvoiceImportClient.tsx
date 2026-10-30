@@ -10,18 +10,26 @@ import { useYear } from "@/lib/year-context";
 
 type CustomColumn = { key: string; label: string };
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean; customColumns: CustomColumn[] };
-type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
-type DuplicateGroup = { carrierBookingNo: string; currentTruckerName: string | null; sheetRows: number[] };
+type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; bookingsCreated?: number; newBookingYear?: number | null };
+// One booking number this import would have to create. `containers` are the
+// distinct Container Numbers the sheet lists for it (>1 -> it lands on
+// Multiple Bookings & Instructions); `month` (0-11) is the Month of Loading
+// it'll be filed under, or null when the sheet gives none (-> January).
+type NewBookingGroup = { carrierBookingNo: string; sheetRows: number[]; containers: string[]; month: number | null };
+type DuplicateGroup = NewBookingGroup & { currentTruckerName: string | null };
 type Resolution = "add" | "ignore";
+
+const MONTH_LABELS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const MAX_CUSTOM_COLUMNS = 10;
 
-const STEP_ORDER = ["upload", "mapping", "duplicates", "result"] as const;
+const STEP_ORDER = ["upload", "mapping", "duplicates", "newBookings", "result"] as const;
 type Step = (typeof STEP_ORDER)[number];
 const STEP_LABELS: Record<Step, string> = {
   upload: "Upload",
   mapping: "Match columns",
   duplicates: "Duplicates",
+  newBookings: "New bookings",
   result: "Done",
 };
 
@@ -40,6 +48,11 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
   const [result, setResult] = useState<CommitResult | null>(null);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
+  const [newBookingGroups, setNewBookingGroups] = useState<NewBookingGroup[]>([]);
+  // Year the not-found-anywhere bookings get created in - pre-filled from
+  // the sidebar's Working Year, but asked explicitly since matching existing
+  // bookings ignores the year and only these new ones need one.
+  const [newBookingYear, setNewBookingYear] = useState<number>(workingYear);
 
   const allFields = [...TRUCKER_INVOICE_IMPORT_FIELDS, ...customColumns.map((c) => ({ key: c.key, label: c.label }))];
   const mappedHeaders = new Set(Object.values(mapping).filter(Boolean));
@@ -127,13 +140,20 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Import failed");
 
-      if (!json.duplicateGroups || json.duplicateGroups.length === 0) {
-        await commitFinal({});
-        return;
+      const dups: DuplicateGroup[] = json.duplicateGroups ?? [];
+      const fresh: NewBookingGroup[] = json.newBookingGroups ?? [];
+      setDuplicateGroups(dups);
+      setNewBookingGroups(fresh);
+      setNewBookingYear(workingYear);
+      if (dups.length > 0) {
+        setResolutions(Object.fromEntries(dups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
+        setStep("duplicates");
+      } else if (fresh.length > 0) {
+        setResolutions({});
+        setStep("newBookings");
+      } else {
+        await commitFinal({}, null);
       }
-      setDuplicateGroups(json.duplicateGroups);
-      setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
-      setStep("duplicates");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -141,7 +161,19 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
     }
   }
 
-  async function commitFinal(finalResolutions: Record<string, Resolution>) {
+  // After the duplicates step: anything the user chose to "add" as a
+  // separate booking is a new booking too, so it needs a year as well.
+  async function continueFromDuplicates(finalResolutions: Record<string, Resolution>) {
+    setResolutions(finalResolutions);
+    const anyAdded = duplicateGroups.some((g) => finalResolutions[g.carrierBookingNo.toLowerCase()] === "add");
+    if (newBookingGroups.length > 0 || anyAdded) {
+      setStep("newBookings");
+      return;
+    }
+    await commitFinal(finalResolutions, null);
+  }
+
+  async function commitFinal(finalResolutions: Record<string, Resolution>, yearForNewBookings: number | null) {
     if (!parsed) return;
     setImporting(true);
     setError(null);
@@ -157,6 +189,7 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
           customKeys: customColumns.map((c) => c.key),
           duplicateResolutions: finalResolutions,
           defaultYear: workingYear,
+          newBookingYear: yearForNewBookings,
         }),
       });
       const json = await res.json();
@@ -181,8 +214,8 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
             <h1 className="h1">Import Invoice Charges from Excel</h1>
             <p className="sub">
               Fills in invoice numbers/charges on {truckerName}&apos;s pending invoices, matched by Booking Number
-              (and Container Number if a booking has more than one). If a Booking Number isn&apos;t found anywhere yet,
-              it creates that booking with {truckerName} assigned.
+              (and Container Number if a booking has more than one), in any year. If a Booking Number isn&apos;t found
+              anywhere yet, you&apos;ll be asked which year to create it in, with {truckerName} assigned.
             </p>
           </div>
         </div>
@@ -422,14 +455,93 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
           {error && <p className="err" style={{ padding: "0 18px" }}>{error}</p>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
             <button
-              onClick={() => commitFinal(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
+              onClick={() => continueFromDuplicates(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
               disabled={importing}
               className="btn"
             >
               Reassign All
             </button>
-            <button onClick={() => commitFinal(resolutions)} disabled={importing} className="btn btn-p">
+            <button onClick={() => continueFromDuplicates(resolutions)} disabled={importing} className="btn btn-p">
               {importing ? "Importing…" : "Continue"}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (step === "newBookings") {
+    const toCreate: NewBookingGroup[] = [
+      ...newBookingGroups,
+      ...duplicateGroups.filter((g) => resolutions[g.carrierBookingNo.toLowerCase()] === "add"),
+    ];
+    const multipleCount = toCreate.filter((g) => g.containers.length > 1).length;
+    const currentCalendarYear = new Date().getFullYear();
+    const yearOptions = Array.from(new Set([...Array.from({ length: 6 }, (_, i) => currentCalendarYear - 2 + i), workingYear])).sort((a, b) => a - b);
+    return (
+      <div className="max-w-4xl mx-auto space-y-5 py-6">
+        <div>
+          <h1 className="h1">Some bookings weren&apos;t found in any year</h1>
+          <p className="sub">
+            Every other row matched an existing Booking Number + Container Number (in any year) and will be
+            assigned to {truckerName}. These booking numbers don&apos;t exist anywhere yet, so they&apos;ll be
+            created as new bookings. Choose which year they belong to - the month comes from the sheet.
+          </p>
+        </div>
+
+        {stepsNav}
+
+        <section className="card" aria-labelledby="nb" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "16px 18px 12px", display: "flex", gap: 16, alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap" }}>
+            <div>
+              <h2 id="nb" className="h2">
+                {toCreate.length} new booking{toCreate.length === 1 ? "" : "s"}
+              </h2>
+              <div className="lbl" style={{ marginTop: 3 }}>
+                {toCreate.length - multipleCount} to Booking &amp; Instructions
+                {multipleCount > 0 && <> · {multipleCount} with more than one container to Multiple Bookings &amp; Instructions</>}
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 200 }}>
+              <label htmlFor="new-booking-year" style={{ fontSize: 12, fontWeight: 600 }}>Create these bookings in year</label>
+              <select id="new-booking-year" className="select" value={newBookingYear} onChange={(e) => setNewBookingYear(Number(e.target.value))}>
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="tw" style={{ maxHeight: 420, overflowY: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Booking Number</th>
+                  <th>Container(s)</th>
+                  <th>Month of Loading</th>
+                  <th>Goes to</th>
+                </tr>
+              </thead>
+              <tbody>
+                {toCreate.map((g) => (
+                  <tr key={g.carrierBookingNo.toLowerCase()}>
+                    <td className="mono" style={{ fontWeight: 600 }}>{g.carrierBookingNo}</td>
+                    <td className="mono lbl">{g.containers.length > 0 ? g.containers.join(", ") : <span className="dash">—</span>}</td>
+                    <td className="lbl">
+                      {g.month !== null ? `${MONTH_LABELS[g.month]} ${newBookingYear}` : <>January {newBookingYear} <span className="meta">(no month in sheet)</span></>}
+                    </td>
+                    <td>
+                      {g.containers.length > 1 ? <span className="badge b-warn">Multiple Bookings</span> : <span className="badge b-neu">Booking &amp; Instructions</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {error && <p className="err" style={{ padding: "0 18px" }}>{error}</p>}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
+            <button onClick={() => setStep(duplicateGroups.length > 0 ? "duplicates" : "mapping")} disabled={importing} className="btn">Back</button>
+            <button onClick={() => commitFinal(resolutions, newBookingYear)} disabled={importing} className="btn btn-p">
+              {importing ? "Importing…" : `Create in ${newBookingYear} & Import`}
             </button>
           </div>
         </section>
@@ -458,6 +570,13 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
             {result.skipped.length > 0 && <span className="badge b-neu">{result.skipped.length} skipped</span>}
           </div>
           <div className="meta">of {result.total} row{result.total === 1 ? "" : "s"} matched and updated</div>
+          {!!result.bookingsCreated && (
+            <div className="meta">
+              {result.bookingsCreated} new booking{result.bookingsCreated === 1 ? "" : "s"} created
+              {result.newBookingYear ? ` in ${result.newBookingYear}` : ""}
+              {result.newBookingYear && result.newBookingYear !== workingYear ? ` - switch the sidebar's Working Year to ${result.newBookingYear} to see them.` : "."}
+            </div>
+          )}
 
           {result.skipped.length > 0 && (
             <div className="card" style={{ width: "100%", textAlign: "left", padding: 16, marginTop: 8 }}>
