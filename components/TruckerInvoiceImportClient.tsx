@@ -63,15 +63,26 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
     <ol
       aria-label="Import steps"
       className="steps"
-      style={{ listStyle: "none", margin: 0, padding: "14px 18px", background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12 }}
+      // Five steps don't fit the upload page's width with the default
+      // fixed-length connector lines, so they wrapped onto two rows - keep
+      // them on one row and let the connectors shrink to fill what's left.
+      style={{ listStyle: "none", margin: 0, padding: "14px 18px", background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, flexWrap: "nowrap", overflowX: "auto" }}
     >
-      {STEP_ORDER.map((id, i) => (
-        <li key={id} className={`stp${i < stepIdx ? " done" : i === stepIdx ? " cur" : ""}`} aria-current={i === stepIdx ? "step" : undefined}>
-          <span className="n">{i < stepIdx ? "✓" : i + 1}</span>
-          {STEP_LABELS[id]}
-          {i < STEP_ORDER.length - 1 && <span className="stp-line" aria-hidden="true" style={{ marginLeft: 8 }} />}
-        </li>
-      ))}
+      {STEP_ORDER.map((id, i) => {
+        const last = i === STEP_ORDER.length - 1;
+        return (
+          <li
+            key={id}
+            className={`stp${i < stepIdx ? " done" : i === stepIdx ? " cur" : ""}`}
+            aria-current={i === stepIdx ? "step" : undefined}
+            style={{ whiteSpace: "nowrap", flex: last ? "0 0 auto" : "1 1 auto" }}
+          >
+            <span className="n" style={{ flexShrink: 0 }}>{i < stepIdx ? "✓" : i + 1}</span>
+            {STEP_LABELS[id]}
+            {!last && <span className="stp-line" aria-hidden="true" style={{ flex: "1 1 auto", width: "auto", minWidth: 12, maxWidth: 40, marginRight: 4 }} />}
+          </li>
+        );
+      })}
     </ol>
   );
 
@@ -207,7 +218,7 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
 
   if (step === "upload") {
     return (
-      <div className="max-w-2xl mx-auto space-y-5 py-6">
+      <div className="max-w-3xl mx-auto space-y-5 py-6">
         <div className="flex items-center gap-3">
           <BackButton href={backHref} label={`Back to ${truckerName}'s Invoices`} />
           <div>
@@ -551,7 +562,7 @@ export default function TruckerInvoiceImportClient({ truckerId, truckerName }: {
 
   if (step === "result" && result) {
     return (
-      <div className="max-w-2xl mx-auto space-y-5 py-6">
+      <div className="max-w-3xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Import Invoice Charges from Excel</h1>
         </div>
