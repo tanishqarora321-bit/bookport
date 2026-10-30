@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Factory, CheckCircle2, Search } from "lucide-react";
+import { Factory, CheckCircle2, Search, ChevronUp, ChevronDown } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
+import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Supplier = {
@@ -21,6 +22,7 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
   const [suppliers, setSuppliers] = useState(initialSuppliers);
   const [showInactive, setShowInactive] = useState(false);
   const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -53,43 +55,47 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
     }
   }
 
-  async function toggleActive(s: Supplier) {
-    if (s.is_active && !confirm(`Remove "${s.legal_name}"? Its bookings/invoices stay intact - you can Restore it later from "Show removed".`)) {
+  async function toggleActive(t: Supplier) {
+    if (t.is_active && !confirm(`Remove "${t.legal_name}"? Its bookings/invoices stay intact - you can Restore it later from "Show removed".`)) {
       return;
     }
-    const res = await fetch(`/api/suppliers/${s.id}`, {
+    const res = await fetch(`/api/suppliers/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_active: !s.is_active }),
+      body: JSON.stringify({ is_active: !t.is_active }),
     });
     if (res.ok) {
-      setSuppliers(suppliers.map((x) => (x.id === s.id ? { ...x, is_active: !x.is_active } : x)));
+      setSuppliers(suppliers.map((x) => (x.id === t.id ? { ...x, is_active: !x.is_active } : x)));
     }
   }
 
-  async function deletePermanently(s: Supplier) {
-    if (!confirm(`Permanently delete "${s.legal_name}"? This cannot be undone.`)) return;
-    const res = await fetch(`/api/suppliers/${s.id}`, { method: "DELETE" });
+  async function deletePermanently(t: Supplier) {
+    if (!confirm(`Permanently delete "${t.legal_name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/suppliers/${t.id}`, { method: "DELETE" });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
       alert(json.error || "Failed to delete");
       return;
     }
-    setSuppliers(suppliers.filter((x) => x.id !== s.id));
+    setSuppliers(suppliers.filter((x) => x.id !== t.id));
   }
 
   const q = search.trim().toLowerCase();
   const visible = suppliers
-    .filter((s) => showInactive || s.is_active)
+    .filter((t) => showInactive || t.is_active)
     .filter(
-      (s) =>
+      (t) =>
         !q ||
-        s.legal_name.toLowerCase().includes(q) ||
-        (s.short_code ?? "").toLowerCase().includes(q) ||
-        (s.country ?? "").toLowerCase().includes(q)
+        t.legal_name.toLowerCase().includes(q) ||
+        (t.short_code ?? "").toLowerCase().includes(q) ||
+        (t.country ?? "").toLowerCase().includes(q)
     );
 
-  const visibleIds = visible.map((s) => s.id);
+  const sorted = [...visible].sort((a, b) =>
+    sortDir === "asc" ? a.legal_name.localeCompare(b.legal_name) : b.legal_name.localeCompare(a.legal_name)
+  );
+
+  const visibleIds = visible.map((t) => t.id);
   const bulk = useBulkSelection(visibleIds);
   useEffect(() => {
     bulk.pruneToVisible(new Set(visibleIds));
@@ -106,7 +112,7 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
     const succeeded: string[] = [];
     const failures: string[] = [];
     for (const id of ids) {
-      const target = suppliers.find((s) => s.id === id);
+      const target = suppliers.find((t) => t.id === id);
       const name = target?.legal_name ?? id;
       try {
         if (target?.is_active) {
@@ -132,7 +138,7 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
     }
-    setSuppliers((prev) => prev.filter((s) => !succeeded.includes(s.id)));
+    setSuppliers((prev) => prev.filter((t) => !succeeded.includes(t.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);
     bulk.clear();
@@ -144,12 +150,12 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">Suppliers</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Suppliers</h1>
+          <p className="text-sm text-muted mt-0.5">Material suppliers — invoices and charges per booking</p>
+        </div>
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-text-2">
-            <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-            Show removed
-          </label>
+          <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
           <Link href="/suppliers/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
             Import Excel
           </Link>
@@ -162,9 +168,9 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-4 shrink-0">
+      <div className="grid grid-cols-2 gap-3 mb-4 shrink-0" style={{ maxWidth: 480 }}>
         <StatCard icon={Factory} label="Total Suppliers" value={suppliers.length} />
-        <StatCard icon={CheckCircle2} label="Active" value={suppliers.filter((s) => s.is_active).length} tone="success" />
+        <StatCard icon={CheckCircle2} label="Active" value={suppliers.filter((t) => t.is_active).length} tone="success" />
       </div>
 
       {adding && (
@@ -206,27 +212,30 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
         </div>
       )}
 
-      <div className="relative mb-3 max-w-xs">
-        <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
-        <input
-          placeholder="Search suppliers…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
-        />
-      </div>
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line shrink-0">
+          <div className="relative flex-1 min-w-[220px] max-w-xs">
+            <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+            <input
+              placeholder="Search name, code, country"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
+            />
+          </div>
+        </div>
 
-      {isAdmin && (
-        <BulkActionBar
-          count={bulk.selectedCount}
-          itemLabel="supplier"
-          onDeleteClick={() => setBulkConfirming(true)}
-          onClear={bulk.clear}
-          deleting={bulkDeleting}
-        />
-      )}
+        {isAdmin && (
+          <BulkActionBar
+            count={bulk.selectedCount}
+            itemLabel="supplier"
+            onDeleteClick={() => setBulkConfirming(true)}
+            onClear={bulk.clear}
+            deleting={bulkDeleting}
+          />
+        )}
 
-      <div className="bg-surface border border-line rounded-xl">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="text-left text-muted border-b border-line">
@@ -235,7 +244,17 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
                   <input type="checkbox" aria-label="Select all suppliers" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
                 </th>
               )}
-              <th className="px-3 py-2">Supplier Name</th>
+              <th className="px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-sort={sortDir === "asc" ? "ascending" : "descending"}
+                  className="inline-flex items-center gap-1 hover:text-ink"
+                >
+                  Supplier Name
+                  {sortDir === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                </button>
+              </th>
               <th className="px-3 py-2">Short Code</th>
               <th className="px-3 py-2">Country</th>
               <th className="px-3 py-2">Address</th>
@@ -245,51 +264,62 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
             </tr>
           </thead>
           <tbody>
-            {visible.map((s) => (
-              <tr key={s.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!s.is_active ? "opacity-40" : ""}`}>
+            {sorted.map((t) => (
+              <tr key={t.id} className={`border-b border-line last:border-0 hover:bg-surface-2 ${!t.is_active ? "opacity-40" : ""}`}>
                 {isAdmin && (
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
-                      aria-label={`Select ${s.legal_name}`}
-                      checked={bulk.selected.has(s.id)}
-                      onChange={() => bulk.toggle(s.id)}
+                      aria-label={`Select ${t.legal_name}`}
+                      checked={bulk.selected.has(t.id)}
+                      onChange={() => bulk.toggle(t.id)}
                     />
                   </td>
                 )}
-                <td className="px-3 py-2 font-medium text-ink">{s.legal_name}</td>
-                <td className="px-3 py-2 text-text-2">{s.short_code || "—"}</td>
-                <td className="px-3 py-2 text-text-2">{s.country || "—"}</td>
-                <td className="px-3 py-2 text-muted max-w-[260px] truncate" title={s.address ?? ""}>
-                  {s.address || "—"}
+                <td className="px-3 py-2 font-medium text-ink">{t.legal_name}</td>
+                <td className="px-3 py-2">
+                  {t.short_code ? (
+                    <span className="inline-flex items-center border border-line rounded-md px-2 py-0.5 text-xs font-mono text-text-2">
+                      {t.short_code}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-text-2">{t.country || "—"}</td>
+                <td className="px-3 py-2 text-muted max-w-[220px] truncate" title={t.address ?? ""}>
+                  {t.address || "—"}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <button onClick={() => setEditing(s)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1">
+                  <button onClick={() => setEditing(t)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1">
                     Edit
                   </button>
                   {suppliers.length > 1 && (
-                    <button onClick={() => setMerging(s)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1 ml-1">
+                    <button onClick={() => setMerging(t)} className="text-xs text-muted hover:text-accent border border-line hover:bg-surface-2 rounded-lg px-2 py-1 ml-1">
                       Merge
                     </button>
                   )}
                 </td>
-                <td className="px-3 py-2">
-                  <Link href={`/suppliers/${s.id}/invoices`} className="text-xs text-accent underline">
-                    Invoices →
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <Link
+                    href={`/suppliers/${t.id}/invoices`}
+                    className="inline-flex items-center gap-1 text-xs text-accent font-medium border border-line hover:bg-surface-2 rounded-lg px-2.5 py-1"
+                  >
+                    Details →
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
                   <button
-                    onClick={() => toggleActive(s)}
+                    onClick={() => toggleActive(t)}
                     className={`text-xs px-2 py-1 rounded-lg ${
-                      s.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
+                      t.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
                     }`}
                   >
-                    {s.is_active ? "Remove" : "Restore"}
+                    {t.is_active ? "Remove" : "Restore"}
                   </button>
-                  {!s.is_active && (
+                  {!t.is_active && (
                     <button
-                      onClick={() => deletePermanently(s)}
+                      onClick={() => deletePermanently(t)}
                       className="text-xs px-2 py-1 rounded-lg text-cutoff hover:bg-critical-soft font-medium"
                       title="Delete permanently"
                     >
@@ -308,6 +338,11 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
             hint={suppliers.length === 0 ? 'Click "+ New Supplier" above to add one.' : "Try a different search term."}
           />
         )}
+        </div>
+
+        <div className="px-3 py-2.5 text-xs text-muted border-t border-line shrink-0">
+          Removing keeps their bookings and invoices intact — restore any time from &quot;Show removed&quot;.
+        </div>
       </div>
 
       {editing && (
@@ -386,7 +421,7 @@ export default function SuppliersClient({ initialSuppliers, isAdmin = false }: {
 // accident on data this widely shared.
 function EditSupplierModal({
   supplier, onClose, onSaved,
-}: { supplier: Supplier; onClose: () => void; onSaved: (s: Supplier) => void }) {
+}: { supplier: Supplier; onClose: () => void; onSaved: (t: Supplier) => void }) {
   const [form, setForm] = useState({
     legal_name: supplier.legal_name,
     short_code: supplier.short_code ?? "",
@@ -491,9 +526,9 @@ function MergeSuppliersModal({
   onClose: () => void;
   onMerged: (mergedAwayId: string, finalFields: { legal_name: string; short_code: string | null; country: string | null; address: string | null }) => void;
 }) {
-  const others = allSuppliers.filter((s) => s.id !== supplier.id);
+  const others = allSuppliers.filter((t) => t.id !== supplier.id);
   const [otherId, setOtherId] = useState(others[0]?.id ?? "");
-  const other = others.find((s) => s.id === otherId) ?? null;
+  const other = others.find((t) => t.id === otherId) ?? null;
   const [form, setForm] = useState({
     legal_name: supplier.legal_name,
     short_code: supplier.short_code ?? "",
@@ -561,8 +596,8 @@ function MergeSuppliersModal({
         <div className="mb-3">
           <div className="text-xs text-muted mb-0.5">Merge which supplier into "{supplier.legal_name}"?</div>
           <select className="border border-line bg-surface text-ink placeholder:text-muted rounded-lg px-2 py-1.5 text-sm w-full" value={otherId} onChange={(e) => setOtherId(e.target.value)}>
-            {others.map((s) => (
-              <option key={s.id} value={s.id}>{s.legal_name}</option>
+            {others.map((t) => (
+              <option key={t.id} value={t.id}>{t.legal_name}</option>
             ))}
           </select>
         </div>
