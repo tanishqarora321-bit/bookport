@@ -10,9 +10,20 @@ import { useYear } from "@/lib/year-context";
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 // dateFixes: dates that don't exist (29-02-2026) saved as the next real day.
 type DateFix = { row: number; bookingNumber: string; field: string; from: string; to: string };
-type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; dateFixes?: DateFix[] };
+type CommitResult = {
+  imported: number;
+  // Rows that filled in an already-saved booking's missing details.
+  updated?: number;
+  total: number;
+  skipped: { row: number; reason?: string }[];
+  dateFixes?: DateFix[];
+  notes?: { row: number; reason?: string }[];
+};
 type DuplicateGroup = { carrierBookingNo: string; containerCount: number; sheetRows: number[] };
-type Resolution = "add" | "ignore";
+// "fill": fill in the saved booking's blank fields / containers / packing
+// details from this sheet (never overwriting); "add": separate second
+// entry; "ignore": skip.
+type Resolution = "fill" | "add" | "ignore";
 
 const STEP_ORDER = ["upload", "mapping", "duplicates", "dates", "result"] as const;
 type Step = (typeof STEP_ORDER)[number];
@@ -129,7 +140,7 @@ export default function ImportBookingsPage() {
       setUndatedMode("leave");
       if (json.duplicateGroups && json.duplicateGroups.length > 0) {
         setDuplicateGroups(json.duplicateGroups);
-        setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
+        setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "fill"])));
         setStep("duplicates");
       } else if (undated.length > 0) {
         setResolutions({});
@@ -332,9 +343,9 @@ export default function ImportBookingsPage() {
         <div>
           <h1 className="h1">Some Booking Numbers already exist</h1>
           <p className="sub">
-            These are already saved in Booking &amp; Instructions. For each one, choose whether this is an
-            intentional second entry (it&apos;ll be highlighted as Multiple in Booking &amp; Instructions) or should be
-            ignored — you can always add it there yourself later.
+            These are already saved in Booking &amp; Instructions. For each one, choose: <b>fill in its missing details</b>{" "}
+            from this sheet (blank dates, ports, Instruction Status, containers and packing details - anything already
+            entered is kept), add an intentional <b>second entry</b> (highlighted as Multiple), or <b>ignore</b> it.
           </p>
         </div>
 
@@ -378,11 +389,12 @@ export default function ImportBookingsPage() {
                         <select
                           id={`dup-${key}`}
                           className="select select-s"
-                          value={resolutions[key] ?? "ignore"}
+                          value={resolutions[key] ?? "fill"}
                           onChange={(e) => setResolutions({ ...resolutions, [key]: e.target.value as Resolution })}
                         >
-                          <option value="ignore">Ignore</option>
+                          <option value="fill">Fill in missing details</option>
                           <option value="add">Add as a second entry</option>
+                          <option value="ignore">Ignore</option>
                         </select>
                       </td>
                     </tr>
@@ -399,6 +411,13 @@ export default function ImportBookingsPage() {
               className="btn"
             >
               Ignore All
+            </button>
+            <button
+              onClick={() => continueFromDuplicates(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "fill"])))}
+              disabled={importing}
+              className="btn"
+            >
+              Fill In All
             </button>
             <button onClick={() => continueFromDuplicates(resolutions)} disabled={importing} className="btn btn-p">
               {importing ? "Importing…" : "Continue"}
@@ -512,6 +531,7 @@ export default function ImportBookingsPage() {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>Import complete</h2>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="badge b-ok">{result.imported} imported</span>
+            {!!result.updated && <span className="badge b-info">{result.updated} filled in on existing bookings</span>}
             {result.skipped.length > 0 && <span className="badge b-neu">{result.skipped.length} skipped</span>}
             {(result.dateFixes?.length ?? 0) > 0 && <span className="badge b-warn">{result.dateFixes!.length} date{result.dateFixes!.length === 1 ? "" : "s"} corrected</span>}
           </div>
@@ -523,6 +543,17 @@ export default function ImportBookingsPage() {
               <ul style={{ fontSize: 13, color: "var(--tx2)", display: "flex", flexDirection: "column", gap: 4, maxHeight: 256, overflowY: "auto", margin: 0, paddingLeft: 18 }}>
                 {result.skipped.map((s, i) => (
                   <li key={i}>Row {s.row}: {s.reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(result.notes?.length ?? 0) > 0 && (
+            <div className="card" style={{ width: "100%", textAlign: "left", padding: 16, marginTop: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Notes ({result.notes!.length})</div>
+              <ul style={{ fontSize: 13, color: "var(--tx2)", display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto", margin: 0, paddingLeft: 18 }}>
+                {result.notes!.map((n, i) => (
+                  <li key={i}>{n.row ? `Row ${n.row}: ` : ""}{n.reason}</li>
                 ))}
               </ul>
             </div>
