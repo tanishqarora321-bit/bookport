@@ -26,10 +26,13 @@ export default function BookingActions({
   // Booking & Instructions grid), so they need an actual table ancestor
   // here too, not a <div> - keeping the pair side by side needs one row.
   return (
-    <table style={{ maxWidth: "100%" }}>
+    <table className="booking-actions" style={{ maxWidth: "100%" }}>
       <tbody>
-        {/* Wraps onto a second line on narrow screens instead of running off the edge. */}
-        <tr style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {/* Wraps onto a second line on narrow screens instead of running off
+            the edge; .booking-actions strips the cells' own grid padding
+            (the two cells had different padding, so the buttons sat at
+            different heights) and centres them on one line. */}
+        <tr style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
           <UploadBlCell bookingId={bookingId} blNumber={blNumber} containerNos={containerNos} onApplied={() => router.refresh()} size="lg" />
           <SendInstructionsCell
             bookingId={bookingId}
