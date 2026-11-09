@@ -1,8 +1,10 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { getCurrentProfile } from "@/lib/supabase/session";
+import SignInRequired from "@/components/SignInRequired";
 import Link from "next/link";
 import BackButton from "@/components/ui/BackButton";
-import AmendableField from "./AmendableField";
+import DatesCard from "./DatesCard";
 import BookingActions from "./BookingActions";
 import EditableCell from "@/components/EditableCell";
 import StatusPill from "@/components/ui/StatusPill";
@@ -15,23 +17,50 @@ function usd(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
+type InvoiceSummary = { count: number; total: number; paid: number; pending: number };
+
 // booking_number on the four invoice tables is a plain copied text column,
 // not a foreign key (see lib/profit-loss.ts) - matched case-insensitively
-// here for the same reason that file normalizes it.
-async function sumInvoices(supabase: any, table: string, idCol: string, bookingNumber: string, customKeys: string[] = []) {
-  const { data } = await supabase.from(table).select(`id, total_usd${customKeys.length ? ", custom_charges, fx_rate" : ""}`).ilike("booking_number", bookingNumber);
+// here for the same reason that file normalizes it. Also counts each
+// invoice's state, so Connected Records can say Paid / Unpaid / Pending
+// rather than just showing an amount.
+async function summarizeInvoices(supabase: any, table: string, bookingNumber: string, companyId: string, customKeys: string[] = []): Promise<InvoiceSummary> {
+  const { data } = await supabase
+    .from(table)
+    .select(`id, total_usd, paid_status, invoice_number${customKeys.length ? ", custom_charges, fx_rate" : ""}`)
+    .eq("company_id", companyId)
+    .ilike("booking_number", bookingNumber);
   const rows = data ?? [];
   const total = rows.reduce((sum: number, r: any) => {
     const custom = customKeys.reduce((s, k) => s + (Number(r.custom_charges?.[k]) || 0), 0) * (r.fx_rate || 1);
     return sum + Number(r.total_usd || 0) + custom;
   }, 0);
-  return { count: rows.length, total };
+  return {
+    count: rows.length,
+    total,
+    paid: rows.filter((r: any) => r.paid_status === "PAID").length,
+    pending: rows.filter((r: any) => !r.invoice_number).length,
+  };
 }
 
-// TEMPORARY: service-role client, no login screen built yet - see README.
+// "Paid · $3,740" / "Unpaid · $425" / "Pending" (no invoice entered yet) /
+// "Not created" - never a bare amount, and never counts unpaid as paid.
+function invoiceState(inv: InvoiceSummary): { text: string; tone: string } {
+  if (inv.count === 0) return { text: "Not created", tone: "var(--mut)" };
+  if (inv.pending === inv.count) return { text: "Pending", tone: "var(--warn)" };
+  const amount = usd(inv.total);
+  if (inv.paid === inv.count) return { text: `Paid · ${amount}`, tone: "var(--ok)" };
+  const unpaid = inv.count - inv.paid;
+  return { text: `${inv.count > 1 ? `${unpaid} of ${inv.count} unpaid` : "Unpaid"} · ${amount}`, tone: "var(--crit)" };
+}
+
 export default async function BookingDetail({ params }: { params: { id: string } }) {
+  const me = await getCurrentProfile();
+  if (!me) return <SignInRequired />;
   const supabase = createServiceClient();
-  const { data: booking } = await supabase.from("bookings").select("*").eq("id", params.id).single();
+  // Scoped to the signed-in user's company - the service-role client
+  // bypasses RLS, so without this any booking id would open.
+  const { data: booking } = await supabase.from("bookings").select("*").eq("id", params.id).eq("company_id", me.company_id).single();
   if (!booking) notFound();
 
   const bookingNumber = (booking.carrier_booking_no ?? "").trim();
@@ -67,17 +96,28 @@ export default async function BookingDetail({ params }: { params: { id: string }
   const tracking = (trackingRows ?? [])[0] ?? null;
   const extraTrackingCount = Math.max(0, (trackingRows ?? []).length - 1);
 
+  const emptyInv: InvoiceSummary = { count: 0, total: 0, paid: 0, pending: 0 };
   const [buyerInv, fwdInv, supplierInv, truckerInv] = bookingNumber
     ? await Promise.all([
-        sumInvoices(supabase, "buyer_invoices", "buyer_id", bookingNumber),
-        sumInvoices(supabase, "forwarder_invoices", "forwarder_id", bookingNumber, (fwdCustomCols ?? []).map((c: any) => c.key)),
-        sumInvoices(supabase, "supplier_invoices", "supplier_id", bookingNumber),
-        sumInvoices(supabase, "trucker_invoices", "trucker_id", bookingNumber, (truckerCustomCols ?? []).map((c: any) => c.key)),
+        summarizeInvoices(supabase, "buyer_invoices", bookingNumber, booking.company_id),
+        summarizeInvoices(supabase, "forwarder_invoices", bookingNumber, booking.company_id, (fwdCustomCols ?? []).map((c: any) => c.key)),
+        summarizeInvoices(supabase, "supplier_invoices", bookingNumber, booking.company_id),
+        summarizeInvoices(supabase, "trucker_invoices", bookingNumber, booking.company_id, (truckerCustomCols ?? []).map((c: any) => c.key)),
       ])
-    : [{ count: 0, total: 0 }, { count: 0, total: 0 }, { count: 0, total: 0 }, { count: 0, total: 0 }];
+    : [emptyInv, emptyInv, emptyInv, emptyInv];
 
   const expenses = fwdInv.total + supplierInv.total + truckerInv.total;
   const estimatedMargin = buyerInv.total - expenses;
+  // Only show a margin when it means something: a buyer invoice actually
+  // entered, and no invoice on this booking still pending (blank). Anything
+  // less would show a made-up profit or loss.
+  const marginComplete =
+    buyerInv.count > 0 &&
+    buyerInv.pending === 0 &&
+    [fwdInv, supplierInv, truckerInv].every((inv) => inv.pending === 0);
+
+  const stage: "open" | "closed" | "cancelled" =
+    booking.status === "cancelled" ? "cancelled" : booking.status === "delivered" ? "closed" : "open";
 
   const releaseStatus = tracking?.release_status ?? null;
   const stages: TimelineStage[] = [
@@ -90,47 +130,67 @@ export default async function BookingDetail({ params }: { params: { id: string }
 
   const firstContainerId: string | null = (containers ?? [])[0]?.id ?? null;
 
-  // A plain <td>-style cell doesn't fit this page's layout, so this small
-  // wrapper reuses EditableCell's click-to-edit behavior inline in a div.
+  // Click-to-edit detail field: EditableCell renders a <td>, so it gets a
+  // one-cell table of its own inside this card's grid.
   const Field = ({ label, column, isDate = false }: { label: string; column: string; isDate?: boolean }) => (
-    <div>
-      <span className="text-muted text-xs">{label}</span>
-      <table className="tbl" style={{ marginTop: -10 }}><tbody><tr>
+    <div style={{ borderBottom: "1px solid var(--line)", paddingBottom: 4 }}>
+      <div className="meta" style={{ marginBottom: 2 }}>{label}</div>
+      <table className="tbl detail-field" style={{ margin: "0 -12px" }}><tbody><tr>
         <EditableCell bookingId={booking.id} column={column} value={(booking as any)[column]} isDate={isDate} />
       </tr></tbody></table>
     </div>
   );
 
-  function changeSummary(changed: Record<string, { old: any; new: any }>) {
-    const [field, { old: oldVal, new: newVal }] = Object.entries(changed)[0] as [string, { old: any; new: any }];
-    const label = field.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    return `${label} ${oldVal ?? "—"} → ${newVal ?? "—"}`;
-  }
+  const route = booking.pol && booking.pod ? `${booking.pol} → ${booking.pod}` : booking.pol || booking.pod;
+  const subtitle = [booking.carrier, route].filter(Boolean).join(" · ");
+
+  const connected: { label: string; href: string; state: { text: string; tone: string } }[] = [
+    {
+      label: `Buyer Invoice${buyerInv.count > 1 ? `s (${buyerInv.count})` : ""}`,
+      href: partyByRole.buyer ? `/parties/${partyByRole.buyer.id}/invoices` : "/parties",
+      state: invoiceState(buyerInv),
+    },
+    {
+      label: `Forwarder Invoice${fwdInv.count > 1 ? `s (${fwdInv.count})` : ""}`,
+      href: partyByRole.forwarder ? `/forwarders/${partyByRole.forwarder.id}/invoices` : "/forwarders",
+      state: invoiceState(fwdInv),
+    },
+    {
+      label: `Supplier Invoice${supplierInv.count > 1 ? `s (${supplierInv.count})` : ""}`,
+      href: partyByRole.supplier ? `/suppliers/${partyByRole.supplier.id}/invoices` : "/suppliers",
+      state: invoiceState(supplierInv),
+    },
+    {
+      label: `Trucker Invoice${truckerInv.count > 1 ? `s (${truckerInv.count})` : ""}`,
+      href: partyByRole.trucker ? `/truckers/${partyByRole.trucker.id}/invoices` : "/truckers",
+      state: invoiceState(truckerInv),
+    },
+  ];
+
+  const cardStyle: React.CSSProperties = { padding: 20 };
+  const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: "1px solid var(--line)", padding: "12px 0", fontSize: 13 };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
+    <div style={{ maxWidth: 1480, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
           {/* Back to whichever section the booking sits in (lib/bookings-data.ts). */}
-          {booking.status === "cancelled" ? (
+          {stage === "cancelled" ? (
             <BackButton href="/bookings/cancelled" label="Back to Cancelled Bookings" />
-          ) : booking.status === "delivered" ? (
+          ) : stage === "closed" ? (
             <BackButton href="/bookings/closed" label="Back to Closed Bookings" />
           ) : (
             <BackButton href="/bookings" label="Back to Booking & Instructions" />
           )}
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold text-ink">{booking.carrier_booking_no || booking.booking_no}</h1>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontSize: 25, lineHeight: 1.15, fontWeight: 700, letterSpacing: "-0.03em", color: "var(--tx)" }}>
+                {booking.carrier_booking_no || booking.booking_no}
+              </h1>
               <StatusPill value={booking.status} />
             </div>
-            {/* Shipping line and route, only the parts that are filled in - an
-                empty booking used to show a stray "· →" here. */}
-            {(() => {
-              const route = booking.pol && booking.pod ? `${booking.pol} → ${booking.pod}` : booking.pol || booking.pod;
-              const line = [booking.carrier, route].filter(Boolean).join(" · ");
-              return line ? <p className="text-text-2 text-sm">{line}</p> : null;
-            })()}
+            {/* Shipping line and route - only the parts that are filled in. */}
+            {subtitle && <p className="lbl" style={{ margin: "6px 0 0" }}>{subtitle}</p>}
           </div>
         </div>
         <BookingActions
@@ -142,85 +202,72 @@ export default async function BookingDetail({ params }: { params: { id: string }
         />
       </div>
 
-      <BookingStatusTimeline stages={stages} />
+      <BookingStatusTimeline stages={stages} state={stage} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
-          <section className="bg-surface border border-line rounded-xl p-5 space-y-3">
-            <h2 className="font-medium text-ink">Dates & Cut-offs</h2>
-            <p className="text-xs text-muted -mt-2">
-              Editing any of these opens an amendment - it checks what breaks (trucking, SI status) before saving.
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <AmendableField bookingId={booking.id} field="erd" label="ERD" value={booking.erd} version={booking.version} />
-              <AmendableField bookingId={booking.id} field="si_cutoff" label="DOC Cut Off" value={booking.si_cutoff} version={booking.version} />
-              <AmendableField bookingId={booking.id} field="cargo_cutoff" label="Cargo Cut Off" value={booking.cargo_cutoff} version={booking.version} />
-              <AmendableField bookingId={booking.id} field="carrier" label="Shipping Line" value={booking.carrier} version={booking.version} />
-            </div>
-
-            {amendments && amendments.length > 0 && (
-              <div className="pt-3 border-t border-line">
-                <div className="text-[10px] uppercase tracking-wide text-muted mb-2">Amendment History</div>
-                <div className="space-y-2">
-                  {amendments.map((a: any) => (
-                    <div key={a.version} className="text-xs">
-                      <span className="font-medium text-ink">v{a.version}</span>{" "}
-                      <span className="text-text-2">{changeSummary(a.changed_fields)}</span>
-                      <div className="text-muted">
-                        {new Date(a.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                        {a.reason ? ` · "${a.reason}"` : ""}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
+      <div className="booking-detail-grid">
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <DatesCard
+            bookingId={booking.id}
+            version={booking.version ?? 1}
+            values={{ erd: booking.erd, si_cutoff: booking.si_cutoff, cargo_cutoff: booking.cargo_cutoff, carrier: booking.carrier }}
+            amendments={(amendments ?? []) as any}
+            hasTrucking={!!partyByRole.trucker || (trucking ?? []).length > 0}
+          />
 
           {legs && legs.length > 0 && (
-            <section className="bg-surface border border-line rounded-xl p-5">
-              <h2 className="font-medium text-ink mb-2">Routing</h2>
-              <table className="w-full text-sm">
-                <thead className="text-left text-muted">
-                  <tr><th>#</th><th>From</th><th>To</th><th>Mode</th><th>Vessel/Voyage</th><th>ETD</th><th>ETA</th></tr>
-                </thead>
-                <tbody>
-                  {legs.map((l: any) => (
-                    <tr key={l.id} className="border-t border-line">
-                      <td>{l.seq}</td><td>{l.from_location}</td><td>{l.to_location}</td>
-                      <td>{l.transport_mode}</td><td>{l.vessel_voyage}</td>
-                      <td>{l.etd ? new Date(l.etd).toLocaleDateString("en-GB") : "—"}</td>
-                      <td>{l.eta ? new Date(l.eta).toLocaleDateString("en-GB") : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <section className="card" style={cardStyle}>
+              <h2 className="h2">Routing</h2>
+              <p className="lbl" style={{ margin: "4px 0 0" }}>Current voyage legs</p>
+              <div className="tw" style={{ marginTop: 14 }}>
+                <table className="tbl">
+                  <thead>
+                    <tr><th>#</th><th>From</th><th>To</th><th>Mode</th><th>Vessel / Voyage</th><th>ETD</th><th>ETA</th></tr>
+                  </thead>
+                  <tbody>
+                    {legs.map((l: any) => (
+                      <tr key={l.id}>
+                        <td>{l.seq}</td><td>{l.from_location}</td><td>{l.to_location}</td>
+                        <td>{l.transport_mode}</td><td>{l.vessel_voyage}</td>
+                        <td>{l.etd ? new Date(l.etd).toLocaleDateString("en-GB") : "—"}</td>
+                        <td>{l.eta ? new Date(l.eta).toLocaleDateString("en-GB") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
           )}
 
-          <section className="bg-surface border border-line rounded-xl p-5">
-            <h2 className="font-medium text-ink mb-2">Trucking</h2>
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Trucking</h2>
             {trucking && trucking.length > 0 ? (
-              trucking.map((t: any) => (
-                <div key={t.id} className="text-sm border-t border-line pt-2">
-                  {t.parties?.legal_name} · pickup {t.pickup_at ? new Date(t.pickup_at).toLocaleString("en-GB") : "unscheduled"} · {t.status}
-                </div>
-              ))
+              <div style={{ marginTop: 10 }}>
+                {trucking.map((t: any) => (
+                  <div key={t.id} style={rowStyle}>
+                    <b>{t.parties?.legal_name ?? "Trucker"}</b>
+                    <span className="lbl">pickup {t.pickup_at ? new Date(t.pickup_at).toLocaleString("en-GB") : "not scheduled"} · {t.status}</span>
+                  </div>
+                ))}
+              </div>
+            ) : partyByRole.trucker ? (
+              <p className="lbl" style={{ margin: "10px 0 0" }}>
+                <b style={{ color: "var(--tx)" }}>{partyByRole.trucker.name}</b> is assigned - pickup not scheduled yet.
+              </p>
             ) : (
-              <p className="text-sm text-muted">
-                No trucking assigned yet — this comes online with the Truckers module.
+              <p className="lbl" style={{ margin: "10px 0 0" }}>
+                No trucking assigned yet. Assign a trucker in Booking &amp; Instructions to activate pickup tracking and cut-off checks.
               </p>
             )}
           </section>
 
-          <section className="bg-surface border border-line rounded-xl p-5">
-            <h2 className="font-medium text-ink mb-3">Shipment & Routing Details</h2>
-            <p className="text-xs text-muted -mt-2 mb-3">Click any field below to fill in or correct it.</p>
-            <div className="grid grid-cols-2 gap-4">
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Shipment &amp; Routing Details</h2>
+            <p className="lbl" style={{ margin: "4px 0 14px" }}>Click any field to fill in or correct it, without leaving the booking.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px 18px" }}>
               <Field label="Port of Delivery" column="final_destination" />
               <Field label="B/L Issued At" column="bl_issued_at" />
               <Field label="Forwarder Name" column="forwarder_name" />
-              <Field label="Size Of Container" column="container_size" />
+              <Field label="Size of Container" column="container_size" />
               <Field label="Commodity" column="commodity" />
               <Field label="HS Code" column="hs_code" />
               <Field label="Gross Weight" column="gross_weight" />
@@ -229,79 +276,81 @@ export default async function BookingDetail({ params }: { params: { id: string }
           </section>
         </div>
 
-        <div className="space-y-5">
-          <section className="bg-surface border border-line rounded-xl p-5">
-            <h2 className="font-medium text-ink mb-1">Connected Records</h2>
-            <p className="text-xs text-muted mb-3">Everything that shares this booking number</p>
-            <div className="space-y-3 text-sm">
-              <Link href="/tracking" className="flex items-center justify-between hover:text-accent">
-                <span>Shipment Tracking{extraTrackingCount > 0 ? ` (+${extraTrackingCount})` : ""}</span>
-                <StatusPill value={tracking ? releaseStatus ?? "— set —" : null} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Connected Records</h2>
+            <p className="lbl" style={{ margin: "4px 0 10px" }}>Everything that shares this booking number</p>
+            <div style={rowStyle}>
+              <Link href="/tracking" style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>
+                Shipment Tracking{extraTrackingCount > 0 ? ` (+${extraTrackingCount})` : ""}
               </Link>
-              <Link href={partyByRole.buyer ? `/parties/${partyByRole.buyer.id}/invoices` : "/parties"} className="flex items-center justify-between hover:text-accent">
-                <span>Buyer Invoice{buyerInv.count > 1 ? `s (${buyerInv.count})` : ""}</span>
-                <span className="text-text-2">{buyerInv.count > 0 ? usd(buyerInv.total) : "—"}</span>
-              </Link>
-              <Link href={partyByRole.forwarder ? `/forwarders/${partyByRole.forwarder.id}/invoices` : "/forwarders"} className="flex items-center justify-between hover:text-accent">
-                <span>Forwarder Invoice{fwdInv.count > 1 ? `s (${fwdInv.count})` : ""}</span>
-                <span className="text-text-2">{fwdInv.count > 0 ? usd(fwdInv.total) : "—"}</span>
-              </Link>
-              <Link href={partyByRole.supplier ? `/suppliers/${partyByRole.supplier.id}/invoices` : "/suppliers"} className="flex items-center justify-between hover:text-accent">
-                <span>Supplier Invoice{supplierInv.count > 1 ? `s (${supplierInv.count})` : ""}</span>
-                <span className="text-text-2">{supplierInv.count > 0 ? usd(supplierInv.total) : "—"}</span>
-              </Link>
-              <Link href={partyByRole.trucker ? `/truckers/${partyByRole.trucker.id}/invoices` : "/truckers"} className="flex items-center justify-between hover:text-accent">
-                <span>Trucker Invoice{truckerInv.count > 1 ? `s (${truckerInv.count})` : ""}</span>
-                <span className="text-text-2">{truckerInv.count > 0 ? usd(truckerInv.total) : "—"}</span>
-              </Link>
+              {tracking ? <StatusPill value={releaseStatus ?? "— set —"} /> : <span className="lbl">Not tracked yet</span>}
             </div>
+            {connected.map((c) => (
+              <div key={c.label} style={rowStyle}>
+                <Link href={c.href} style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}>{c.label}</Link>
+                <span style={{ color: c.state.tone, fontWeight: 500, textAlign: "right" }}>{c.state.text}</span>
+              </div>
+            ))}
           </section>
 
-          <section className="bg-surface border border-line rounded-xl p-5">
-            <h2 className="font-medium text-ink mb-3">Parties</h2>
-            <div className="space-y-3">
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Parties</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px", marginTop: 8 }}>
               {(["supplier", "buyer", "forwarder", "trucker"] as const).map((role) => (
-                <div key={role} className="text-sm">
-                  <div className="text-xs text-muted capitalize">{role}</div>
+                <div key={role} style={{ borderBottom: "1px solid var(--line)", padding: "10px 0" }}>
+                  <div className="meta" style={{ textTransform: "capitalize", marginBottom: 4 }}>{role}</div>
                   {partyByRole[role] ? (
-                    <div className="text-ink font-medium">{partyByRole[role].name}</div>
+                    <b style={{ fontSize: 13 }}>{partyByRole[role].name}</b>
                   ) : (
-                    <div className="text-muted">— not assigned —</div>
+                    <span className="lbl">Not assigned</span>
                   )}
                 </div>
               ))}
             </div>
           </section>
 
-          <section className="bg-surface border border-line rounded-xl p-5">
-            <h2 className="font-medium text-ink mb-1">Estimated Margin</h2>
-            <p className="text-xs text-muted mb-3">Buyer invoice total minus Forwarder + Supplier + Trucker</p>
-            <div className={`text-2xl font-semibold ${estimatedMargin >= 0 ? "text-success" : "text-critical"}`}>
-              {usd(estimatedMargin)}
-            </div>
-            <div className="text-xs text-muted mt-1">
-              {usd(buyerInv.total)} buyer − {usd(expenses)} expenses
-            </div>
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Estimated Margin</h2>
+            <p className="lbl" style={{ margin: "4px 0 0" }}>Buyer invoice minus forwarder, supplier and trucker expenses</p>
+            {marginComplete ? (
+              <>
+                <div style={{ fontSize: 27, fontWeight: 800, margin: "12px 0 3px", color: estimatedMargin >= 0 ? "var(--ok)" : "var(--crit)" }}>
+                  {usd(estimatedMargin)}
+                </div>
+                <p className="lbl" style={{ margin: 0 }}>{usd(buyerInv.total)} buyer − {usd(expenses)} expenses</p>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 27, fontWeight: 800, margin: "12px 0 3px", color: "var(--mut)" }}>—</div>
+                <p className="lbl" style={{ margin: 0 }}>
+                  Waiting for complete financial data
+                  {buyerInv.count === 0 ? " - no buyer invoice yet" : " - some invoices are still pending"}
+                </p>
+              </>
+            )}
           </section>
 
-          {containers && containers.length > 0 && (
-            <section className="bg-surface border border-line rounded-xl p-5">
-              <h2 className="font-medium text-ink mb-3">Containers ({containers.length})</h2>
-              <div className="space-y-2">
-                {containers.map((c: any) => {
+          <section className="card" style={cardStyle}>
+            <h2 className="h2">Containers ({(containers ?? []).length})</h2>
+            {(containers ?? []).length === 0 ? (
+              <p className="lbl" style={{ margin: "10px 0 0" }}>No containers on this booking yet.</p>
+            ) : (
+              <div style={{ marginTop: 10 }}>
+                {(containers ?? []).map((c: any) => {
                   const item = (c.packing_items ?? [])[0];
                   return (
-                    <div key={c.id} className="text-sm border-t border-line pt-2 first:border-t-0 first:pt-0">
-                      <div className="font-medium text-ink">{c.container_no || "— not set —"}</div>
-                      <div className="text-xs text-muted">
+                    <div key={c.id} style={{ ...rowStyle, display: "block" }}>
+                      <b className="mono">{c.container_no || "— not set —"}</b>
+                      <div className="lbl" style={{ marginTop: 3 }}>
                         {item ? `Seal ${item.seal_no ?? "—"} · ${item.bales ?? "—"} bales · ${item.weight ?? "—"} ${item.weight_unit ?? ""}` : "No packing details yet"}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </section>
-          )}
+            )}
+          </section>
         </div>
       </div>
     </div>

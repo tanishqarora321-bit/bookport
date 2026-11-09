@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 
-const DATE_FIELDS = ["etd", "eta", "cargo_cutoff", "si_cutoff", "vgm_cutoff"];
+const DATE_FIELDS = ["etd", "eta", "erd", "cargo_cutoff", "si_cutoff", "vgm_cutoff"];
+// The fields the booking page offers to amend - anything else is refused.
+const AMENDABLE_FIELDS = ["erd", "si_cutoff", "cargo_cutoff", "carrier", "etd", "eta", "vgm_cutoff"];
 
 // Builds the "what this breaks" list before anything is saved.
 // This one feature is what the brief calls the actual switching trigger.
-async function computeImpact(supabase: any, bookingId: string, field: string, newValue: string) {
+async function computeImpact(supabase: any, booking: any, field: string, newValue: string) {
   const impact: string[] = [];
+  const bookingId = booking.id;
+
+  // Shipping instructions already went out with the old value - they'll
+  // need resending once this is saved.
+  if (booking.instruction_status === "sent") {
+    impact.push("Shipping instructions were already sent with the old value - resend them after saving.");
+  }
 
   if (field === "cargo_cutoff" || field === "etd") {
     const { data: trucking } = await supabase
@@ -44,8 +53,18 @@ export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
-  const { booking_id, field, new_value, reason, notify_party_ids = [] } = await req.json();
+  const { booking_id, field, new_value, reason, notify_party_ids = [], preview = false, expected_version } = await req.json();
   const supabase = createServiceClient();
+
+  if (!AMENDABLE_FIELDS.includes(field)) {
+    return NextResponse.json({ error: "That field can't be amended" }, { status: 400 });
+  }
+  if (!String(reason ?? "").trim()) {
+    return NextResponse.json({ error: "A reason is required for every amendment" }, { status: 400 });
+  }
+  if (DATE_FIELDS.includes(field) && (!new_value || isNaN(new Date(new_value).getTime()))) {
+    return NextResponse.json({ error: "Enter a valid date and time" }, { status: 400 });
+  }
 
   const { data: booking, error: fetchErr } = await supabase
     .from("bookings")
@@ -55,7 +74,23 @@ export async function POST(req: NextRequest) {
     .single();
   if (fetchErr || !booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-  const impact = await computeImpact(supabase, booking_id, field, new_value);
+  // Someone else amended this booking since the page was loaded - refuse
+  // rather than silently overwrite their version.
+  if (expected_version !== undefined && expected_version !== null && Number(expected_version) !== Number(booking.version)) {
+    return NextResponse.json(
+      { error: `This booking was changed by someone else (now v${booking.version}). Reload the page and try again.` },
+      { status: 409 }
+    );
+  }
+
+  const impact = await computeImpact(supabase, booking, field, new_value);
+
+  // "Check" step: report what the change affects WITHOUT saving anything.
+  // The page only saves (a second call without preview) after the user has
+  // seen this list and confirmed.
+  if (preview) {
+    return NextResponse.json({ impact, preview: true, current_version: booking.version });
+  }
 
   const changed_fields = { [field]: { old: booking[field], new: new_value } };
 

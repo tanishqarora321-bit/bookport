@@ -150,3 +150,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .gs td{background:var(--surf2)!important;font-weight:600}
 .secbtn{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:var(--tx);font:inherit;font-size:14px;cursor:pointer;text-align:left}
 .secbtn.on{background:var(--accentS);font-weight:600}
+/* Booking details (/bookings/[id]): ~64/36 main column + right rail, stacking
+   to one column on narrower screens. */
+.booking-detail-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(300px,1fr);gap:18px;align-items:start}
+@media (max-width:1050px){.booking-detail-grid{grid-template-columns:minmax(0,1fr)}}
+.tbl.detail-field td{border-bottom:0;padding:4px 12px;background:transparent;white-space:normal}
+.tbl.detail-field tr:hover td{background:transparent}
+.dates-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.dates-grid{grid-template-columns:minmax(0,1fr)}}

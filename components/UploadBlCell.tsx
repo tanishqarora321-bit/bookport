@@ -38,6 +38,7 @@ export default function UploadBlCell({
   blNumber,
   containerNos = [],
   onApplied,
+  size = "sm",
 }: {
   bookingId: string;
   blNumber: string | null;
@@ -45,6 +46,8 @@ export default function UploadBlCell({
   // the BL is typed in by hand instead of read from a PDF.
   containerNos?: string[];
   onApplied: () => void;
+  // "lg": the full-size secondary button for the booking details header.
+  size?: "sm" | "lg";
 }) {
   const [open, setOpen] = useState(false);
 
@@ -52,10 +55,12 @@ export default function UploadBlCell({
     <td>
       <button
         onClick={() => setOpen(true)}
-        className="btn btn-xs"
+        className={size === "lg" ? "btn" : "btn btn-xs"}
         style={
           blNumber
-            ? { borderColor: "var(--ok)", color: "var(--ok)", maxWidth: 140 }
+            ? { borderColor: "var(--ok)", color: "var(--ok)", maxWidth: size === "lg" ? 220 : 140 }
+            : size === "lg"
+            ? undefined
             : { borderColor: "var(--accent)", color: "var(--accent)" }
         }
         title={blNumber ?? undefined}

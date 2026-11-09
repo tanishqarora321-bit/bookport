@@ -15,31 +15,63 @@ export type TimelineStage = {
 
 function fmt(date?: string | null) {
   if (!date) return null;
-  return new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
-export default function BookingStatusTimeline({ stages }: { stages: TimelineStage[] }) {
+// `state` is the booking's own stage (lib/bookings-data.ts). A cancelled
+// booking must not look like it's still progressing: no "current" stage is
+// highlighted - only the milestones it actually reached, plus a Cancelled
+// badge. A closed one is finished, so likewise nothing is "current".
+export default function BookingStatusTimeline({ stages, state = "open" }: { stages: TimelineStage[]; state?: "open" | "closed" | "cancelled" }) {
   const lastDoneIndex = stages.reduce((acc, s, i) => (s.done ? i : acc), -1);
+  const currentIndex = state === "open" && lastDoneIndex + 1 < stages.length ? lastDoneIndex + 1 : -1;
+
+  const badge =
+    state === "cancelled"
+      ? { cls: "b-crit", text: "Cancelled" }
+      : state === "closed"
+      ? { cls: "b-ok", text: "Closed" }
+      : currentIndex >= 0
+      ? { cls: "b-info", text: `Next: ${stages[currentIndex].label}` }
+      : { cls: "b-ok", text: stages[stages.length - 1]?.label ?? "Done" };
 
   return (
-    <div className="bg-surface border border-line rounded-xl p-4">
-      <div className="flex">
-        {stages.map((s, i) => (
-          <div key={s.label} className="flex-1 min-w-0">
-            <div
-              className={`h-1.5 rounded-full ${i === 0 ? "" : "ml-1"} ${
-                i <= lastDoneIndex ? "bg-success" : i === lastDoneIndex + 1 ? "bg-accent" : "bg-line"
-              }`}
-            />
-            <div className="mt-2">
-              <div className={`text-xs font-medium truncate ${i <= lastDoneIndex ? "text-ink" : i === lastDoneIndex + 1 ? "text-accent" : "text-muted"}`}>
+    <section className="card" aria-label="Shipment progress" style={{ padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+        <div>
+          <h2 className="h2">Shipment progress</h2>
+          <p className="lbl" style={{ margin: "4px 0 0" }}>
+            {state === "cancelled" ? "This booking was cancelled - showing the milestones it reached." : "Operational milestones for this booking"}
+          </p>
+        </div>
+        <span className={`badge ${badge.cls}`}>{badge.text}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${stages.length}, minmax(90px, 1fr))`, gap: 8, overflowX: "auto" }}>
+        {stages.map((s, i) => {
+          const done = i <= lastDoneIndex && s.done;
+          const current = i === currentIndex;
+          return (
+            <div key={s.label} style={{ minWidth: 0, opacity: state === "cancelled" && !done ? 0.55 : 1 }}>
+              <div
+                style={{
+                  height: 5,
+                  borderRadius: 9,
+                  marginBottom: 9,
+                  background: done ? "var(--ok)" : current ? "var(--accent)" : "var(--line)",
+                }}
+              />
+              <div style={{ fontSize: 13, fontWeight: 600, color: done ? "var(--tx)" : current ? "var(--accent)" : "var(--mut)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {s.label}
               </div>
-              <div className="text-[11px] text-muted truncate">{fmt(s.date) ?? " "}</div>
+              <div className="meta" style={{ marginTop: 3 }}>
+                {fmt(s.date) ?? (done ? "Done" : current ? "Current stage" : state === "cancelled" ? "Not reached" : "Not yet")}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </div>
+    </section>
   );
 }
