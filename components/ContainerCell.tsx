@@ -20,12 +20,16 @@ export default function ContainerCell({
   value,
   onSaved,
   onAddContainer,
+  sticky = false,
 }: {
   bookingId: string;
   containerId: string | null;
   value: string | null;
   onSaved: (containerId: string, containerNo: string | null) => void;
   onAddContainer: () => void;
+  // Frozen next to Booking Number (.stk3) - Booking + Container is what
+  // identifies a row, same as the ledgers' frozen pair.
+  sticky?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
@@ -65,7 +69,7 @@ export default function ContainerCell({
 
   if (!editing) {
     return (
-      <td>
+      <td className={sticky ? "stk3" : undefined}>
         <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span className={value ? "" : "dash"}>{value || "—"}</span>
           <button onClick={() => setEditing(true)} aria-label="Edit Container Number" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
@@ -87,7 +91,7 @@ export default function ContainerCell({
   }
 
   return (
-    <td style={{ minWidth: 160 }}>
+    <td className={sticky ? "stk3" : undefined} style={{ minWidth: 160 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <input
           autoFocus
