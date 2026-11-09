@@ -51,6 +51,12 @@ export async function PATCH(
   return NextResponse.json({ container: data });
 }
 
+// Deletes ONE container from a multi-container booking (e.g. to turn a
+// "multiple" booking back into a single one) along with everything tied to
+// that container alone: its tracking row and what points at it (the four
+// party invoices, generated documents) and its tracking events. Packing
+// details cascade with the container. The booking's last container can't
+// be removed this way - that's deleting the booking itself.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; containerId: string } }
@@ -69,6 +75,33 @@ export async function DELETE(
   if (bookingError || !booking) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const { data: containers } = await supabase.from("containers").select("id, container_no").eq("booking_id", params.id);
+  const target = (containers ?? []).find((c: { id: string }) => c.id === params.containerId);
+  if (!target) return NextResponse.json({ error: "Container not found on this booking" }, { status: 404 });
+  if ((containers ?? []).length <= 1) {
+    return NextResponse.json({ error: "This is the booking's only container - delete the booking instead." }, { status: 400 });
+  }
+
+  if (target.container_no) {
+    const { data: trackingRows } = await supabase
+      .from("tracking")
+      .select("id")
+      .eq("booking_id", params.id)
+      .eq("container_number", target.container_no);
+    const trackingIds = (trackingRows ?? []).map((t: { id: string }) => t.id);
+    if (trackingIds.length > 0) {
+      for (const table of ["generated_documents", "forwarder_invoices", "supplier_invoices", "trucker_invoices", "buyer_invoices"]) {
+        const { error: childError } = await supabase.from(table).delete().in("tracking_id", trackingIds);
+        if (childError) return NextResponse.json({ error: `Couldn't remove this container's ${table.replace(/_/g, " ")}: ${childError.message}` }, { status: 500 });
+      }
+      const { error: trackingError } = await supabase.from("tracking").delete().in("id", trackingIds);
+      if (trackingError) return NextResponse.json({ error: `Couldn't remove this container's tracking: ${trackingError.message}` }, { status: 500 });
+    }
+  }
+
+  const { error: eventsError } = await supabase.from("tracking_events").delete().eq("container_id", params.containerId);
+  if (eventsError) return NextResponse.json({ error: `Couldn't remove this container's tracking events: ${eventsError.message}` }, { status: 500 });
 
   const { error } = await supabase
     .from("containers")

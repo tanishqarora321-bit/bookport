@@ -336,46 +336,88 @@ export default function BookingsClient({
   const pageStart = page * pageSize;
   const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
 
-  // Selection unit is booking_id, not rowKey() - a booking with several
-  // containers shows several rows here, but "delete" always acts on the
-  // whole booking (see deleteBooking above), so checking any one of its
-  // rows selects the booking itself and checks every row that shares it.
-  const visibleBookingIds = useMemo(() => Array.from(new Set(paginated.map((r) => r.booking_id))), [paginated]);
-  const bulk = useBulkSelection(visibleBookingIds);
+  // Selection is per ROW (one row = one container), so a single container
+  // of a multi-container booking can be picked on its own - e.g. deleting
+  // one of two containers turns a "multiple" booking back into a single
+  // one. Moving to another stage always moves the whole booking (all its
+  // containers); deleting removes the whole booking only when every one of
+  // its rows is selected, otherwise just the selected containers.
+  const visibleRowKeys = useMemo(() => paginated.map(rowKey), [paginated]);
+  const bulk = useBulkSelection(visibleRowKeys);
   useEffect(() => {
-    bulk.pruneToVisible(new Set(visibleBookingIds));
+    bulk.pruneToVisible(new Set(visibleRowKeys));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleBookingIds]);
+  }, [visibleRowKeys.join(",")]);
+  const selectedRows = useMemo(() => rows.filter((r) => bulk.selected.has(rowKey(r))), [rows, bulk.selected]);
+  const selectedBookingIds = useMemo(() => Array.from(new Set(selectedRows.map((r) => r.booking_id))), [selectedRows]);
+  // What a bulk delete of the current selection would remove.
+  const deletePlan = useMemo(() => {
+    const wholeBookings: string[] = [];
+    const containers: Row[] = [];
+    for (const bookingId of selectedBookingIds) {
+      const all = rows.filter((r) => r.booking_id === bookingId);
+      const picked = selectedRows.filter((r) => r.booking_id === bookingId);
+      if (picked.length === all.length || picked.some((r) => !r.container_id)) wholeBookings.push(bookingId);
+      else containers.push(...picked);
+    }
+    return { wholeBookings, containers };
+  }, [rows, selectedRows, selectedBookingIds]);
+
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
+  // Drops rows locally and re-checks the "multiple" highlight for the
+  // booking numbers they belonged to, then refreshes from the server (which
+  // also counts numbers on the other stages' pages).
+  function removeRowsLocally(shouldRemove: (r: Row) => boolean) {
+    setRows((prev) => {
+      const kept = prev.filter((r) => !shouldRemove(r));
+      const count = new Map<string, number>();
+      for (const r of kept) {
+        const k = (r.carrier_booking_no ?? "").trim().toLowerCase();
+        if (k) count.set(k, (count.get(k) ?? 0) + 1);
+      }
+      return kept.map((r) => {
+        const k = (r.carrier_booking_no ?? "").trim().toLowerCase();
+        return r.is_multiple && (count.get(k) ?? 0) <= 1 ? { ...r, is_multiple: false } : r;
+      });
+    });
+    router.refresh();
+  }
+
   async function bulkDeleteSelected() {
     setBulkDeleting(true);
     setBulkError(null);
-    const ids = bulk.selectedIds;
-    const succeeded: string[] = [];
+    const { wholeBookings, containers } = deletePlan;
+    const deletedBookings: string[] = [];
+    const deletedContainers: string[] = [];
     const failures: string[] = [];
-    for (const bookingId of ids) {
+    for (const bookingId of wholeBookings) {
+      const bookingNo = rows.find((r) => r.booking_id === bookingId)?.carrier_booking_no ?? bookingId;
       try {
         const res = await fetch(`/api/bookings/${bookingId}`, { method: "DELETE" });
-        if (res.ok) {
-          succeeded.push(bookingId);
-        } else {
-          const json = await res.json().catch(() => ({}));
-          const bookingNo = rows.find((r) => r.booking_id === bookingId)?.carrier_booking_no ?? bookingId;
-          failures.push(`${bookingNo}: ${json.error || "failed"}`);
-        }
+        if (res.ok) deletedBookings.push(bookingId);
+        else failures.push(`${bookingNo}: ${(await res.json().catch(() => ({}))).error || "failed"}`);
       } catch (err: any) {
-        failures.push(`${bookingId}: ${err?.message || "network error"}`);
+        failures.push(`${bookingNo}: ${err?.message || "network error"}`);
       }
     }
-    setRows((prev) => prev.filter((r) => !succeeded.includes(r.booking_id)));
+    for (const r of containers) {
+      try {
+        const res = await fetch(`/api/bookings/${r.booking_id}/containers/${r.container_id}`, { method: "DELETE" });
+        if (res.ok) deletedContainers.push(r.container_id!);
+        else failures.push(`${r.carrier_booking_no} / ${r.container_no}: ${(await res.json().catch(() => ({}))).error || "failed"}`);
+      } catch (err: any) {
+        failures.push(`${r.carrier_booking_no} / ${r.container_no}: ${err?.message || "network error"}`);
+      }
+    }
+    removeRowsLocally((r) => deletedBookings.includes(r.booking_id) || (!!r.container_id && deletedContainers.includes(r.container_id)));
     setBulkDeleting(false);
     setBulkConfirming(false);
     bulk.clear();
     if (failures.length > 0) {
-      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
+      setBulkError(`${failures.length} couldn't be deleted:\n${failures.join("\n")}`);
     }
   }
 
@@ -384,7 +426,7 @@ export default function BookingsClient({
   // went to shows them on its next load.
   const [moving, setMoving] = useState(false);
   async function moveSelected(to: Stage) {
-    const ids = bulk.selectedIds;
+    const ids = selectedBookingIds;
     if (ids.length === 0) return;
     const reopenNote =
       to === "open"
@@ -492,7 +534,26 @@ export default function BookingsClient({
       alert(json.error || "Failed to delete booking");
       return;
     }
-    setRows((prev) => prev.filter((r) => r.booking_id !== bookingId));
+    removeRowsLocally((r) => r.booking_id === bookingId);
+  }
+
+  // A row's own delete button: on a booking with several containers it
+  // removes just THIS container (and its tracking/invoices) - the booking
+  // keeps the others, and drops its "multiple" highlight once one is left.
+  // On a single-container booking it deletes the booking.
+  async function deleteRow(r: Row) {
+    const containerCount = rows.filter((x) => x.booking_id === r.booking_id).length;
+    if (containerCount <= 1 || !r.container_id) return deleteBooking(r.booking_id, r.carrier_booking_no);
+    if (!confirm(`Remove container ${r.container_no ?? "(no number)"} from booking ${r.carrier_booking_no ?? ""}? Its tracking entry and invoices go with it; the booking keeps its other container${containerCount - 1 === 1 ? "" : "s"}. This cannot be undone.`)) {
+      return;
+    }
+    const res = await fetch(`/api/bookings/${r.booking_id}/containers/${r.container_id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(json.error || "Failed to remove container");
+      return;
+    }
+    removeRowsLocally((x) => x.container_id === r.container_id);
   }
 
   function clearFilters() {
@@ -706,7 +767,8 @@ export default function BookingsClient({
       {bulk.selectedCount > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "8px 16px", background: "var(--accentS)", borderBottom: "1px solid var(--line)" }}>
           <span className="lbl" style={{ fontWeight: 600, color: "var(--accent)" }}>
-            {bulk.selectedCount} booking{bulk.selectedCount === 1 ? "" : "s"} selected
+            {bulk.selectedCount} row{bulk.selectedCount === 1 ? "" : "s"} selected
+            {selectedBookingIds.length !== bulk.selectedCount ? ` (${selectedBookingIds.length} booking${selectedBookingIds.length === 1 ? "" : "s"})` : ""}
           </span>
           {stage !== "closed" && (
             <button type="button" onClick={() => moveSelected("closed")} disabled={moving || bulkDeleting} className="btn btn-s">
@@ -774,8 +836,8 @@ export default function BookingsClient({
                     <input
                       type="checkbox"
                       aria-label={`Select booking ${r.carrier_booking_no ?? ""} (row ${pageStart + idx + 1})`}
-                      checked={bulk.selected.has(r.booking_id)}
-                      onChange={() => bulk.toggle(r.booking_id)}
+                      checked={bulk.selected.has(rowKey(r))}
+                      onChange={() => bulk.toggle(rowKey(r))}
                     />
                   </td>
                   <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky bold />
@@ -901,8 +963,9 @@ export default function BookingsClient({
                         View
                       </Link>
                       <button
-                        onClick={() => deleteBooking(r.booking_id, r.carrier_booking_no)}
-                        aria-label={`Delete booking ${r.carrier_booking_no ?? ""}`}
+                        onClick={() => deleteRow(r)}
+                        aria-label={rows.filter((x) => x.booking_id === r.booking_id).length > 1 ? `Remove container ${r.container_no ?? ""} from booking ${r.carrier_booking_no ?? ""}` : `Delete booking ${r.carrier_booking_no ?? ""}`}
+                        title={rows.filter((x) => x.booking_id === r.booking_id).length > 1 ? "Remove this container only" : "Delete booking"}
                         className="ib"
                         style={{ color: "var(--crit)" }}
                       >
@@ -973,20 +1036,30 @@ export default function BookingsClient({
         <div className="scrim" onClick={() => !bulkDeleting && setBulkConfirming(false)}>
           <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="mh">
-              <h2 className="h2">Delete {bulk.selectedCount} booking{bulk.selectedCount === 1 ? "" : "s"}?</h2>
+              <h2 className="h2">Delete the selected rows?</h2>
             </div>
             <div className="mb">
-              <p className="lbl">
-                This permanently removes each selected booking and everything on it (containers, documents, tracking,
-                amendments, and any forwarder/trucker/supplier invoices tied to it). This cannot be undone.
-              </p>
+              {deletePlan.wholeBookings.length > 0 && (
+                <p className="lbl">
+                  <b>{deletePlan.wholeBookings.length} whole booking{deletePlan.wholeBookings.length === 1 ? "" : "s"}</b> (every row
+                  selected) - removed with everything on them: containers, documents, tracking, amendments and their invoices.
+                </p>
+              )}
+              {deletePlan.containers.length > 0 && (
+                <p className="lbl">
+                  <b>{deletePlan.containers.length} single container{deletePlan.containers.length === 1 ? "" : "s"}</b> from
+                  multi-container bookings ({deletePlan.containers.map((r) => r.container_no ?? "no number").join(", ")}) -
+                  each with its own tracking entry and invoices. Those bookings keep their other containers.
+                </p>
+              )}
+              <p className="lbl">This cannot be undone.</p>
             </div>
             <div className="mf">
               <button type="button" onClick={() => setBulkConfirming(false)} disabled={bulkDeleting} className="btn btn-g">
                 Cancel
               </button>
               <button type="button" onClick={bulkDeleteSelected} disabled={bulkDeleting} className="btn btn-dp">
-                {bulkDeleting ? "Deleting…" : `Delete ${bulk.selectedCount} Booking${bulk.selectedCount === 1 ? "" : "s"}`}
+                {bulkDeleting ? "Deleting…" : "Delete"}
               </button>
             </div>
           </div>
