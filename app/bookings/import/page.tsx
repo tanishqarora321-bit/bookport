@@ -5,20 +5,23 @@ import Link from "next/link";
 import BackButton from "@/components/ui/BackButton";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
+import { useYear } from "@/lib/year-context";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
 type DuplicateGroup = { carrierBookingNo: string; containerCount: number; sheetRows: number[] };
 type Resolution = "add" | "ignore";
 
-const STEP_ORDER = ["upload", "mapping", "duplicates", "result"] as const;
+const STEP_ORDER = ["upload", "mapping", "duplicates", "dates", "result"] as const;
 type Step = (typeof STEP_ORDER)[number];
 const STEP_LABELS: Record<Step, string> = {
   upload: "Upload",
   mapping: "Match columns",
   duplicates: "Duplicates",
+  dates: "Missing dates",
   result: "Done",
 };
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default function ImportBookingsPage() {
   const [step, setStep] = useState<Step>("upload");
@@ -30,21 +33,41 @@ export default function ImportBookingsPage() {
   const [result, setResult] = useState<CommitResult | null>(null);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [resolutions, setResolutions] = useState<Record<string, Resolution>>({});
+  // "Year this sheet applies to" - the sidebar's Working Year, set from the
+  // upload step like the Forwarders import. Month-only dates in the sheet
+  // ("AUGUST") are read in this year, and it's the year offered below.
+  const { year, setYear } = useYear();
+  // Bookings with no ERD and no cut-off date at all (from the dry run), and
+  // what to do with them: leave them undated (they show under every year,
+  // behind Booking & Instructions' "No ERD" filter) or give them a Month of
+  // Loading.
+  const [undatedGroups, setUndatedGroups] = useState<DuplicateGroup[]>([]);
+  const [undatedMode, setUndatedMode] = useState<"leave" | "set">("leave");
+  const [undatedMonth, setUndatedMonth] = useState(new Date().getMonth());
 
   const stepIdx = STEP_ORDER.indexOf(step);
   const stepsNav = (
     <ol
       aria-label="Import steps"
       className="steps"
-      style={{ listStyle: "none", margin: 0, padding: "14px 18px", background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12 }}
+      // One row, connectors shrinking to fit - same as the Truckers import.
+      style={{ listStyle: "none", margin: 0, padding: "14px 18px", background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, flexWrap: "nowrap", overflowX: "auto" }}
     >
-      {STEP_ORDER.map((id, i) => (
-        <li key={id} className={`stp${i < stepIdx ? " done" : i === stepIdx ? " cur" : ""}`} aria-current={i === stepIdx ? "step" : undefined}>
-          <span className="n">{i < stepIdx ? "✓" : i + 1}</span>
-          {STEP_LABELS[id]}
-          {i < STEP_ORDER.length - 1 && <span className="stp-line" aria-hidden="true" style={{ marginLeft: 8 }} />}
-        </li>
-      ))}
+      {STEP_ORDER.map((id, i) => {
+        const last = i === STEP_ORDER.length - 1;
+        return (
+          <li
+            key={id}
+            className={`stp${i < stepIdx ? " done" : i === stepIdx ? " cur" : ""}`}
+            aria-current={i === stepIdx ? "step" : undefined}
+            style={{ whiteSpace: "nowrap", flex: last ? "0 0 auto" : "1 1 auto" }}
+          >
+            <span className="n" style={{ flexShrink: 0 }}>{i < stepIdx ? "✓" : i + 1}</span>
+            {STEP_LABELS[id]}
+            {!last && <span className="stp-line" aria-hidden="true" style={{ flex: "1 1 auto", width: "auto", minWidth: 12, maxWidth: 40, marginRight: 4 }} />}
+          </li>
+        );
+      })}
     </ol>
   );
 
@@ -94,18 +117,24 @@ export default function ImportBookingsPage() {
       const res = await fetch("/api/bookings/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, dryRun: true })
+        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, dryRun: true, defaultYear: year })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Import failed");
 
-      if (!json.duplicateGroups || json.duplicateGroups.length === 0) {
+      const undated: DuplicateGroup[] = json.undatedGroups ?? [];
+      setUndatedGroups(undated);
+      setUndatedMode("leave");
+      if (json.duplicateGroups && json.duplicateGroups.length > 0) {
+        setDuplicateGroups(json.duplicateGroups);
+        setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
+        setStep("duplicates");
+      } else if (undated.length > 0) {
+        setResolutions({});
+        setStep("dates");
+      } else {
         await commitFinal({});
-        return;
       }
-      setDuplicateGroups(json.duplicateGroups);
-      setResolutions(Object.fromEntries(json.duplicateGroups.map((g: DuplicateGroup) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
-      setStep("duplicates");
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -113,7 +142,18 @@ export default function ImportBookingsPage() {
     }
   }
 
-  async function commitFinal(finalResolutions: Record<string, Resolution>) {
+  // After the duplicates step: undated bookings still need the "Missing
+  // dates" choice before anything is saved.
+  async function continueFromDuplicates(finalResolutions: Record<string, Resolution>) {
+    setResolutions(finalResolutions);
+    if (undatedGroups.length > 0) {
+      setStep("dates");
+      return;
+    }
+    await commitFinal(finalResolutions);
+  }
+
+  async function commitFinal(finalResolutions: Record<string, Resolution>, undatedErd: string | null = null) {
     if (!parsed) return;
     setImporting(true);
     setError(null);
@@ -121,7 +161,7 @@ export default function ImportBookingsPage() {
       const res = await fetch("/api/bookings/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, duplicateResolutions: finalResolutions })
+        body: JSON.stringify({ headers: parsed.headers, rows: parsed.rows, mapping, duplicateResolutions: finalResolutions, defaultYear: year, undatedErd })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Import failed");
@@ -136,7 +176,7 @@ export default function ImportBookingsPage() {
 
   if (step === "upload") {
     return (
-      <div className="max-w-2xl mx-auto space-y-5 py-6">
+      <div className="max-w-3xl mx-auto space-y-5 py-6">
         <div className="flex items-center gap-3">
           <BackButton href="/bookings/new" label="Back to New Booking" />
           <div>
@@ -159,6 +199,20 @@ export default function ImportBookingsPage() {
             <span className="meta">.xlsx — first sheet, first row must be headers</span>
             <input type="file" accept=".xlsx" className="sr" onChange={handleUpload} disabled={uploading} />
           </label>
+          <div className="field" style={{ maxWidth: 260 }}>
+            <label htmlFor="import-year">Year this sheet applies to</label>
+            <select id="import-year" className="select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+              {Array.from(new Set([...Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i), year]))
+                .sort((a, b) => a - b)
+                .map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+            </select>
+            <span className="meta">
+              Used for month-only dates (e.g. &quot;AUGUST&quot;) and offered for bookings with no ERD or cut-off - also sets the
+              Working Year, so the new bookings show up right away.
+            </span>
+          </div>
           {error && <p className="err" style={{ textAlign: "center" }}>{error}</p>}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <Link href="/bookings/new" className="btn">Cancel</Link>
@@ -338,14 +392,98 @@ export default function ImportBookingsPage() {
           {error && <p className="err" style={{ padding: "0 18px" }}>{error}</p>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
             <button
-              onClick={() => commitFinal(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
+              onClick={() => continueFromDuplicates(Object.fromEntries(duplicateGroups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])))}
               disabled={importing}
               className="btn"
             >
               Ignore All
             </button>
-            <button onClick={() => commitFinal(resolutions)} disabled={importing} className="btn btn-p">
+            <button onClick={() => continueFromDuplicates(resolutions)} disabled={importing} className="btn btn-p">
               {importing ? "Importing…" : "Continue"}
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (step === "dates") {
+    const undatedErd = undatedMode === "set" ? `${year}-${String(undatedMonth + 1).padStart(2, "0")}-01` : null;
+    return (
+      <div className="max-w-4xl mx-auto space-y-5 py-6">
+        <div>
+          <h1 className="h1">Some bookings have no dates</h1>
+          <p className="sub">
+            These have no ERD and no Cut Off in the sheet, so there&apos;s nothing to file them under a year by. Every other
+            booking is filed by its ERD (or its Cut Off when the ERD is blank).
+          </p>
+        </div>
+
+        {stepsNav}
+
+        <section className="card" aria-labelledby="nd" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <h2 id="nd" className="h2">{undatedGroups.length} booking{undatedGroups.length === 1 ? "" : "s"} without any date</h2>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+              <input type="radio" name="undated" checked={undatedMode === "leave"} onChange={() => setUndatedMode("leave")} style={{ marginTop: 3 }} />
+              <span>
+                <b>Leave them without an ERD</b>
+                <span className="lbl" style={{ display: "block" }}>
+                  They show under every year, with the &quot;No ERD&quot; filter in Booking &amp; Instructions, until you fill one in.
+                </span>
+              </span>
+            </label>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+              <input type="radio" name="undated" checked={undatedMode === "set"} onChange={() => setUndatedMode("set")} style={{ marginTop: 3 }} />
+              <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <b>Give them a Month of Loading</b>
+                <span style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <select
+                    aria-label="Month of Loading for bookings without dates"
+                    className="select select-s"
+                    style={{ width: 150 }}
+                    value={undatedMonth}
+                    onChange={(e) => {
+                      setUndatedMonth(Number(e.target.value));
+                      setUndatedMode("set");
+                    }}
+                  >
+                    {MONTHS.map((m, i) => (
+                      <option key={m} value={i}>{m}</option>
+                    ))}
+                  </select>
+                  <b>{year}</b>
+                  <span className="lbl">(sets their ERD to the 1st of that month - change it per booking later)</span>
+                </span>
+              </span>
+            </label>
+          </div>
+          <div className="tw" style={{ maxHeight: 320, overflowY: "auto" }}>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Booking Number</th>
+                  <th>In this file</th>
+                </tr>
+              </thead>
+              <tbody>
+                {undatedGroups.map((g) => (
+                  <tr key={g.carrierBookingNo.toLowerCase()}>
+                    <td className="mono" style={{ fontWeight: 600 }}>{g.carrierBookingNo}</td>
+                    <td className="lbl">
+                      {g.sheetRows.length} row{g.sheetRows.length === 1 ? "" : "s"}
+                      {g.containerCount > 1 ? ` (${g.containerCount} containers)` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {error && <p className="err" style={{ padding: "0 18px" }}>{error}</p>}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "14px 18px", borderTop: "1px solid var(--line)", background: "var(--surf2)" }}>
+            <button onClick={() => setStep(duplicateGroups.length > 0 ? "duplicates" : "mapping")} disabled={importing} className="btn">Back</button>
+            <button onClick={() => commitFinal(resolutions, undatedErd)} disabled={importing} className="btn btn-p">
+              {importing ? "Importing…" : "Import"}
             </button>
           </div>
         </section>
@@ -355,7 +493,7 @@ export default function ImportBookingsPage() {
 
   if (step === "result" && result) {
     return (
-      <div className="max-w-2xl mx-auto space-y-5 py-6">
+      <div className="max-w-3xl mx-auto space-y-5 py-6">
         <div>
           <h1 className="h1">Import Bookings from Excel</h1>
           <p className="sub">Each step can be undone with Back until you import.</p>
