@@ -158,3 +158,5 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .tbl.detail-field tr:hover td{background:transparent}
 .dates-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 @media (max-width:620px){.dates-grid{grid-template-columns:minmax(0,1fr)}}
+/* Booking details header: Upload BL + Send Instructions side by side. */
+.booking-actions td{padding:0;border:0;vertical-align:middle;background:transparent}
