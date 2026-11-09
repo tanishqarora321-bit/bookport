@@ -124,7 +124,13 @@ export default async function BookingDetail({ params }: { params: { id: string }
               <h1 className="text-2xl font-semibold text-ink">{booking.carrier_booking_no || booking.booking_no}</h1>
               <StatusPill value={booking.status} />
             </div>
-            <p className="text-text-2 text-sm">{booking.carrier} · {booking.pol} → {booking.pod}</p>
+            {/* Shipping line and route, only the parts that are filled in - an
+                empty booking used to show a stray "· →" here. */}
+            {(() => {
+              const route = booking.pol && booking.pod ? `${booking.pol} → ${booking.pod}` : booking.pol || booking.pod;
+              const line = [booking.carrier, route].filter(Boolean).join(" · ");
+              return line ? <p className="text-text-2 text-sm">{line}</p> : null;
+            })()}
           </div>
         </div>
         <BookingActions
