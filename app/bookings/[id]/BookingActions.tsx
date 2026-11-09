@@ -26,15 +26,17 @@ export default function BookingActions({
   // Booking & Instructions grid), so they need an actual table ancestor
   // here too, not a <div> - keeping the pair side by side needs one row.
   return (
-    <table>
+    <table style={{ maxWidth: "100%" }}>
       <tbody>
-        <tr>
-          <UploadBlCell bookingId={bookingId} blNumber={blNumber} containerNos={containerNos} onApplied={() => router.refresh()} />
+        {/* Wraps onto a second line on narrow screens instead of running off the edge. */}
+        <tr style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <UploadBlCell bookingId={bookingId} blNumber={blNumber} containerNos={containerNos} onApplied={() => router.refresh()} size="lg" />
           <SendInstructionsCell
             bookingId={bookingId}
             containerId={containerId}
             instructionStatus={instructionStatus}
             onSent={() => router.refresh()}
+            size="lg"
           />
         </tr>
       </tbody>

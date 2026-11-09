@@ -121,6 +121,16 @@ denied` lines on git commands are harmless noise — ignore them.
   New bookings steps, Month of Loading / ETA / Status / Paid mappable); one
   invoice = a Booking Number row + the cost-line rows under it; re-importing
   REPLACES that invoice's cost lines (never doubles them).
+- **Booking details page** (`app/bookings/[id]`, 2026-11): redesigned from
+  the owner's design handoff (header + Upload BL / Send Instructions, state-
+  driven progress strip - a cancelled booking shows no "current" stage -,
+  Dates & Cut-offs with amendments, Routing, Trucking, details; right rail
+  Connected Records with invoice STATES, Parties, Estimated Margin shown only
+  when the financial data is complete, Containers). Amendments
+  (`DatesCard.tsx` + `/api/amendments`): **Check** calls the API with
+  `preview: true` (impact only, nothing saved), **Save** saves as the next
+  version; reason required server-side, dates validated, `expected_version`
+  guards stale pages (409). The page is scoped to the signed-in company.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

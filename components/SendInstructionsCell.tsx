@@ -12,11 +12,14 @@ export default function SendInstructionsCell({
   containerId,
   instructionStatus,
   onSent,
+  size = "sm",
 }: {
   bookingId: string;
   containerId: string | null;
   instructionStatus: string | null;
   onSent: () => void;
+  // "lg": the full-size primary button for the booking details header.
+  size?: "sm" | "lg";
 }) {
   const [open, setOpen] = useState(false);
   const sent = instructionStatus === "sent";
@@ -25,8 +28,14 @@ export default function SendInstructionsCell({
     <td className="px-3 py-2 whitespace-nowrap relative">
       <button
         onClick={() => setOpen(true)}
+        // .btn's own background would override utility colour classes.
+        style={size === "lg" && sent ? { background: "var(--ok)", borderColor: "var(--ok)", color: "#fff" } : undefined}
         className={
-          sent
+          size === "lg"
+            ? sent
+              ? "btn"
+              : "btn btn-p"
+            : sent
             ? "text-xs border border-emerald-600 bg-emerald-600 text-white px-2 py-1 rounded hover:bg-emerald-700"
             : "text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
         }
