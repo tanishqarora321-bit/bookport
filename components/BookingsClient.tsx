@@ -540,9 +540,9 @@ export default function BookingsClient({
           <h1 className="h1">{STAGE_LABEL[stage]}</h1>
           <p className="sub">
             {stage === "closed"
-              ? "Bookings with every field filled in move here on their own - or select rows and move them by hand. Still editable."
+              ? "Bookings with every field filled in move here on their own - or select rows and move them by hand. Still editable. Highlighted rows share a booking number with more than one container."
               : stage === "cancelled"
-              ? "Bookings moved here by hand. Select rows to restore them to Booking & Instructions."
+              ? "Bookings moved here by hand. Select rows to restore them to Booking & Instructions. Highlighted rows share a booking number with more than one container."
               : "Source of truth — click the pencil icon on any cell to edit. Highlighted rows share a booking number with more than one container."}
           </p>
         </div>
@@ -661,7 +661,9 @@ export default function BookingsClient({
               </svg>
               Cut-off overdue
             </button>
-            {stage === "open" && (
+            {/* On all three pages - Closed and Cancelled bookings keep their
+                multiple-container highlight too. */}
+            {(
               <button
                 onClick={() => setMultipleOnly(!multipleOnly)}
                 aria-pressed={multipleOnly}
@@ -767,7 +769,7 @@ export default function BookingsClient({
             {paginated.map((r, idx) => {
               const cutoffSoon = r.cargo_cutoff && new Date(r.cargo_cutoff).getTime() - Date.now() < 48 * 3600 * 1000;
               return (
-                <tr key={rowKey(r)} className={stage === "open" && r.is_multiple ? "row-multi" : undefined} title={stage === "open" && r.is_multiple ? "This booking number has more than one container" : undefined}>
+                <tr key={rowKey(r)} className={r.is_multiple ? "row-multi" : undefined} title={r.is_multiple ? "This booking number has more than one container" : undefined}>
                   <td className="stk num meta" style={{ width: 56, minWidth: 56 }}>
                     <input
                       type="checkbox"
