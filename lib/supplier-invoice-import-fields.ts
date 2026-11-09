@@ -26,6 +26,10 @@ export const SUPPLIER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requi
   { key: "weight_kg", label: "Weight (KG)" },
   { key: "unit_price", label: "Unit Price" },
   { key: "amount", label: "Amount" },
+  // Optional: the invoice's USD total as the sheet has it. Gives each
+  // invoice its own FX rate (USD total / sum of its Amounts) instead of the
+  // single rate entered for the whole file.
+  { key: "total_usd", label: "Total (USD) - sets each invoice's FX rate" },
 ];
 
 export const SUPPLIER_INVOICE_DATE_KEYS = new Set(["invoice_date"]);
@@ -42,4 +46,5 @@ export const SUPPLIER_INVOICE_HEADER_KEYS = new Set([
   "invoice_number",
   "invoice_date",
   "paid_status",
+  "total_usd",
 ]);
