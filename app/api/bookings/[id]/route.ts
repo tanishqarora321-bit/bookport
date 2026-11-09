@@ -131,8 +131,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  for (const table of ["invoices", "offers", "rate_quotes"]) {
-    await supabase.from(table).update({ booking_id: null }).eq("booking_id", params.id);
+  // Records that should outlive the booking are unlinked, not deleted:
+  // legacy invoices/offers/quotes, and the log of emails actually sent for
+  // it (sent_emails - kept as a history of what went out; it was missing
+  // here, so a booking whose instructions had been emailed couldn't be
+  // deleted). Every other table that points at a booking either cascades
+  // with it (containers, booking_parties, amendments, ...) or is cleared
+  // below.
+  for (const table of ["invoices", "offers", "rate_quotes", "sent_emails"]) {
+    const { error: unlinkError } = await supabase.from(table).update({ booking_id: null }).eq("booking_id", params.id);
+    if (unlinkError) return NextResponse.json({ error: `Couldn't unlink this booking's ${table.replace(/_/g, " ")}: ${unlinkError.message}` }, { status: 500 });
   }
 
   // Generated Instructions PDFs anchor to booking_id directly (migration
