@@ -122,7 +122,11 @@ function ComposeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={onClose}>
+    // whiteSpace: normal - this modal renders inside a Booking & Instructions
+    // grid cell, whose `white-space: nowrap` was being inherited by the email
+    // preview, so a long line ran straight past the edge of a bordered box
+    // (the sent email itself wraps it correctly).
+    <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" style={{ whiteSpace: "normal" }} onClick={onClose}>
       <div
         className="bg-surface rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-auto p-5"
         onClick={(e) => e.stopPropagation()}

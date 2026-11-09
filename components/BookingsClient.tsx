@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ClipboardList, CheckCircle2, Ship, AlertTriangle, PackageCheck, Search, Mail, Ban } from "lucide-react";
@@ -100,18 +100,18 @@ function inYearScope(r: Pick<Row, "erd">, year: number, monthFilter: string): bo
 
 function toCsv(rows: Row[]) {
   const headers = [
-    "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
+    "Booking Number", "Container Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
     "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At",
     "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-    "Container Number", "Container Size", "Seal No", "Weight", "Bales", "Status", "Instruction Status",
+    "Container Size", "Seal No", "Weight", "Bales", "Status", "Instruction Status",
   ];
   const lines = rows.map((r) => {
     const firstPacking = r.packing_items[0];
     return [
-      r.carrier_booking_no ?? "", monthOfLoading(r.erd), formatPlain(r.erd, true), formatPlain(r.si_cutoff, true), formatPlain(r.cargo_cutoff, true),
+      r.carrier_booking_no ?? "", r.container_no ?? "", monthOfLoading(r.erd), formatPlain(r.erd, true), formatPlain(r.si_cutoff, true), formatPlain(r.cargo_cutoff, true),
       r.pol ?? "", r.pod ?? "", r.final_destination ?? "", formatPlain(r.bl_issued_at),
       r.carrier ?? "", r.forwarder?.name ?? "", r.trucker?.name ?? "", r.supplier?.name ?? "", r.buyer?.name ?? "",
-      r.container_no ?? "", r.container_size ?? "",
+      r.container_size ?? "",
       firstPacking?.seal_no ?? "", firstPacking ? `${firstPacking.weight ?? ""} ${firstPacking.weight_unit}` : "", firstPacking?.bales ?? "",
       r.status, r.instruction_status ?? "",
     ]
@@ -286,6 +286,27 @@ export default function BookingsClient({
     }
     return m;
   }, [rows]);
+
+  // The frozen Container Number column sits right after the frozen Sr. No. +
+  // Booking Number columns, whose combined width changes (editing a booking
+  // number widens it) - measured live into --stk3-left so the three frozen
+  // columns never overlap.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const bookingHeadRef = useRef<HTMLTableCellElement>(null);
+  useEffect(() => {
+    const th = bookingHeadRef.current;
+    const table = tableRef.current;
+    if (!th || !table) return;
+    // Sum of the two frozen columns' widths - offsetLeft would be measured
+    // from the page, not the table, and drift by the page's own padding.
+    const srTh = th.previousElementSibling as HTMLElement | null;
+    const update = () => table.style.setProperty("--stk3-left", `${(srTh?.offsetWidth ?? 56) + th.offsetWidth}px`);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(th);
+    if (srTh) ro.observe(srTh);
+    return () => ro.disconnect();
+  }, []);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
@@ -675,16 +696,21 @@ export default function BookingsClient({
       )}
 
       <div className="tw" style={{ flex: 1, minHeight: 0 }}>
-        <table className="tbl">
+        <table className="tbl tbl-bk" ref={tableRef}>
           <thead>
             <tr>
               {[
-                "Sr. No.", "Booking Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
+                "Sr. No.", "Booking Number", "Container Number", "Month of Loading", "ERD", "DOC Cut Off", "Cargo Cut Off",
                 "Port of Loading", "Port of Discharge", "Port of Delivery", "B/L Issued At", "Upload BL",
                 "Shipping Line", "Forwarder Name", "Trucker Name", "Supplier Name", "Buyer (Consignee)",
-                "Container Number", "Container Size", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
+                "Container Size", "Packing Details", "Status", "Send Instructions", "Instruction Status", "Open",
               ].map((label, i) => (
-                <th key={i} className={i === 0 ? "stk" : i === 1 ? "stk2" : undefined} style={i === 0 ? { zIndex: 3, width: 56, minWidth: 56 } : i === 1 ? { zIndex: 3 } : undefined}>
+                <th
+                  key={i}
+                  ref={i === 1 ? bookingHeadRef : undefined}
+                  className={i === 0 ? "stk" : i === 1 ? "stk2" : i === 2 ? "stk3" : undefined}
+                  style={i === 0 ? { zIndex: 3, width: 56, minWidth: 56 } : i <= 2 ? { zIndex: 3 } : undefined}
+                >
                   {i === 0 ? (
                     <input
                       type="checkbox"
@@ -713,6 +739,14 @@ export default function BookingsClient({
                     />
                   </td>
                   <EditableCell bookingId={r.booking_id} column="carrier_booking_no" value={r.carrier_booking_no} sticky bold />
+                  <ContainerCell
+                    bookingId={r.booking_id}
+                    containerId={r.container_id}
+                    value={r.container_no}
+                    onSaved={(containerId, containerNo) => updateSingleRow(r.booking_id, r.container_id, { container_id: containerId, container_no: containerNo })}
+                    onAddContainer={() => addContainer(r)}
+                    sticky
+                  />
                   <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
                   <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
@@ -781,13 +815,7 @@ export default function BookingsClient({
                     onAssigned={(p) => updateRowsForBooking(r.booking_id, { buyer: p })}
                     onCreated={(p) => setBuyerOptions((prev) => [...prev, p].sort((a, b) => a.legal_name.localeCompare(b.legal_name)))}
                   />
-                  <ContainerCell
-                    bookingId={r.booking_id}
-                    containerId={r.container_id}
-                    value={r.container_no}
-                    onSaved={(containerId, containerNo) => updateSingleRow(r.booking_id, r.container_id, { container_id: containerId, container_no: containerNo })}
-                    onAddContainer={() => addContainer(r)}
-                  />
+
                   <EditableCell bookingId={r.booking_id} column="container_size" value={r.container_size} />
                   <PackingItemsCell
                     containerId={r.container_id}

@@ -82,7 +82,12 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .tbl .r{text-align:right}
 .stk{position:sticky;left:0;z-index:2;background:var(--surf);will-change:transform}
 .stk2{position:sticky;left:56px;z-index:2;box-shadow:1px 0 0 var(--line);background:var(--surf);will-change:transform}
-.tbl tbody tr:hover .stk,.tbl tbody tr:hover .stk2{background:var(--surf2)}
+/* Third frozen column (Booking & Instructions' Container Number, right after
+   Booking Number): its offset is the measured width of the two columns
+   before it, kept in --stk3-left by the grid itself (see BookingsClient). */
+.stk3{position:sticky;left:var(--stk3-left,236px);z-index:2;box-shadow:1px 0 0 var(--line);background:var(--surf);will-change:transform}
+.tbl-bk .stk2{box-shadow:none}
+.tbl tbody tr:hover .stk,.tbl tbody tr:hover .stk2,.tbl tbody tr:hover .stk3{background:var(--surf2)}
 /* Booking & Instructions: a booking number with more than one container (it
    used to live on its own Multiple Bookings page) - tinted, with an amber
    edge on the first column, so the block stands out in the main grid. */
