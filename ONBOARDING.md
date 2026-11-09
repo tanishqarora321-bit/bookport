@@ -88,10 +88,15 @@ denied` lines on git commands are harmless noise — ignore them.
   payments whose `applies_to_year` is the Working Year, against that year's
   invoiced total. Freight Comparison follows the sidebar year (its Year picker
   sets it). Partner LIST pages (company names) aren't year-bound.
-- **`booking.erd` is the visibility key:** Booking & Instructions hides any
-  booking with a null `erd` (`inYearScope`). Imports MUST set `booking.erd`
-  from the row's Month of Loading (backfilled only when null). A one-time repair
-  on 2026-10-29 set `erd` on 320 bookings imports had left null.
+- **Booking filing date (2026-11):** a booking is filed under the Working
+  Year/month by its ERD, else Cargo Cut Off, else DOC Cut Off
+  (`filingDate` in BookingsClient; Tracking mirrors it). A booking with none
+  is NEVER hidden: it shows under every year, with a "No ERD" badge and
+  filter chip. (Before, a blank ERD hid a booking under every year - an
+  owner import of 738 rows "lost" 301 that way.) The bookings import asks
+  "Year this sheet applies to" (month-only dates use it), merges booking
+  fields across a booking's rows, and lists bookings with no date at all on
+  a "Missing dates" step (leave undated, or set Month of Loading).
 - **Custom columns:** `*_invoice_custom_columns` tables (number/text/date),
   appended to import fields + ledger at runtime, max 10.
 

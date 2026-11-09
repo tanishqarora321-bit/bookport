@@ -86,17 +86,33 @@ function rowKey(r: Row) {
   return `${r.booking_id}__${r.container_id ?? "none"}`;
 }
 
-// A booking with no ERD yet can't belong to any year, so it's excluded
-// here the same way it's excluded from the grid itself (see the `filtered`
-// memo) - shared so the KPI cards above the grid can never show a total
-// the grid itself has no way to display a single row of.
-function inYearScope(r: Pick<Row, "erd">, year: number, monthFilter: string): boolean {
-  if (!r.erd) return false;
-  const erdDate = new Date(r.erd);
-  if (erdDate.getFullYear() !== year) return false;
-  if (monthFilter !== "all" && erdDate.getMonth() !== Number(monthFilter)) return false;
+// The date a booking is filed under for the Working Year / month: its ERD,
+// else its Cargo Cut Off, else its DOC Cut Off. A booking is NEVER hidden
+// for having a blank ERD (an import of rows without one used to vanish
+// under every year); one with none of the three dates shows under every
+// year instead, and the "No ERD" filter gathers them so they can be filled.
+function filingDate(r: Pick<Row, "erd" | "cargo_cutoff" | "si_cutoff">): { date: Date; source: "erd" | "cargo_cutoff" | "si_cutoff" } | null {
+  for (const source of ["erd", "cargo_cutoff", "si_cutoff"] as const) {
+    const v = r[source];
+    if (!v) continue;
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) return { date: d, source };
+  }
+  return null;
+}
+
+// Shared by the grid's `filtered` memo and the KPI cards, so the cards can
+// never show a total the grid has no rows to back up.
+function inYearScope(r: Pick<Row, "erd" | "cargo_cutoff" | "si_cutoff">, year: number, monthFilter: string): boolean {
+  const filed = filingDate(r);
+  // Undated: every year, but not under a specific month.
+  if (!filed) return monthFilter === "all";
+  if (filed.date.getFullYear() !== year) return false;
+  if (monthFilter !== "all" && filed.date.getMonth() !== Number(monthFilter)) return false;
   return true;
 }
+
+const FILED_BY_LABEL = { cargo_cutoff: "Cargo Cut Off", si_cutoff: "DOC Cut Off" } as const;
 
 function toCsv(rows: Row[]) {
   const headers = [
@@ -205,6 +221,13 @@ export default function BookingsClient({
   // where that page's old URL now redirects - opens with it on.
   const searchParams = useSearchParams();
   const [multipleOnly, setMultipleOnly] = useState(searchParams?.get("multiple") === "1");
+  // "No ERD": bookings still missing their ERD (filed by a cut-off date, or
+  // undated) - so they can be found and filled in.
+  const [noErdOnly, setNoErdOnly] = useState(false);
+  const noErdCount = useMemo(
+    () => new Set(rows.filter((r) => !r.erd && inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
+    [rows, year, monthFilter]
+  );
   const multipleCount = useMemo(
     () => new Set(rows.filter((r) => r.is_multiple && inYearScope(r, year, monthFilter)).map((r) => (r.carrier_booking_no ?? "").trim().toLowerCase())).size,
     [rows, year, monthFilter]
@@ -244,6 +267,7 @@ export default function BookingsClient({
       if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
       if (multipleOnly && !r.is_multiple) return false;
+      if (noErdOnly && r.erd) return false;
       // The working year (sidebar) always filters this grid - a booking
       // with no Month of Loading/ERD yet can't belong to any year, so it
       // drops out until it has one. The Month filter then narrows further
@@ -267,13 +291,13 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
 
   // Any filter change jumps back to page 1 - staying on, say, page 4 after
   // narrowing the result set down to one page would just show an empty grid.
   useEffect(() => {
     setPage(0);
-  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
+  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
 
   // Each booking's container numbers, for the Upload BL dialog's manual
   // entry (pre-fills its container table).
@@ -482,6 +506,7 @@ export default function BookingsClient({
     setCutoffSoonOnly(false);
     setOverdueOnly(false);
     setMultipleOnly(false);
+    setNoErdOnly(false);
     setSearch("");
   }
 
@@ -494,6 +519,7 @@ export default function BookingsClient({
     supplierFilter !== "all" ? { label: `Supplier: ${supplierFilter}`, clear: () => setSupplierFilter("all") } : null,
     buyerFilter !== "all" ? { label: `Buyer: ${buyerFilter}`, clear: () => setBuyerFilter("all") } : null,
     multipleOnly ? { label: "Multiple only", clear: () => setMultipleOnly(false) } : null,
+    noErdOnly ? { label: "No ERD", clear: () => setNoErdOnly(false) } : null,
   ].filter((c): c is { label: string; clear: () => void } => c !== null);
 
   function exportCsv() {
@@ -649,6 +675,18 @@ export default function BookingsClient({
                 Multiple only{multipleCount > 0 ? ` (${multipleCount})` : ""}
               </button>
             )}
+            <button
+              onClick={() => setNoErdOnly(!noErdOnly)}
+              aria-pressed={noErdOnly}
+              className={noErdOnly ? "chip on-crit" : "chip"}
+              style={{ height: 36 }}
+              title="Bookings with no ERD yet - filed by their cut-off date, or shown under every year when they have none"
+            >
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 6h16v14H4zM4 10h16M9 3v4M15 3v4" />
+              </svg>
+              No ERD{noErdCount > 0 ? ` (${noErdCount})` : ""}
+            </button>
             {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
               <button
                 onClick={() => {
@@ -747,7 +785,20 @@ export default function BookingsClient({
                     onAddContainer={() => addContainer(r)}
                     sticky
                   />
-                  <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>
+                  {(() => {
+                    if (r.erd) return <td className={monthOfLoading(r.erd) === "—" ? "dash" : ""}>{monthOfLoading(r.erd)}</td>;
+                    const filed = filingDate(r);
+                    return filed ? (
+                      <td title={`No ERD yet - filed by ${FILED_BY_LABEL[filed.source as "cargo_cutoff" | "si_cutoff"]}`}>
+                        <span style={{ color: "var(--tx2)" }}>{monthOfLoading(filed.date.toISOString())}</span>
+                        <div className="meta" style={{ color: "var(--warn)" }}>No ERD · by {FILED_BY_LABEL[filed.source as "cargo_cutoff" | "si_cutoff"]}</div>
+                      </td>
+                    ) : (
+                      <td title="No ERD or cut-off date yet - shown under every year">
+                        <span className="badge b-warn">No ERD</span>
+                      </td>
+                    );
+                  })()}
                   <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
                   <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
                   <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} />

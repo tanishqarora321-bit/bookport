@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { parseDateish } from "@/lib/parse-date";
+import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 60;
 
@@ -53,6 +53,16 @@ export async function POST(req: NextRequest) {
   // it'll show on Multiple Bookings) or "ignore" (skip it, same as not
   // resolving it at all).
   const duplicateResolutions: Record<string, "add" | "ignore"> = body.duplicateResolutions ?? {};
+  // "Year this sheet applies to", asked on the upload step (like the
+  // Forwarders import): a bare month name in a date column ("AUGUST") is
+  // read as that month of this year.
+  const defaultYear: number | null = Number.isInteger(body.defaultYear) ? body.defaultYear : null;
+  // Set only when the user chose, on the "Missing dates" step, to give the
+  // bookings that have no ERD and no cut-off at all a Month of Loading
+  // ("YYYY-MM-01"). Otherwise they're saved without one and show under
+  // every year behind Booking & Instructions' "No ERD" filter.
+  const undatedErd: string | null =
+    typeof body.undatedErd === "string" && /^\d{4}-\d{2}-01$/.test(body.undatedErd) ? body.undatedErd : null;
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: "No rows to import" }, { status: 400 });
@@ -91,19 +101,29 @@ export async function POST(req: NextRequest) {
     const key = carrierBookingNo.toLowerCase();
     let group = groupByKey.get(key);
     if (!group) {
-      const fields: Record<string, any> = {
-        carrier_booking_no: carrierBookingNo,
-        company_id: me.company_id,
-        status: "confirmed",
+      group = {
+        carrierBookingNo,
+        sheetRows: [],
+        fields: { carrier_booking_no: carrierBookingNo, company_id: me.company_id, status: "confirmed" },
+        containerNos: [],
+        parties: [],
       };
-      for (const f of IMPORT_FIELDS) {
-        if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
-        const raw = get(f.key);
-        if (!raw) continue;
-        fields[f.key] = f.kind === "date" ? (parseDateish(raw)?.toISOString() ?? null) : raw;
-      }
-      group = { carrierBookingNo, sheetRows: [], fields, containerNos: [], parties: [] };
       groupByKey.set(key, group);
+    }
+    // Booking-level fields come from the first row of the group that has
+    // each one - a multi-container booking often has its dates/ports only
+    // on one of its rows, and reading only the first row lost them.
+    for (const f of IMPORT_FIELDS) {
+      if (f.kind === "party" || f.key === "container_no" || f.key === "carrier_booking_no") continue;
+      if (group.fields[f.key]) continue;
+      const raw = get(f.key);
+      if (!raw) continue;
+      if (f.kind === "date") {
+        const d = parseDateish(raw) ?? parseMonthish(raw, defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
+        if (d) group.fields[f.key] = d.toISOString();
+      } else {
+        group.fields[f.key] = raw;
+      }
     }
     group.sheetRows.push(sheetRow);
     if (containerNo && !group.containerNos.includes(containerNo)) group.containerNos.push(containerNo);
@@ -113,6 +133,14 @@ export async function POST(req: NextRequest) {
   }
 
   const groups = Array.from(groupByKey.values());
+
+  // No ERD and no cut-off date at all - nothing to file them under a year
+  // by. Listed on the dry run so the user can give them a Month of Loading.
+  const isUndated = (g: Group) => !g.fields.erd && !g.fields.cargo_cutoff && !g.fields.si_cutoff;
+  if (undatedErd) {
+    for (const g of groups) if (isUndated(g)) g.fields.erd = new Date(`${undatedErd}T00:00:00Z`).toISOString();
+  }
+
   if (groups.length === 0) {
     return NextResponse.json({ imported: 0, total: rows.length, skipped });
   }
@@ -137,7 +165,10 @@ export async function POST(req: NextRequest) {
         containerCount: g.containerNos.length || 1,
         sheetRows: g.sheetRows,
       }));
-    return NextResponse.json({ dryRun: true, duplicateGroups });
+    const undatedGroups = groups
+      .filter(isUndated)
+      .map((g) => ({ carrierBookingNo: g.carrierBookingNo, containerCount: g.containerNos.length || 1, sheetRows: g.sheetRows }));
+    return NextResponse.json({ dryRun: true, duplicateGroups, undatedGroups });
   }
 
   const toInsert = groups.filter((g) => {

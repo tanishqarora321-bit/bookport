@@ -28,7 +28,7 @@ type TrackingRow = {
   bl_number: string | null;
   bl_status: "Y" | "N";
   last_tracking_check_at: string | null;
-  booking?: { erd: string | null } | null;
+  booking?: { erd: string | null; cargo_cutoff?: string | null; si_cutoff?: string | null } | null;
 };
 
 type Booking = { id: string; booking_no: string; carrier_booking_no: string | null; carrier: string | null; forwarder_name: string | null };
@@ -71,11 +71,15 @@ export default function TrackingClient({
   forwarders: Forwarder[];
 }) {
   const [rows, setRows] = useState(initialTracking);
-  // The sidebar's Working Year: a tracking row belongs to its booking's
-  // Month of Loading (the same year Booking & Instructions files it under),
-  // else its ETA's; undated rows show under every year (lib/year-scope.ts).
+  // The sidebar's Working Year: a tracking row is filed the same way
+  // Booking & Instructions files its booking (ERD, else Cargo Cut Off, else
+  // DOC Cut Off), else by its ETA; undated rows show under every year
+  // (lib/year-scope.ts).
   const { year } = useYear();
-  const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.booking?.erd ?? r.eta, year)), [rows, year]);
+  const yearRows = useMemo(
+    () => rows.filter((r) => dateInWorkingYear(r.booking?.erd || r.booking?.cargo_cutoff || r.booking?.si_cutoff || r.eta, year)),
+    [rows, year]
+  );
   const [remainingBookings, setRemainingBookings] = useState(unassignedBookings);
   const [assigning, setAssigning] = useState(false);
   const [search, setSearch] = useState("");
