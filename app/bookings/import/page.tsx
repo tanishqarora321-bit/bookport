@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
 
@@ -136,12 +137,15 @@ export default function ImportBookingsPage() {
   if (step === "upload") {
     return (
       <div className="max-w-2xl mx-auto space-y-5 py-6">
-        <div>
+        <div className="flex items-center gap-3">
+          <BackButton href="/bookings/new" label="Back to New Booking" />
+          <div>
           <h1 className="h1">Import Bookings from Excel</h1>
           <p className="sub">
             Upload an .xlsx spreadsheet of existing bookings. You&apos;ll match its columns to Ship-Sphere&apos;s
             fields before anything is saved.
           </p>
+          </div>
         </div>
 
         {stepsNav}
