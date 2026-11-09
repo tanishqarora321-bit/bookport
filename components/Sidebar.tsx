@@ -12,8 +12,7 @@ const STORAGE_KEY = "bookport:sidebar-collapsed";
 
 // Matches design-v2/screens/V2Nav.dc.html exactly: logo, Working Year
 // select, grouped nav with inline-SVG icons (the design's own path
-// data, not an icon library) and a visually-hidden label on the
-// "booking numbers to review" badge, collapse button, user footer.
+// data, not an icon library), collapse button, user footer.
 export default function Sidebar() {
   const pathname = usePathname();
   const activeKey = navKeyForPathname(pathname);
@@ -21,7 +20,6 @@ export default function Sidebar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [isPlatformOwner, setIsPlatformOwner] = useState(false);
-  const [duplicateBookings, setDuplicateBookings] = useState(0);
   // Which nav groups are expanded. Always kept in sync with the active
   // route below (the current section is never collapsed out from under
   // you), otherwise left to whatever the user has clicked open.
@@ -79,13 +77,6 @@ export default function Sidebar() {
     const { data: sub } = supabase.auth.onAuthStateChange(() => loadProfile());
     return () => sub.subscription.unsubscribe();
   }, []);
-
-  useEffect(() => {
-    fetch("/api/bookings/duplicate-count")
-      .then((r) => r.json())
-      .then(({ count }) => setDuplicateBookings(count ?? 0))
-      .catch(() => {});
-  }, [pathname]);
 
   // The group containing whatever page you're on is always expanded -
   // added to whatever's already open, never replacing it, so a group you
@@ -200,7 +191,6 @@ export default function Sidebar() {
             <div id={`navgroup-${group.label}`} className="flex flex-col gap-0.5">
             {group.items.map((it) => {
               const active = it.key === activeKey;
-              const badge = it.badgeKey === "duplicateBookings" ? duplicateBookings : 0;
               return (
                 <Link
                   key={it.key}
@@ -234,15 +224,6 @@ export default function Sidebar() {
                   {!collapsed && (
                     <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
                       <span className="truncate">{it.label}</span>
-                      {badge > 0 && (
-                        <span
-                          className="inline-flex items-center justify-center shrink-0 text-xs font-bold rounded-full"
-                          style={{ minWidth: 22, height: 20, padding: "0 7px", background: "#F59E0B", color: "#0C1A3A" }}
-                        >
-                          {badge}
-                          <span className="sr">{" booking numbers to review"}</span>
-                        </span>
-                      )}
                     </span>
                   )}
                 </Link>

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { CloseIcon } from "@/components/EditableCell";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { useYear } from "@/lib/year-context";
+import { dateInWorkingYear } from "@/lib/year-scope";
 
 type ColumnDef = { key: string; label: string; kind: string; hidden?: boolean };
 type OfferSheetType = { id: string; name: string; columns: ColumnDef[]; created_at: string };
@@ -19,7 +21,7 @@ function fmtPeriod(p: string | null) {
 export default function OfferSheetsListClient({
   types,
   selectedTypeId,
-  sheets,
+  sheets: allSheets,
   isAdmin = false,
 }: {
   types: OfferSheetType[];
@@ -31,6 +33,10 @@ export default function OfferSheetsListClient({
   const [creatingSection, setCreatingSection] = useState(false);
   const [creatingSheet, setCreatingSheet] = useState(false);
   const selectedType = types.find((t) => t.id === selectedTypeId);
+  // The sidebar's Working Year: a sheet belongs to its Period's year, else
+  // the year it was created (lib/year-scope.ts).
+  const { year } = useYear();
+  const sheets = useMemo(() => allSheets.filter((s) => dateInWorkingYear(s.period || s.created_at, year)), [allSheets, year]);
 
   const visibleSheetIds = useMemo(() => sheets.map((s) => s.id), [sheets]);
   const bulk = useBulkSelection(visibleSheetIds);

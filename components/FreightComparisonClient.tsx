@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { useYear } from "@/lib/year-context";
 
 type Entry = {
   id: string;
@@ -169,8 +170,17 @@ export default function FreightComparisonClient({
   function navigateYear(year: string) {
     // Dropping the month param lets the server pick that year's own
     // default month instead of carrying over a month from a different year.
-    router.push(`/freight-comparison?year=${encodeURIComponent(year)}&destination=${encodeURIComponent(selectedDestination)}`);
+    router.replace(`/freight-comparison?year=${encodeURIComponent(year)}&destination=${encodeURIComponent(selectedDestination)}`);
   }
+
+  // The sidebar's Working Year drives this page like every other module:
+  // whenever it differs from the year in the URL, follow it. The Year
+  // picker below just changes the sidebar year (same control, two places).
+  const { year: workingYear, setYear: setWorkingYear } = useYear();
+  useEffect(() => {
+    if (selectedYear !== String(workingYear)) navigateYear(String(workingYear));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workingYear, selectedYear]);
 
   // ---------------- Pivot: origins x (forwarder + shipping_line) columns ----------------
 
@@ -297,9 +307,8 @@ export default function FreightComparisonClient({
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
           <div className="field" style={{ width: 150 }}>
             <label htmlFor="fy">Year</label>
-            <select id="fy" className="select select-s" value={selectedYear} onChange={(e) => navigateYear(e.target.value)}>
-              <option value="all">All Years</option>
-              {!yearOptions.includes(selectedYear) && selectedYear !== "all" && <option value={selectedYear}>{selectedYear}</option>}
+            <select id="fy" className="select select-s" value={String(workingYear)} onChange={(e) => setWorkingYear(Number(e.target.value))}>
+              {!yearOptions.includes(String(workingYear)) && <option value={String(workingYear)}>{workingYear}</option>}
               {yearOptions.map((y) => (
                 <option key={y} value={y}>
                   {y}

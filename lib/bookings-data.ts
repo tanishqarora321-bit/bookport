@@ -1,11 +1,12 @@
-// Shared between app/bookings/page.tsx and app/bookings/multiple/page.tsx -
-// both render the same grid (BookingsClient) over the same underlying
-// `bookings` query, split by whether a carrier_booking_no is unique for
-// this company right now. A booking number that comes back to being
-// unique (the user deletes every other entry sharing it) moves itself
-// back to the main page automatically next load, purely because this
-// grouping is computed live off current data, not a stored flag that
-// something has to remember to update (see migration 0031).
+// Shared by the three booking grids - Booking & Instructions (/bookings),
+// Closed Bookings (/bookings/closed) and Cancelled Bookings
+// (/bookings/cancelled) - which all render the same BookingsClient over the
+// same `bookings` query, split by stage (see fetchBookingsByStage below).
+//
+// A booking number with more than one container no longer has its own page:
+// those rows stay in Booking & Instructions, flagged `is_multiple` so the
+// grid can highlight them and filter to just them. Which rows count as
+// "multiple" is computed live off current data, never a stored flag.
 import { SupabaseClient } from "@supabase/supabase-js";
 
 const BOOKINGS_SELECT =
@@ -53,57 +54,129 @@ function flattenBooking(b: any): any[] {
   }));
 }
 
-export async function fetchBookingsSplitByDuplicates(supabase: SupabaseClient, companyId: string) {
+export type BookingStage = "open" | "closed" | "cancelled";
+
+// bookings.status only allows draft/confirmed/in_transit/delivered/cancelled
+// (migration 0001's check constraint). "Closed" is stored as `delivered` -
+// a shipment that's done - and shown as "Closed" everywhere in the app (see
+// STATUS_LABELS in components/ui/StatusPill.tsx), so no migration is needed.
+export const CLOSED_STATUS = "delivered";
+export const CANCELLED_STATUS = "cancelled";
+
+// What "every field is filled in" means for auto-closing a booking: every
+// Booking & Instructions column a person fills in, on EVERY container of the
+// booking. Change this list to change when bookings close themselves.
+export function isBookingComplete(rows: any[]): boolean {
+  if (rows.length === 0) return false;
+  const filled = (v: unknown) => v !== null && v !== undefined && String(v).trim() !== "";
+  return rows.every(
+    (r) =>
+      filled(r.carrier_booking_no) &&
+      filled(r.erd) &&
+      filled(r.si_cutoff) &&
+      filled(r.cargo_cutoff) &&
+      filled(r.pol) &&
+      filled(r.pod) &&
+      filled(r.final_destination) &&
+      filled(r.bl_issued_at) &&
+      filled(r.bl_number) &&
+      filled(r.carrier) &&
+      filled(r.container_size) &&
+      filled(r.container_no) &&
+      !!r.forwarder &&
+      !!r.trucker &&
+      !!r.supplier &&
+      !!r.buyer &&
+      (r.packing_items ?? []).length > 0 &&
+      r.instruction_status === "sent"
+  );
+}
+
+// Splits every booking into its stage:
+// - cancelled: status "cancelled" (only ever set by hand);
+// - closed: status "delivered" (moved by hand), OR every field filled in -
+//   in which case its status is saved as closed here, so the Status column
+//   and every other screen agree with the page it's on;
+// - open: everything else -> Booking & Instructions.
+// Each row also carries `is_multiple` (its booking number has more than one
+// container) for Booking & Instructions' highlight + filter.
+export async function fetchBookingsByStage(supabase: SupabaseClient, companyId: string) {
   const { data: bookings, error } = await supabase
     .from("bookings")
     .select(BOOKINGS_SELECT)
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
-  if (error) return { error, singleRows: [], duplicateRows: [], duplicateGroupCount: 0 };
+  if (error) return { error, openRows: [], closedRows: [], cancelledRows: [], multipleGroupCount: 0 };
 
-  // A booking number belongs on Multiple Bookings & Instructions when it
-  // carries MORE THAN ONE CONTAINER - i.e. the same booking number shows up
-  // in more than one container row, whether those containers sit under a
-  // single booking (the normal multi-container case) or across several
-  // booking rows that happen to share the number. A number that resolves to
-  // exactly one container row is an ordinary single booking and stays on the
-  // main page. (This is why we flatten FIRST, then count: counting booking
-  // rows alone would wrongly leave a one-booking/two-container shipment on
-  // the main page even though its number appears on two rows there.) A blank
-  // booking number is always its own single entry - several numberless
-  // bookings aren't "the same number".
-  const allRows = (bookings ?? []).flatMap(flattenBooking);
+  const rowsByBooking = new Map<string, any[]>();
+  const allRows: any[] = [];
+  for (const b of (bookings ?? []) as any[]) {
+    const rows = flattenBooking(b);
+    rowsByBooking.set(b.id, rows);
+    allRows.push(...rows);
+  }
 
+  // Same rule the old Multiple Bookings page used: a booking number that
+  // shows up on more than one container row. Counted across every stage,
+  // so a number reused by a cancelled booking still reads as multiple.
   const countByNumber = new Map<string, number>();
   for (const r of allRows) {
     const key = (r.carrier_booking_no ?? "").trim().toLowerCase();
     if (!key) continue;
     countByNumber.set(key, (countByNumber.get(key) ?? 0) + 1);
   }
-
-  const singleRows: any[] = [];
-  const duplicateRows: any[] = [];
-  for (const r of allRows) {
+  const isMultiple = (r: any) => {
     const key = (r.carrier_booking_no ?? "").trim().toLowerCase();
-    if (key && (countByNumber.get(key) ?? 0) > 1) duplicateRows.push(r);
-    else singleRows.push(r);
+    return !!key && (countByNumber.get(key) ?? 0) > 1;
+  };
+
+  const toAutoClose: string[] = [];
+  const openRows: any[] = [];
+  const closedRows: any[] = [];
+  const cancelledRows: any[] = [];
+  for (const [bookingId, rows] of rowsByBooking) {
+    const status = rows[0]?.status;
+    let stage: BookingStage = "open";
+    if (status === CANCELLED_STATUS) stage = "cancelled";
+    else if (status === CLOSED_STATUS) stage = "closed";
+    else if (isBookingComplete(rows)) {
+      stage = "closed";
+      toAutoClose.push(bookingId);
+    }
+    const target = stage === "open" ? openRows : stage === "closed" ? closedRows : cancelledRows;
+    for (const r of rows) {
+      target.push({ ...r, is_multiple: isMultiple(r), status: stage === "closed" ? CLOSED_STATUS : r.status });
+    }
   }
 
-  // Keep rows sharing a number together on the Multiple page, instead of the
-  // default most-recent-first ordering scattering them; container_no as a
-  // stable secondary sort within a number.
-  duplicateRows.sort((a, b) => {
-    const ka = (a.carrier_booking_no ?? "").trim().toLowerCase();
-    const kb = (b.carrier_booking_no ?? "").trim().toLowerCase();
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return (a.container_no ?? "") < (b.container_no ?? "") ? -1 : 1;
-  });
+  if (toAutoClose.length > 0) {
+    await supabase.from("bookings").update({ status: CLOSED_STATUS }).in("id", toAutoClose).eq("company_id", companyId);
+  }
+
+  // Keep rows sharing a booking number next to each other (in the order the
+  // first of them appears), so a multi-container number reads as one block.
+  const groupTogether = (rows: any[]) => {
+    const firstIndex = new Map<string, number>();
+    rows.forEach((r, i) => {
+      const key = (r.carrier_booking_no ?? "").trim().toLowerCase() || `__${r.booking_id}`;
+      if (!firstIndex.has(key)) firstIndex.set(key, i);
+    });
+    return rows
+      .map((r, i) => ({ r, i, g: firstIndex.get((r.carrier_booking_no ?? "").trim().toLowerCase() || `__${r.booking_id}`)! }))
+      .sort((a, b) => a.g - b.g || a.i - b.i)
+      .map((x) => x.r);
+  };
+
+  const multipleGroupCount = new Set(
+    openRows.filter((r) => r.is_multiple).map((r) => (r.carrier_booking_no ?? "").trim().toLowerCase())
+  ).size;
 
   return {
     error: null,
-    singleRows,
-    duplicateRows,
-    duplicateGroupCount: Array.from(countByNumber.values()).filter((n) => n > 1).length,
+    openRows: groupTogether(openRows),
+    closedRows: groupTogether(closedRows),
+    cancelledRows: groupTogether(cancelledRows),
+    multipleGroupCount,
   };
 }

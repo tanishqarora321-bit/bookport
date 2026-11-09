@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useYear } from "@/lib/year-context";
+import { dateInWorkingYear } from "@/lib/year-scope";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
@@ -26,6 +28,7 @@ type TrackingRow = {
   bl_number: string | null;
   bl_status: "Y" | "N";
   last_tracking_check_at: string | null;
+  booking?: { erd: string | null } | null;
 };
 
 type Booking = { id: string; booking_no: string; carrier_booking_no: string | null; carrier: string | null; forwarder_name: string | null };
@@ -68,6 +71,11 @@ export default function TrackingClient({
   forwarders: Forwarder[];
 }) {
   const [rows, setRows] = useState(initialTracking);
+  // The sidebar's Working Year: a tracking row belongs to its booking's
+  // Month of Loading (the same year Booking & Instructions files it under),
+  // else its ETA's; undated rows show under every year (lib/year-scope.ts).
+  const { year } = useYear();
+  const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.booking?.erd ?? r.eta, year)), [rows, year]);
   const [remainingBookings, setRemainingBookings] = useState(unassignedBookings);
   const [assigning, setAssigning] = useState(false);
   const [search, setSearch] = useState("");
@@ -77,9 +85,9 @@ export default function TrackingClient({
     setRows(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  const invoicePendingCount = useMemo(() => rows.filter((r) => !r.invoice_sent).length, [rows]);
-  const docsPendingCount = useMemo(() => rows.filter((r) => !r.documents_sent).length, [rows]);
-  const blPendingCount = useMemo(() => rows.filter((r) => r.bl_status !== "Y").length, [rows]);
+  const invoicePendingCount = useMemo(() => yearRows.filter((r) => !r.invoice_sent).length, [yearRows]);
+  const docsPendingCount = useMemo(() => yearRows.filter((r) => !r.documents_sent).length, [yearRows]);
+  const blPendingCount = useMemo(() => yearRows.filter((r) => r.bl_status !== "Y").length, [yearRows]);
 
   const chipCounts: Record<FilterChipId, number> = {
     invoice: invoicePendingCount,
@@ -90,7 +98,7 @@ export default function TrackingClient({
   // Client-side filtering over the already-fetched rows. No new fetch.
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    return yearRows.filter((row) => {
       if (activeFilters.has("invoice") && row.invoice_sent) return false;
       if (activeFilters.has("docs") && row.documents_sent) return false;
       if (activeFilters.has("bl") && row.bl_status === "Y") return false;
@@ -109,7 +117,7 @@ export default function TrackingClient({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [rows, search, activeFilters, parties]);
+  }, [yearRows, search, activeFilters, parties]);
 
   function toggleFilter(id: FilterChipId) {
     setActiveFilters((prev) => {
@@ -145,7 +153,7 @@ export default function TrackingClient({
       <section aria-label="Tracking totals" className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
         <div className="card kpi">
           <span className="lbl">Tracked Shipments</span>
-          <span className="v">{rows.length}</span>
+          <span className="v">{yearRows.length}</span>
         </div>
         <KpiTile label="Invoice Pending" value={invoicePendingCount} caption="Invoice not sent to buyer" />
         <KpiTile label="Docs Pending" value={docsPendingCount} caption="Document set not sent" />
@@ -214,7 +222,7 @@ export default function TrackingClient({
           )}
           <div style={{ flex: 1 }} />
           <span className="meta">
-            Showing {filteredRows.length} of {rows.length}
+            Showing {filteredRows.length} of {yearRows.length}
           </span>
         </div>
         <div className="tw" style={{ maxHeight: 560 }}>
@@ -261,7 +269,7 @@ export default function TrackingClient({
                   </td>
                 </tr>
               )}
-              {rows.length > 0 && filteredRows.length === 0 && (
+              {yearRows.length > 0 && filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={17} style={{ padding: "32px 16px", textAlign: "center" }}>
                     <span className="lbl">No shipments match your search or filters.</span>{" "}

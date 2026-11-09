@@ -5,7 +5,8 @@
 
 export type NavKey =
   | "bookings"
-  | "multiple"
+  | "closed"
+  | "cancelled"
   | "tracking"
   | "buyers"
   | "forwarders"
@@ -19,7 +20,8 @@ export type NavKey =
 
 export const NAV_ICON_PATHS: Record<NavKey, string> = {
   bookings: "M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M8 11h8M8 15h5",
-  multiple: "M8 8h12v12H8zM4 16V4h12",
+  closed: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
+  cancelled: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8",
   tracking: "M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
   buyers: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6",
   forwarders: "M4 21V5l8-3 8 3v16M9 21v-5h6v5M8 9h2M14 9h2M8 13h2M14 13h2",
@@ -33,7 +35,7 @@ export const NAV_ICON_PATHS: Record<NavKey, string> = {
   admin: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4",
 };
 
-export type NavItem = { key: NavKey; label: string; href: string; badgeKey?: "duplicateBookings" };
+export type NavItem = { key: NavKey; label: string; href: string };
 export type NavGroup = { label: string; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -41,7 +43,10 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     items: [
       { key: "bookings", label: "Booking & Instructions", href: "/bookings" },
-      { key: "multiple", label: "Multiple Bookings", href: "/bookings/multiple", badgeKey: "duplicateBookings" },
+      // Multiple-container booking numbers no longer have their own page -
+      // they're highlighted in Booking & Instructions ("Multiple only" filter).
+      { key: "closed", label: "Closed Bookings", href: "/bookings/closed" },
+      { key: "cancelled", label: "Cancelled Bookings", href: "/bookings/cancelled" },
       { key: "tracking", label: "Shipment Tracking", href: "/tracking" },
     ],
   },
@@ -85,7 +90,8 @@ export const NAV_BY_KEY: Record<NavKey, { label: string; section: string; href: 
 // the sidebar highlights.
 export function navKeyForPathname(pathname: string | null): NavKey | null {
   if (!pathname) return null;
-  if (pathname.startsWith("/bookings/multiple")) return "multiple";
+  if (pathname.startsWith("/bookings/closed")) return "closed";
+  if (pathname.startsWith("/bookings/cancelled")) return "cancelled";
   if (pathname.startsWith("/bookings")) return "bookings";
   if (pathname.startsWith("/tracking")) return "tracking";
   if (pathname.startsWith("/parties")) return "buyers";

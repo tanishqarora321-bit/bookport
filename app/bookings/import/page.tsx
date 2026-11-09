@@ -273,7 +273,7 @@ export default function ImportBookingsPage() {
           <h1 className="h1">Some Booking Numbers already exist</h1>
           <p className="sub">
             These are already saved in Booking &amp; Instructions. For each one, choose whether this is an
-            intentional second entry (it&apos;ll show up on Multiple Bookings &amp; Instructions) or should be
+            intentional second entry (it&apos;ll be highlighted as Multiple in Booking &amp; Instructions) or should be
             ignored — you can always add it there yourself later.
           </p>
         </div>
@@ -322,7 +322,7 @@ export default function ImportBookingsPage() {
                           onChange={(e) => setResolutions({ ...resolutions, [key]: e.target.value as Resolution })}
                         >
                           <option value="ignore">Ignore</option>
-                          <option value="add">Add to Multiple Bookings</option>
+                          <option value="add">Add as a second entry</option>
                         </select>
                       </td>
                     </tr>

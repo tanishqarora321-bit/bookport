@@ -385,8 +385,8 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
           <p className="sub">
             Reassigning these to {supplierName} would move them away from whoever&apos;s currently on them. For each
             one, choose whether this is really the same booking (reassign it) or a different shipment that
-            happens to reuse the number (add it as a separate entry — it&apos;ll show up on Multiple Bookings &amp;
-            Instructions).
+            happens to reuse the number (add it as a separate entry — it&apos;ll be highlighted as Multiple in
+            Booking &amp; Instructions).
           </p>
         </div>
 
@@ -489,7 +489,7 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
               </h2>
               <div className="lbl" style={{ marginTop: 3 }}>
                 {toCreate.length - multipleCount} to Booking &amp; Instructions
-                {multipleCount > 0 && <> · {multipleCount} with more than one container to Multiple Bookings &amp; Instructions</>}
+                {multipleCount > 0 && <> · {multipleCount} with more than one container, highlighted as Multiple</>}
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 200 }}>
@@ -520,7 +520,7 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
                       {g.month !== null ? `${MONTH_LABELS[g.month]} ${newBookingYear}` : <>January {newBookingYear} <span className="meta">(no month in sheet)</span></>}
                     </td>
                     <td>
-                      {g.containers.length > 1 ? <span className="badge b-warn">Multiple Bookings</span> : <span className="badge b-neu">Booking &amp; Instructions</span>}
+                      {g.containers.length > 1 ? <span className="badge b-warn">Booking &amp; Instructions · Multiple</span> : <span className="badge b-neu">Booking &amp; Instructions</span>}
                     </td>
                   </tr>
                 ))}

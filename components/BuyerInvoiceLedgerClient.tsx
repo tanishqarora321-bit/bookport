@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import { useYear } from "@/lib/year-context";
+import { invoiceInWorkingYear } from "@/lib/year-scope";
 import BackButton from "@/components/ui/BackButton";
 import StatusPill from "@/components/ui/StatusPill";
 import EmptyState from "@/components/ui/EmptyState";
@@ -86,6 +88,11 @@ export default function BuyerInvoiceLedgerClient({
   isAdmin?: boolean;
 }) {
   const [invoices, setInvoices] = useState(initialInvoices);
+  // The sidebar's Working Year scopes this whole page - grid, filters, KPI
+  // cards and Payment History (lib/year-scope.ts for which year an invoice
+  // belongs to).
+  const { year } = useYear();
+  const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [entering, setEntering] = useState<Invoice | null>(null);
@@ -117,12 +124,12 @@ export default function BuyerInvoiceLedgerClient({
   }
 
   const filtered = useMemo(() => {
-    return invoices.filter((inv) => {
+    return yearInvoices.filter((inv) => {
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
       return true;
     });
-  }, [invoices, statusFilter, paidFilter]);
+  }, [yearInvoices, statusFilter, paidFilter]);
 
   const visibleIds = useMemo(() => filtered.map((i) => i.id), [filtered]);
   const bulk = useBulkSelection(visibleIds);
@@ -166,15 +173,15 @@ export default function BuyerInvoiceLedgerClient({
 
   // KPI cards reflect the whole ledger regardless of the filters above,
   // same convention as the Suppliers invoice ledger.
-  const pendingCount = invoices.filter((i) => !i.invoice_number).length;
-  const onWaterCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
-  const releasedCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
-  const paidCount = invoices.filter((i) => i.paid_status === "PAID").length;
-  const unpaidCount = invoices.filter((i) => i.paid_status === "UNPAID").length;
-  const totalUsd = invoices.reduce((s, i) => s + Number(i.total_usd || 0), 0);
+  const pendingCount = yearInvoices.filter((i) => !i.invoice_number).length;
+  const onWaterCount = yearInvoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
+  const releasedCount = yearInvoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
+  const paidCount = yearInvoices.filter((i) => i.paid_status === "PAID").length;
+  const unpaidCount = yearInvoices.filter((i) => i.paid_status === "UNPAID").length;
+  const totalUsd = yearInvoices.reduce((s, i) => s + Number(i.total_usd || 0), 0);
 
   const totalsByCurrency: Record<string, number> = {};
-  for (const inv of invoices) {
+  for (const inv of yearInvoices) {
     totalsByCurrency[inv.currency] = (totalsByCurrency[inv.currency] ?? 0) + Number(inv.total || 0);
   }
 

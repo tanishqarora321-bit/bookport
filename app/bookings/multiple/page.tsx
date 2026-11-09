@@ -1,39 +1,8 @@
-import { createServiceClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/session";
-import { fetchBookingsSplitByDuplicates } from "@/lib/bookings-data";
-import SignInRequired from "@/components/SignInRequired";
-import BookingsClient from "@/components/BookingsClient";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
-export default async function MultipleBookingsPage() {
-  const me = await getCurrentProfile();
-  if (!me) return <SignInRequired />;
-  const companyId = me.company_id;
-
-  const supabase = createServiceClient();
-
-  const [{ error, duplicateRows }, { data: forwarders }, { data: truckers }, { data: suppliers }, { data: buyers }] =
-    await Promise.all([
-      fetchBookingsSplitByDuplicates(supabase, companyId),
-      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["forwarder"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["trucker"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["supplier"]).order("legal_name"),
-      supabase.from("parties").select("id, legal_name").eq("company_id", companyId).eq("is_active", true).contains("roles", ["buyer"]).order("legal_name"),
-    ]);
-
-  if (error) return <p className="text-red-600 p-6">{error.message}</p>;
-
-  return (
-    <BookingsClient
-      rows={duplicateRows}
-      forwarders={forwarders ?? []}
-      truckers={truckers ?? []}
-      suppliers={suppliers ?? []}
-      buyers={buyers ?? []}
-      variant="multiple"
-      isAdmin={me.role === "admin"}
-    />
-  );
+// Multiple Bookings & Instructions no longer has its own page - those rows
+// are highlighted in Booking & Instructions, with a "Multiple only" filter.
+// Kept as a redirect so old links and bookmarks still land somewhere useful.
+export default function MultipleBookingsPage() {
+  redirect("/bookings?multiple=1");
 }

@@ -137,11 +137,11 @@ function NewBookingPageInner() {
   if (mode === "choose") {
     return (
       <div className="h-full flex flex-col">
-        <Link href={forMultiple ? "/bookings/multiple" : "/bookings"} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-          ← Back to {forMultiple ? "Multiple Bookings & Instructions" : "Bookings"}
+        <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
+          ← Back to Booking &amp; Instructions
         </Link>
         <div className="max-w-2xl mx-auto mt-12 space-y-4 w-full">
-          <h1 className="text-xl font-semibold text-center">{forMultiple ? "New Entry in Multiple Bookings" : "New Booking"}</h1>
+          <h1 className="text-xl font-semibold text-center">{forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}</h1>
           {forMultiple && (
             <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2">
               Only for an intentional second entry under a Booking Number already in Booking & Instructions — Excel import isn't available here.
@@ -174,11 +174,11 @@ function NewBookingPageInner() {
 
   return (
     <div className="h-full flex flex-col max-w-2xl space-y-1">
-      <Link href={forMultiple ? "/bookings/multiple" : "/bookings"} className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-        ← Back to {forMultiple ? "Multiple Bookings & Instructions" : "Bookings"}
+      <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
+        ← Back to Booking &amp; Instructions
       </Link>
       <h1 className="text-xl font-semibold mb-4">
-        {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry in Multiple Bookings" : "New Booking"}
+        {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}
       </h1>
       {mode === "review" && (
         <p className="text-sm text-text-2 mb-4">
@@ -250,7 +250,7 @@ function NewBookingPageInner() {
               {" "}(status: {duplicateConfirm.existing.status}).
             </p>
             <p className="text-sm text-text-2 mb-4">
-              Save this as a second, separate entry anyway? Both will move to Multiple Bookings & Instructions for review.
+              Save this as a second, separate entry anyway? Both will be highlighted as Multiple in Booking &amp; Instructions.
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDuplicateConfirm(null)} className="px-4 py-2 text-sm rounded border">

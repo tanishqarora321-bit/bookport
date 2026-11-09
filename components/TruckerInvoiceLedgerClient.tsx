@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import { useYear } from "@/lib/year-context";
+import { invoiceInWorkingYear } from "@/lib/year-scope";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import BulkActionBar from "@/components/ui/BulkActionBar";
@@ -149,6 +151,11 @@ export default function TruckerInvoiceLedgerClient({
   isAdmin?: boolean;
 }) {
   const [invoices, setInvoices] = useState(initialInvoices);
+  // The sidebar's Working Year scopes this whole page - grid, filters, KPI
+  // cards and Payment History (lib/year-scope.ts for which year an invoice
+  // belongs to).
+  const { year } = useYear();
+  const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
   const [customColumns, setCustomColumns] = useState(initialCustomColumns);
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -192,17 +199,17 @@ export default function TruckerInvoiceLedgerClient({
   // same "derive from live data" approach as the Forwarders ledger.
   const monthKey = (d: string | null) => (d ? d.slice(0, 7) : null); // "YYYY-MM"
   const monthOptions = useMemo(() => {
-    const keys = new Set(invoices.map((i) => monthKey(i.month_of_loading)).filter((k): k is string => !!k));
+    const keys = new Set(yearInvoices.map((i) => monthKey(i.month_of_loading)).filter((k): k is string => !!k));
     return Array.from(keys).sort().reverse();
-  }, [invoices]);
+  }, [yearInvoices]);
   const lineOptions = useMemo(
-    () => Array.from(new Set(invoices.map((i) => i.location).filter((l): l is string => !!l))).sort(),
-    [invoices]
+    () => Array.from(new Set(yearInvoices.map((i) => i.location).filter((l): l is string => !!l))).sort(),
+    [yearInvoices]
   );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return invoices.filter((inv) => {
+    return yearInvoices.filter((inv) => {
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
       if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
@@ -216,7 +223,7 @@ export default function TruckerInvoiceLedgerClient({
       }
       return true;
     });
-  }, [invoices, statusFilter, paidFilter, monthFilter, lineFilter, search]);
+  }, [yearInvoices, statusFilter, paidFilter, monthFilter, lineFilter, search]);
 
   // Pagination matches the Forwarders ledger / Booking & Instructions.
   const [pageSize, setPageSize] = useState(25);
@@ -270,19 +277,19 @@ export default function TruckerInvoiceLedgerClient({
 
   // KPI cards reflect the whole ledger regardless of the filters above
   // (same convention as Booking & Instructions' stat cards).
-  const pendingCount = invoices.filter((i) => !i.invoice_number).length;
-  const onWaterCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
-  const releasedCount = invoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
-  const paidCount = invoices.filter((i) => i.paid_status === "PAID").length;
-  const unpaidCount = invoices.filter((i) => i.paid_status === "UNPAID").length;
-  const totalUsd = invoices.reduce((s, i) => s + invoiceTotalUsd(i, customColumns), 0);
+  const pendingCount = yearInvoices.filter((i) => !i.invoice_number).length;
+  const onWaterCount = yearInvoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "on water").length;
+  const releasedCount = yearInvoices.filter((i) => (i.tracking?.release_status ?? "").toLowerCase() === "released").length;
+  const paidCount = yearInvoices.filter((i) => i.paid_status === "PAID").length;
+  const unpaidCount = yearInvoices.filter((i) => i.paid_status === "UNPAID").length;
+  const totalUsd = yearInvoices.reduce((s, i) => s + invoiceTotalUsd(i, customColumns), 0);
 
   const chargeTotalsUsd = CHARGE_KEYS.reduce((acc, key) => {
-    acc[key] = invoices.reduce((s, i) => s + (Number(i[key]) || 0) * (i.fx_rate || 1), 0);
+    acc[key] = yearInvoices.reduce((s, i) => s + (Number(i[key]) || 0) * (i.fx_rate || 1), 0);
     return acc;
   }, {} as Record<(typeof CHARGE_KEYS)[number], number>);
   const customTotalsUsd = customColumns.reduce((acc, col) => {
-    acc[col.key] = invoices.reduce((s, i) => s + (Number(i.custom_charges?.[col.key]) || 0) * (i.fx_rate || 1), 0);
+    acc[col.key] = yearInvoices.reduce((s, i) => s + (Number(i.custom_charges?.[col.key]) || 0) * (i.fx_rate || 1), 0);
     return acc;
   }, {} as Record<string, number>);
 
