@@ -86,6 +86,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     forwarder: { table: "forwarder_invoices", partyCol: "forwarder_id" },
     supplier: { table: "supplier_invoices", partyCol: "supplier_id" },
     trucker: { table: "trucker_invoices", partyCol: "trucker_id" },
+    // Same rule for the Buyer (Consignee): clearing them on the booking
+    // removes their invoice(s) for it, like every other party.
+    buyer: { table: "buyer_invoices", partyCol: "buyer_id" },
   };
   if (!partyId && previousPartyId && INVOICE_TABLE_BY_ROLE[role]) {
     const { data: ownTracking } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
