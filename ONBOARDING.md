@@ -145,6 +145,13 @@ denied` lines on git commands are harmless noise — ignore them.
   buyer_invoices too (it used to fail with a tracking FK error after the
   other invoices were already gone). No Payment History on buyers yet - P&L
   counts buyer receipts from invoice paid_status, not party_payments.
+- **Bookings import maps packing + Instruction Status (2026-11):** Seal No /
+  Weight / Weight Unit (KGS->KG) / Bales go into each ROW's own container's
+  `container_packing_items`; "SENT"/"NOT SENT" -> instruction_status. A
+  booking number already saved defaults to **"Fill in missing details"**
+  (blank fields, unassigned parties, missing containers, containers without
+  packing) - never overwrites; re-importing is idempotent. Dates that don't
+  exist (29-02-2026) roll forward to the next day and are listed on Done.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

@@ -1,4 +1,6 @@
-export type ImportFieldKind = "text" | "date" | "party";
+// "packing": a per-ROW value that belongs to that row's own container's
+// Packing Details (container_packing_items), not to the booking.
+export type ImportFieldKind = "text" | "date" | "party" | "packing";
 
 // Shared between the import mapping UI (app/bookings/import/page.tsx),
 // Gemini's mapping suggestion (lib/gemini.ts) and the commit route
@@ -22,6 +24,14 @@ export const IMPORT_FIELDS: {
   { key: "carrier", label: "Shipping Line", kind: "text" },
   { key: "vessel", label: "Vessel", kind: "text" },
   { key: "container_no", label: "Container Number", kind: "text" },
+  // Each row's own container's Packing Details - a 3-container booking's 3
+  // rows fill its 3 containers with their own seal/weight/bales.
+  { key: "seal_no", label: "Seal No (Packing Details)", kind: "packing" },
+  { key: "weight", label: "Weight (Packing Details)", kind: "packing" },
+  { key: "weight_unit", label: "Weight Unit - LBS / KGS (Packing Details)", kind: "packing" },
+  { key: "bales", label: "Bales (Packing Details)", kind: "packing" },
+  // "SENT" / "NOT SENT" -> the booking's Instruction Status.
+  { key: "instruction_status", label: "Instruction Status", kind: "text" },
   { key: "forwarder", label: "Forwarder", kind: "party", role: "forwarder" },
   { key: "trucker", label: "Trucker", kind: "party", role: "trucker" },
   { key: "supplier", label: "Supplier", kind: "party", role: "supplier" },
