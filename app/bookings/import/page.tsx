@@ -8,7 +8,9 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 import { useYear } from "@/lib/year-context";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null> };
-type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[] };
+// dateFixes: dates that don't exist (29-02-2026) saved as the next real day.
+type DateFix = { row: number; bookingNumber: string; field: string; from: string; to: string };
+type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; dateFixes?: DateFix[] };
 type DuplicateGroup = { carrierBookingNo: string; containerCount: number; sheetRows: number[] };
 type Resolution = "add" | "ignore";
 
@@ -511,6 +513,7 @@ export default function ImportBookingsPage() {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
             <span className="badge b-ok">{result.imported} imported</span>
             {result.skipped.length > 0 && <span className="badge b-neu">{result.skipped.length} skipped</span>}
+            {(result.dateFixes?.length ?? 0) > 0 && <span className="badge b-warn">{result.dateFixes!.length} date{result.dateFixes!.length === 1 ? "" : "s"} corrected</span>}
           </div>
           <div className="meta">of {result.total} row{result.total === 1 ? "" : "s"} total</div>
 
@@ -520,6 +523,22 @@ export default function ImportBookingsPage() {
               <ul style={{ fontSize: 13, color: "var(--tx2)", display: "flex", flexDirection: "column", gap: 4, maxHeight: 256, overflowY: "auto", margin: 0, paddingLeft: 18 }}>
                 {result.skipped.map((s, i) => (
                   <li key={i}>Row {s.row}: {s.reason}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(result.dateFixes?.length ?? 0) > 0 && (
+            <div className="card" style={{ width: "100%", textAlign: "left", padding: 16, marginTop: 8, borderColor: "var(--warnB)", background: "var(--warnS)" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Dates corrected ({result.dateFixes!.length})</div>
+              <p className="lbl" style={{ margin: "0 0 8px" }}>
+                These dates don&apos;t exist, so each was saved as the next real day. Change any of them in Booking &amp; Instructions if that&apos;s wrong.
+              </p>
+              <ul style={{ fontSize: 13, color: "var(--tx2)", display: "flex", flexDirection: "column", gap: 4, maxHeight: 220, overflowY: "auto", margin: 0, paddingLeft: 18 }}>
+                {result.dateFixes!.map((f, i) => (
+                  <li key={i}>
+                    Row {f.row} · <span className="mono">{f.bookingNumber}</span> · {f.field}: <b>{f.from}</b> → saved as <b>{f.to}</b>
+                  </li>
                 ))}
               </ul>
             </div>

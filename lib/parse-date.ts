@@ -46,3 +46,21 @@ export function parseMonthish(v: string, referenceDate: Date | null): Date | nul
   if (monthIndex === -1) return null;
   return new Date(Date.UTC(referenceDate.getUTCFullYear(), monthIndex, 1));
 }
+
+// A DD-MM-YYYY date whose day doesn't exist in that month ("29-02-2026",
+// "31-04-2026") is rolled forward to the next real day by parseDateish
+// (Date.UTC overflow: 29 Feb 2026 -> 1 Mar 2026) - the behaviour the owner
+// wants, but it must never be silent. Returns the corrected date as
+// "DD-MM-YYYY" when that happened, else null, so imports can report it.
+export function rolledForwardDate(v: string): string | null {
+  const m = (v ?? "").trim().match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCDate() === day) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()}`;
+}
