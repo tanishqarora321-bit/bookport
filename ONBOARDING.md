@@ -131,6 +131,15 @@ denied` lines on git commands are harmless noise — ignore them.
   `preview: true` (impact only, nothing saved), **Save** saves as the next
   version; reason required server-side, dates validated, `expected_version`
   guards stale pages (409). The page is scoped to the signed-in company.
+- **Buyers module (2026-11, first pass):** list = Forwarders layout (toggle,
+  equal KPI cards, search in card, bordered Shipping Details / Details
+  buttons); ledger = frozen blue Booking/Container, merged filters,
+  pagination, Status/Paid pill menus, editable live ETA/Status. Clearing the
+  Buyer in Booking & Instructions now deletes their buyer invoices for that
+  booking (like the other parties), and deleting a booking clears
+  buyer_invoices too (it used to fail with a tracking FK error after the
+  other invoices were already gone). No Payment History on buyers yet - P&L
+  counts buyer receipts from invoice paid_status, not party_payments.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

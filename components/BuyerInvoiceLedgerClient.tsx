@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt } from "lucide-react";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import { useYear } from "@/lib/year-context";
 import { invoiceInWorkingYear } from "@/lib/year-scope";
@@ -11,6 +11,7 @@ import StatusPill from "@/components/ui/StatusPill";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type Item = {
   id: string;
@@ -47,6 +48,27 @@ type Invoice = {
 
 const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
 
+// Same floating Status/Paid menus as the Forwarders/Truckers/Suppliers ledgers.
+const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "", label: "— set —", badgeClass: "b-neu" },
+  { value: "On Water", label: "On Water", badgeClass: "b-info" },
+  { value: "Released", label: "Released", badgeClass: "b-ok" },
+];
+const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
+  { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
+  { value: "PAID", label: "PAID", badgeClass: "b-ok" },
+];
+
+// Fixed per-column widths (table-layout:fixed) so the sticky Booking/
+// Container Number columns' `left` offsets never drift - same approach as
+// the other ledgers. Order matches the <colgroup>/<thead>: Booking Number,
+// Container Number, Date, Month of Loading, Invoice, Forwarder, Location,
+// BL Date, Due Date, Weight, Total, Total (USD), ETA (live), Status (live),
+// Paid, Generate Invoice, Fumigation Cert., Certificate of Origin, Set of
+// Documents, Cost section, Delete.
+const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 130, 130, 120, 150, 110, 160, 150, 180, 160, 150, 80];
+const CHECKBOX_COLUMN_WIDTH = 40;
+
 function fmtDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -61,6 +83,19 @@ function fmtMoney(amount: number | null | undefined, currency: string) {
   } catch {
     return `${currency} ${(amount ?? 0).toFixed(2)}`;
   }
+}
+
+// ETA/Status are read live from `tracking` - editing them writes to that
+// same row (the route Shipment Tracking uses), as on the other ledgers.
+async function patchTracking(trackingId: string, updates: Record<string, any>) {
+  const res = await fetch(`/api/tracking/${trackingId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "Save failed");
+  return json;
 }
 
 async function patchInvoice(id: string, updates: Record<string, any>) {
@@ -98,10 +133,12 @@ export default function BuyerInvoiceLedgerClient({
   const [entering, setEntering] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
-    setInvoices(invoices.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+    setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
 
   function toggleExpanded(id: string) {
@@ -123,15 +160,40 @@ export default function BuyerInvoiceLedgerClient({
     }
   }
 
+  const monthKey = (d: string | null) => (d ? d.slice(0, 7) : null); // "YYYY-MM"
+  const monthOptions = useMemo(() => {
+    const keys = new Set(yearInvoices.map((i) => monthKey(i.month_of_loading)).filter((k): k is string => !!k));
+    return Array.from(keys).sort().reverse();
+  }, [yearInvoices]);
+
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return yearInvoices.filter((inv) => {
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
+      if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
+      if (q) {
+        const haystack = [inv.booking_number, inv.container_number, inv.invoice_number, inv.forwarder_name, inv.location]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [yearInvoices, statusFilter, paidFilter]);
+  }, [yearInvoices, statusFilter, paidFilter, monthFilter, search]);
 
-  const visibleIds = useMemo(() => filtered.map((i) => i.id), [filtered]);
+  // Pagination matches the other ledgers.
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, paidFilter, monthFilter, search, pageSize, year]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = page * pageSize;
+  const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
+
+  const visibleIds = useMemo(() => paginated.map((i) => i.id), [paginated]);
   const bulk = useBulkSelection(visibleIds);
   useEffect(() => {
     bulk.pruneToVisible(new Set(visibleIds));
@@ -185,10 +247,11 @@ export default function BuyerInvoiceLedgerClient({
     totalsByCurrency[inv.currency] = (totalsByCurrency[inv.currency] ?? 0) + Number(inv.total || 0);
   }
 
-  const COLSPAN = isAdmin ? 23 : 22;
+  const COLSPAN = (isAdmin ? 1 : 0) + LEDGER_COLUMN_WIDTHS.length;
+  const tableWidth = (isAdmin ? CHECKBOX_COLUMN_WIDTH : 0) + LEDGER_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <BackButton href="/parties" label="Back to Buyers / Customers" />
@@ -213,27 +276,6 @@ export default function BuyerInvoiceLedgerClient({
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4 shrink-0">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
-          <option value="all">All Status</option>
-          {RELEASE_STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="border border-line rounded-lg px-3 py-2 text-sm bg-surface">
-          <option value="all">All Paid</option>
-          <option value="PAID">Paid</option>
-          <option value="UNPAID">Unpaid</option>
-        </select>
-        <div className="text-xs text-muted ml-auto">
-          {Object.entries(totalsByCurrency).map(([cur, total]) => (
-            <span key={cur} className="mr-3">
-              Total {cur}: <span className="font-medium text-text-2">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
       {adding && (
         <AddInvoicePanel
           buyerId={buyerId}
@@ -256,6 +298,62 @@ export default function BuyerInvoiceLedgerClient({
         />
       )}
 
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-line shrink-0">
+        <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
+          <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
+          <span className="sr-only">Search invoices</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search booking #, container #, invoice #…"
+            style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
+          />
+        </label>
+        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
+          <option value="all">All Months</option>
+          {monthOptions.map((k) => (
+            <option key={k} value={k}>
+              {new Date(`${k}-01`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+            </option>
+          ))}
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status" className="select select-s" style={{ width: 150 }}>
+          <option value="all">All Status</option>
+          {RELEASE_STATUS_OPTIONS.map((st) => (
+            <option key={st} value={st}>{st}</option>
+          ))}
+        </select>
+        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} aria-label="Paid" className="select select-s" style={{ width: 150 }}>
+          <option value="all">All Paid</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+        {(statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || search) && (
+          <button
+            onClick={() => {
+              setStatusFilter("all");
+              setPaidFilter("all");
+              setMonthFilter("all");
+              setSearch("");
+            }}
+            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13 }}
+          >
+            Clear filters
+          </button>
+        )}
+        <div style={{ flex: "1 1 0" }} />
+        {Object.entries(totalsByCurrency).map(([cur, total]) => (
+          <span key={cur} className="lbl num">
+            Total {cur}: <b style={{ color: "var(--tx)" }}>{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+          </span>
+        ))}
+        <span className="lbl num" aria-live="polite">
+          <b style={{ color: "var(--tx)" }}>{filtered.length}</b> invoice{filtered.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
       {isAdmin && (
         <BulkActionBar
           count={bulk.selectedCount}
@@ -266,22 +364,27 @@ export default function BuyerInvoiceLedgerClient({
         />
       )}
 
-      <div className="flex-1 overflow-auto bg-surface border border-line rounded-xl">
-        <table className="text-sm border-collapse min-w-[2200px]">
-          <thead className="sticky top-0 bg-surface-2 z-10">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <table className="text-sm border-collapse" style={{ tableLayout: "fixed", width: tableWidth, minWidth: "100%" }}>
+          <colgroup>
+            {isAdmin && <col style={{ width: CHECKBOX_COLUMN_WIDTH }} />}
+            {LEDGER_COLUMN_WIDTHS.map((w, i) => (
+              <col key={i} style={{ width: w }} />
+            ))}
+          </colgroup>
+          <thead>
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
-                <Th>
+                <th className="px-3 py-2.5 whitespace-nowrap font-medium sticky top-0 left-0 z-20 bg-surface-2">
                   <input type="checkbox" aria-label="Select all invoices" checked={bulk.allVisibleSelected} onChange={bulk.toggleAll} />
-                </Th>
+                </th>
               )}
-              <Th>Sr. No</Th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 ${isAdmin ? "left-10" : "left-0"}`}>Booking Number</th>
+              <th className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-20 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>Container Number</th>
               <Th>Date</Th>
               <Th>Month of Loading</Th>
               <Th>Invoice</Th>
               <Th>Forwarder</Th>
-              <Th>Booking No.</Th>
-              <Th>Container No.</Th>
               <Th>Location</Th>
               <Th>BL Date</Th>
               <Th>Due Date</Th>
@@ -300,10 +403,9 @@ export default function BuyerInvoiceLedgerClient({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((inv, idx) => (
+            {paginated.map((inv) => (
               <InvoiceRows
                 key={inv.id}
-                sr={filtered.length - idx}
                 buyerId={buyerId}
                 inv={inv}
                 expanded={!!expanded[inv.id]}
@@ -323,14 +425,37 @@ export default function BuyerInvoiceLedgerClient({
                 <td colSpan={COLSPAN}>
                   <EmptyState
                     icon={Receipt}
-                    title={invoices.length === 0 ? "No invoices yet for this buyer" : "No invoices match these filters"}
-                    hint={invoices.length === 0 ? 'Click "+ Add Invoice" above to enter one.' : undefined}
+                    title={yearInvoices.length === 0 ? "No invoices yet for this buyer" : "No invoices match these filters"}
+                    hint={yearInvoices.length === 0 ? 'Click "+ Add Invoice" above to enter one.' : undefined}
                   />
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-line shrink-0">
+        <span className="text-xs text-muted tabular-nums">
+          {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+        </span>
+        <div className="flex items-center gap-2.5">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            Rows per page
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="border border-line rounded-lg px-2 py-1 text-xs bg-surface">
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
+          <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Previous
+          </button>
+          <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+            Next
+          </button>
+        </div>
+      </div>
       </div>
 
       {bulkConfirming && (
@@ -373,10 +498,10 @@ export default function BuyerInvoiceLedgerClient({
 }
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-3 py-2 whitespace-nowrap font-medium">{children}</th>;
+  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 whitespace-nowrap text-text-2">{children}</td>;
+  return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
 }
 
 // ---------------- Add Invoice panel: lookup + header fields + cost section ----------------
@@ -705,7 +830,6 @@ function LabeledInput({
 // ---------------- One invoice's header row + expandable cost section ----------------
 
 function InvoiceRows({
-  sr,
   buyerId,
   inv,
   expanded,
@@ -719,7 +843,6 @@ function InvoiceRows({
   selected = false,
   onToggleSelect,
 }: {
-  sr: number;
   buyerId: string;
   inv: Invoice;
   expanded: boolean;
@@ -835,13 +958,14 @@ function InvoiceRows({
 
   return (
     <>
-      <tr className="border-b border-line hover:bg-surface-2">
+      <tr className="group border-b border-line hover:bg-surface-2">
         {isAdmin && (
-          <td className="px-3 py-2">
+          <td className="px-3 py-3.5 sticky left-0 z-10 bg-surface group-hover:bg-surface-2 w-10">
             <input type="checkbox" aria-label={`Select invoice ${inv.invoice_number || inv.booking_number || ""}`} checked={selected} onChange={onToggleSelect} />
           </td>
         )}
-        <Td>{sr}</Td>
+        <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent ${isAdmin ? "left-10" : "left-0"}`}>{inv.booking_number || "—"}</td>
+        <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>{inv.container_number || "—"}</td>
         <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then(() => onChange({ invoice_date: v }))} />
         <Td>{fmtMonth(inv.month_of_loading)}</Td>
         {inv.invoice_number ? (
@@ -854,8 +978,6 @@ function InvoiceRows({
           </td>
         )}
         <Td>{inv.forwarder_name || "—"}</Td>
-        <Td>{inv.booking_number || "—"}</Td>
-        <Td>{inv.container_number || "—"}</Td>
         <EditableCell value={inv.location} onSave={(v) => patchInvoice(inv.id, { location: v }).then(() => onChange({ location: v }))} />
         <EditableCell value={inv.bl_date} isDate onSave={(v) => patchInvoice(inv.id, { bl_date: v }).then(() => onChange({ bl_date: v }))} />
         <EditableCell value={inv.due_date} isDate onSave={(v) => patchInvoice(inv.id, { due_date: v }).then(() => onChange({ due_date: v }))} />
@@ -870,22 +992,34 @@ function InvoiceRows({
         <Td>
           <span className="text-text-2">{fmtMoney(inv.total_usd, "USD")}</span>
         </Td>
-        <Td>
-          <span className="text-text-2">{fmtDate(inv.tracking?.eta ?? null)}</span>
-        </Td>
-        <td className="px-3 py-2 whitespace-nowrap">
-          <StatusPill value={inv.tracking?.release_status ?? null} />
-        </td>
-        <td className="px-3 py-2">
-          <button
-            onClick={() => {
-              const next = inv.paid_status === "PAID" ? "UNPAID" : "PAID";
-              patchInvoice(inv.id, { paid_status: next }).then(() => onChange({ paid_status: next }));
-            }}
-            className="rounded-lg px-2 py-1 hover:bg-surface-2"
-          >
-            <StatusPill value={inv.paid_status} />
-          </button>
+        {inv.tracking_id ? (
+          <EditableCell
+            value={inv.tracking?.eta ?? null}
+            isDate
+            onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
+          />
+        ) : (
+          <Td><span className="text-muted">—</span></Td>
+        )}
+        {inv.tracking_id ? (
+          <td className="px-3 py-3.5 whitespace-nowrap">
+            <StatusMenuButton
+              value={inv.tracking?.release_status ?? ""}
+              options={RELEASE_STATUS_MENU_OPTIONS}
+              ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
+              onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
+            />
+          </td>
+        ) : (
+          <td className="px-3 py-3.5"><StatusPill value={null} /></td>
+        )}
+        <td className="px-3 py-3.5">
+          <StatusMenuButton
+            value={inv.paid_status}
+            options={PAID_STATUS_MENU_OPTIONS}
+            ariaLabel={`Paid status for ${inv.invoice_number ?? inv.booking_number ?? ""}`}
+            onChange={(v) => patchInvoice(inv.id, { paid_status: v }).then(() => onChange({ paid_status: v as Invoice["paid_status"] }))}
+          />
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           <button
@@ -929,12 +1063,17 @@ function InvoiceRows({
           </button>
           {docError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError}</div>}
         </td>
-        <td className="px-3 py-2">
-          <button onClick={onToggle} className="text-xs text-accent hover:underline whitespace-nowrap">
+        <td className="px-3 py-3.5 whitespace-nowrap">
+          {/* Same look as Booking & Instructions' View button. */}
+          <button
+            onClick={onToggle}
+            aria-expanded={expanded}
+            className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
+          >
             {expanded ? "Hide cost ▲" : "Cost section ▼"}
           </button>
         </td>
-        <td className="px-3 py-2">
+        <td className="px-3 py-3.5">
           <button onClick={onDelete} disabled={deleting} className="text-xs text-cutoff hover:underline whitespace-nowrap disabled:opacity-50">
             {deleting ? "…" : "Delete"}
           </button>
@@ -943,7 +1082,11 @@ function InvoiceRows({
       {expanded && (
         <tr className="border-b border-line bg-surface-2">
           <td colSpan={colSpan} className="px-6 py-3">
+            {/* Pinned to the left edge so it stays in view however far the
+                wide ledger is scrolled sideways. */}
+            <div className="sticky left-6" style={{ maxWidth: "min(1100px, calc(100vw - 340px))" }}>
             <CostSection invoiceId={inv.id} items={inv.items} currency={inv.currency} onTotalChange={(total) => onChange({ total })} onItemsChange={(items) => onChange({ items })} />
+            </div>
           </td>
         </tr>
       )}

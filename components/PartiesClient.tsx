@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users, Package, CheckCircle2 } from "lucide-react";
+import { Users, Package, CheckCircle2, Search } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import InlineEditText from "@/components/ui/InlineEditText";
 import BulkActionBar from "@/components/ui/BulkActionBar";
+import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type GstEntry = {
@@ -57,14 +58,15 @@ export default function PartiesClient({
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold text-ink">Buyers / Customers</h1>
-        <label className="flex items-center gap-2 text-sm text-text-2">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-          Show removed
-        </label>
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Buyers / Customers</h1>
+          <p className="text-sm text-muted mt-0.5">Buyers and consignees — invoices, shipping details and items</p>
+        </div>
+        <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 shrink-0">
+      {/* Same card size as the Forwarders/Truckers/Suppliers lists (240px each). */}
+      <div className="grid grid-cols-3 gap-3 mb-4 shrink-0" style={{ maxWidth: 720 }}>
         <StatCard icon={Users} label="Total Accounts" value={parties.length} />
         <StatCard icon={CheckCircle2} label="Active" value={parties.filter((p) => p.is_active).length} tone="success" />
         <StatCard icon={Package} label="Items" value={items.length} />
@@ -118,6 +120,7 @@ function PartiesTab({
   const [editing, setEditing] = useState<Party | null>(null);
   const [merging, setMerging] = useState<Party | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
 
   async function addParty() {
     if (!form.legal_name.trim()) {
@@ -177,7 +180,16 @@ function PartiesTab({
     setParties(parties.map((p) => (p.id === partyId ? { ...p, gst_entry: entry } : p)));
   }
 
-  const visible = parties.filter((p) => showInactive || p.is_active);
+  const q = search.trim().toLowerCase();
+  const visible = parties
+    .filter((p) => showInactive || p.is_active)
+    .filter(
+      (p) =>
+        !q ||
+        p.legal_name.toLowerCase().includes(q) ||
+        (p.short_code ?? "").toLowerCase().includes(q) ||
+        (p.country ?? "").toLowerCase().includes(q)
+    );
 
   const visibleIds = visible.map((p) => p.id);
   const bulk = useBulkSelection(visibleIds);
@@ -299,6 +311,17 @@ function PartiesTab({
       )}
 
       <div className="bg-surface border border-line rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line">
+          <div className="relative flex-1 min-w-[220px] max-w-xs">
+            <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
+            <input
+              placeholder="Search name, code, country"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border border-line bg-surface text-ink placeholder:text-muted rounded-lg pl-8 pr-3 py-1.5 text-sm"
+            />
+          </div>
+        </div>
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-surface-2 z-10">
             <tr className="text-left text-muted border-b border-line">
@@ -353,14 +376,23 @@ function PartiesTab({
                       </button>
                     )}
                   </td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => toggleExpanded(p.id)} className="text-xs text-accent hover:underline whitespace-nowrap">
+                  {/* Same bordered buttons as the Forwarders list's "Details →". */}
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button
+                      onClick={() => toggleExpanded(p.id)}
+                      aria-expanded={!!expanded[p.id]}
+                      className="inline-flex items-center gap-1 text-xs text-accent font-medium border border-line hover:bg-surface-2 rounded-lg px-2.5 py-1"
+                    >
                       {expanded[p.id] ? "Hide Shipping Details ▲" : "Shipping Details ▼"}
                     </button>
                   </td>
-                  <td className="px-3 py-2">
-                    <Link href={`/parties/${p.id}/invoices`} className="text-xs text-accent hover:underline">
-                      Invoices →
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <Link
+                      href={`/parties/${p.id}/invoices`}
+                      className="inline-flex items-center gap-1 text-xs text-accent font-medium border border-line hover:bg-surface-2 rounded-lg px-2.5 py-1"
+                      style={{ textDecoration: "none" }}
+                    >
+                      Details →
                     </Link>
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">
@@ -395,7 +427,11 @@ function PartiesTab({
           </tbody>
         </table>
         {visible.length === 0 && (
-          <EmptyState icon={Users} title="No accounts yet" hint='Click "+ New Account" above to add your first buyer or customer.' />
+          <EmptyState
+            icon={Users}
+            title={parties.length === 0 ? "No accounts yet" : "No accounts match"}
+            hint={parties.length === 0 ? 'Click "+ New Account" above to add your first buyer or customer.' : undefined}
+          />
         )}
       </div>
 

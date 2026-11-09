@@ -143,11 +143,17 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const { data: trackingRows } = await supabase.from("tracking").select("id").eq("booking_id", params.id);
   const trackingIds = (trackingRows ?? []).map((t: any) => t.id);
   if (trackingIds.length > 0) {
-    await supabase.from("generated_documents").delete().in("tracking_id", trackingIds);
-    await supabase.from("forwarder_invoices").delete().in("tracking_id", trackingIds);
-    await supabase.from("supplier_invoices").delete().in("tracking_id", trackingIds);
-    await supabase.from("trucker_invoices").delete().in("tracking_id", trackingIds);
-    await supabase.from("tracking").delete().eq("booking_id", params.id);
+    // Everything that points at this booking's tracking rows has to go
+    // first - all four party invoice tables (buyer_invoices was missing,
+    // so a booking with a buyer invoice failed on the tracking delete with
+    // a foreign-key error AFTER the other invoices were already gone).
+    // Each step is checked, so a failure stops here instead of carrying on.
+    for (const table of ["generated_documents", "forwarder_invoices", "supplier_invoices", "trucker_invoices", "buyer_invoices"]) {
+      const { error: childError } = await supabase.from(table).delete().in("tracking_id", trackingIds);
+      if (childError) return NextResponse.json({ error: `Couldn't remove this booking's ${table.replace(/_/g, " ")}: ${childError.message}` }, { status: 500 });
+    }
+    const { error: trackingError } = await supabase.from("tracking").delete().eq("booking_id", params.id);
+    if (trackingError) return NextResponse.json({ error: `Couldn't remove this booking's tracking: ${trackingError.message}` }, { status: 500 });
   }
 
   const { error } = await supabase.from("bookings").delete().eq("id", params.id);
