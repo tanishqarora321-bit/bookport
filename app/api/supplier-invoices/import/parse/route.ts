@@ -23,6 +23,17 @@ function cellToValue(cell: ExcelJS.Cell): string {
   return String(v);
 }
 
+function columnLetter(index: number): string {
+  let n = index + 1;
+  let out = "";
+  while (n > 0) {
+    const r = (n - 1) % 26;
+    out = String.fromCharCode(65 + r) + out;
+    n = Math.floor((n - 1) / 26);
+  }
+  return out;
+}
+
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -66,11 +77,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // A column with data but no header text (RECUTEX's USD totals sit in an
+  // unlabelled column G) would otherwise be an empty option on the mapping
+  // screen that can't be told apart from "— Skip —" - name it after its
+  // column letter instead.
+  headers = headers.map((h, i) => h || `Column ${columnLetter(i)}`);
+
   if (headers.length === 0) {
     return NextResponse.json({ error: "Couldn't find a header row (looked in the first 10 rows for one with at least 3 columns)." }, { status: 400 });
   }
 
   const rows: string[][] = [];
+  // The real spreadsheet row number of each row kept - blank rows are
+  // dropped, so "header row + index" drifts and skip messages pointed at
+  // the wrong rows.
+  const rowNumbers: number[] = [];
   for (let r = headerRowNumber + 1; r <= sheet.rowCount && rows.length < MAX_ROWS; r++) {
     const row = sheet.getRow(r);
     const values: string[] = [];
@@ -80,7 +101,10 @@ export async function POST(req: NextRequest) {
       if (val) hasData = true;
       values.push(val);
     }
-    if (hasData) rows.push(values);
+    if (hasData) {
+      rows.push(values);
+      rowNumbers.push(r);
+    }
   }
 
   let suggestedMapping: Record<string, string | null> = {};
@@ -95,5 +119,5 @@ export async function POST(req: NextRequest) {
     suggestionFailed = true;
   }
 
-  return NextResponse.json({ headers, rows, suggestedMapping, suggestionFailed });
+  return NextResponse.json({ headers, rows, rowNumbers, suggestedMapping, suggestionFailed });
 }

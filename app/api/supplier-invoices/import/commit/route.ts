@@ -7,11 +7,22 @@ import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
 
+// A cell only counts as a number when it IS one, give or take a currency
+// symbol/code and thousands separators ("€1,983.00", "EUR 12.5", "-0.09").
+// Stripping every non-digit instead turned a statement's summary labels
+// into numbers - "OLD DUE 2024" became 2024 and "TOTAL" became 0 - which
+// then landed on the last invoice as bogus cost lines (found live on a
+// RECUTEX statement: its TOTAL/LESS PAYMENT/BALANCE DUE block below the
+// last invoice added -13,834 EUR to that invoice).
 function parseNumeric(v: string): number | null {
   if (!v) return null;
-  const cleaned = v.replace(/[^0-9.\-]/g, "");
-  const n = Number(cleaned);
-  return isNaN(n) ? null : n;
+  const cleaned = v
+    .trim()
+    .replace(/^(EUR|USD|INR|GBP|AED)\s*/i, "")
+    .replace(/\s*(EUR|USD|INR|GBP|AED)$/i, "")
+    .replace(/[€$£₹,\s]/g, "");
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  return Number(cleaned);
 }
 
 function defaultAmount(weight: number | null, price: number | null, amount: number | null): number {
@@ -55,6 +66,10 @@ export async function POST(req: NextRequest) {
   const supplierId: string = body.supplierId;
   const headers: string[] = body.headers ?? [];
   const rows: string[][] = body.rows ?? [];
+  // Real spreadsheet row numbers from the parse route (blank rows dropped);
+  // falls back to "header on row 1, no blank rows".
+  const rowNumbers: number[] = Array.isArray(body.rowNumbers) ? body.rowNumbers : [];
+  const sheetRowOf = (i: number) => (Number.isInteger(rowNumbers[i]) ? rowNumbers[i] : i + 2);
   const mapping: Record<string, string | null> = body.mapping ?? {};
   const currency: string = body.currency || "EUR";
   const fxRate: number = Number(body.fxRate) || 1;
@@ -107,7 +122,7 @@ export async function POST(req: NextRequest) {
   let current: Group | null = null;
 
   for (let i = 0; i < rows.length; i++) {
-    const sheetRow = i + 2;
+    const sheetRow = sheetRowOf(i);
     const bookingNumber = get(rows[i], "booking_number");
     if (bookingNumber) {
       current = { startRow: sheetRow, rowIndices: [i], bookingNumber, header: {} };
@@ -550,24 +565,62 @@ export async function POST(req: NextRequest) {
     // Cost lines: the sheet's lines REPLACE whatever the invoice had, so
     // re-importing the same statement never doubles its charges. An
     // invoice row with no cost lines leaves existing ones alone.
-    const items = g.rowIndices
-      .map((i, idx) => {
-        const row = rows[i];
-        const description = get(row, "description");
-        const weight = parseNumeric(get(row, "weight_kg"));
-        const price = parseNumeric(get(row, "unit_price"));
-        const amount = parseNumeric(get(row, "amount"));
-        if (!description && weight === null && price === null && amount === null) return null;
-        return {
-          supplier_invoice_id: targetId,
-          description: description || null,
-          weight_kg: weight,
-          unit_price: price,
-          amount: defaultAmount(weight, price, amount),
-          sort_order: idx,
-        };
-      })
-      .filter((it): it is NonNullable<typeof it> => it !== null);
+    // A cost line needs a Description, Weight or Unit Price. Rows under the
+    // last invoice with only an amount and a label - a statement's TOTAL /
+    // OLD DUE / LESS PAYMENT / BALANCE DUE block - are a summary, not
+    // charges: reported below instead of silently added to that invoice.
+    const items: {
+      supplier_invoice_id: string | null;
+      description: string | null;
+      weight_kg: number | null;
+      unit_price: number | null;
+      amount: number;
+      sort_order: number;
+    }[] = [];
+    const summaryRows: number[] = [];
+    g.rowIndices.forEach((i, idx) => {
+      const row = rows[i];
+      const description = get(row, "description");
+      const weight = parseNumeric(get(row, "weight_kg"));
+      const price = parseNumeric(get(row, "unit_price"));
+      const amount = parseNumeric(get(row, "amount"));
+      if (!description && weight === null && price === null) {
+        if (idx > 0 && row.some((cell) => (cell ?? "").trim())) summaryRows.push(sheetRowOf(i));
+        return;
+      }
+      items.push({
+        supplier_invoice_id: targetId,
+        description: description || null,
+        weight_kg: weight,
+        unit_price: price,
+        amount: defaultAmount(weight, price, amount),
+        sort_order: idx,
+      });
+    });
+
+    if (summaryRows.length > 0) {
+      const span = summaryRows.length === 1 ? "This row" : `This row and the ${summaryRows.length - 1} below it (to row ${summaryRows[summaryRows.length - 1]})`;
+      skipped.push({
+        row: summaryRows[0],
+        reason: `${span}, under booking "${bookingNumber}", not added as charges - no Description, Weight or Unit Price, so it looks like a totals/summary block`,
+      });
+    }
+
+    // A mapped "Total (USD)" gives this invoice its own FX rate (statements
+    // convert at a different rate each month) instead of the one rate set
+    // for the whole file. total_usd is generated as total * fx_rate, so the
+    // rate is what's stored. Unusable values (blank, #REF!) keep the file's.
+    const sheetUsd = parseNumeric(header["total_usd"] ?? "");
+    const sheetTotal = items.reduce((sum, it) => sum + it.amount, 0);
+    if (sheetUsd !== null && items.length > 0 && Math.abs(sheetTotal) > 0.005) {
+      const { error: fxError } = await supabase
+        .from("supplier_invoices")
+        .update({ fx_rate: Math.round((sheetUsd / sheetTotal) * 1e6) / 1e6 })
+        .eq("id", targetId);
+      if (fxError) {
+        skipped.push({ row: g.startRow, reason: `Invoice for booking "${bookingNumber}" imported, but its Total (USD) rate couldn't be saved: ${fxError.message}` });
+      }
+    }
 
     if (items.length > 0) {
       const { error: clearError } = await supabase.from("supplier_invoice_items").delete().eq("supplier_invoice_id", targetId);

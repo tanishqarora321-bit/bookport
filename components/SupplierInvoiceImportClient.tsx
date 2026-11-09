@@ -7,7 +7,7 @@ import { resolveSuggestedHeader } from "@/lib/match-header";
 import BackButton from "@/components/ui/BackButton";
 import { useYear } from "@/lib/year-context";
 
-type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean };
+type ParseResult = { headers: string[]; rows: string[][]; rowNumbers?: number[]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean };
 type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; bookingsCreated?: number; newBookingYear?: number | null };
 // One booking number this import would have to create. `containers` are the
 // distinct Container Numbers the sheet lists for it (>1 -> it lands on
@@ -130,6 +130,7 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
           supplierId,
           headers: parsed.headers,
           rows: parsed.rows,
+          rowNumbers: parsed.rowNumbers,
           mapping,
           dryRun: true,
         }),
@@ -182,6 +183,7 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
           supplierId,
           headers: parsed.headers,
           rows: parsed.rows,
+          rowNumbers: parsed.rowNumbers,
           mapping,
           currency,
           fxRate: Number(fxRate) || 1,
