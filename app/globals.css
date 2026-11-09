@@ -95,8 +95,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .kpi .v{font-size:24px;line-height:1.15;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
 .banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;border:1px solid}
 .bn-warn{background:var(--warnS);border-color:var(--warnB)}.bn-info{background:var(--infoS);border-color:var(--info)}.bn-crit{background:var(--critS);border-color:var(--crit)}.bn-ok{background:var(--okS);border-color:var(--ok)}
-.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:56px 24px;z-index:20}
-.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden}
+/* Fixed to the viewport (not the nearest positioned ancestor - a dialog opened
+   from a grid cell used to be placed inside the scrolling table), and the
+   modal is capped to the screen height with only its body (.mb) scrolling, so
+   a long form like the BL review is never cut off with no way to reach Save. */
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-start;justify-content:center;padding:40px 24px;z-index:50;overflow-y:auto;white-space:normal}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadowL);width:100%;max-width:760px;overflow:hidden;display:flex;flex-direction:column;max-height:calc(100dvh - 80px)}
+.modal>*{flex-shrink:0}
+.modal>.mb{flex:1 1 auto;min-height:0;overflow-y:auto}
 .mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 12px}
 .mb{padding:8px 24px 20px;display:flex;flex-direction:column;gap:16px}
 .mf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:var(--surf2)}

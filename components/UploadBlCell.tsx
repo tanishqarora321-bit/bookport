@@ -344,7 +344,9 @@ function UploadBlModal({
                   <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth={2} strokeLinecap="round" style={{ flexShrink: 0, marginTop: 1 }}>
                     <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
                   </svg>
-                  Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one&apos;s missing.
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    Only container numbers that already exist on this booking get their seal/weight/bales filled in here — add a container on the booking first if one&apos;s missing.
+                  </span>
                 </p>
               </div>
               {error && <div className="err">{error}</div>}
