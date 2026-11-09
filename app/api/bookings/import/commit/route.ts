@@ -3,11 +3,14 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { IMPORT_FIELDS } from "@/lib/booking-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { parseDateish, parseMonthish } from "@/lib/parse-date";
+import { parseDateish, parseMonthish, rolledForwardDate } from "@/lib/parse-date";
 
 export const maxDuration = 60;
 
 type Skip = { row: number; reason: string };
+// A date that doesn't exist (29-02-2026) saved as the next real day - kept,
+// but reported on the Done screen instead of changed silently.
+type DateFix = { row: number; bookingNumber: string; field: string; from: string; to: string };
 
 type Group = {
   carrierBookingNo: string;
@@ -80,6 +83,7 @@ export async function POST(req: NextRequest) {
   }
 
   const skipped: Skip[] = [];
+  const dateFixes: DateFix[] = [];
   const groupByKey = new Map<string, Group>();
 
   for (let i = 0; i < rows.length; i++) {
@@ -121,6 +125,8 @@ export async function POST(req: NextRequest) {
       if (f.kind === "date") {
         const d = parseDateish(raw) ?? parseMonthish(raw, defaultYear ? new Date(Date.UTC(defaultYear, 0, 1)) : null);
         if (d) group.fields[f.key] = d.toISOString();
+        const fixed = rolledForwardDate(raw);
+        if (d && fixed) dateFixes.push({ row: sheetRow, bookingNumber: carrierBookingNo, field: f.label, from: raw, to: fixed });
       } else {
         group.fields[f.key] = raw;
       }
@@ -142,7 +148,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (groups.length === 0) {
-    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+    return NextResponse.json({ imported: 0, total: rows.length, skipped, dateFixes });
   }
 
   const supabase = createServiceClient();
@@ -168,7 +174,7 @@ export async function POST(req: NextRequest) {
     const undatedGroups = groups
       .filter(isUndated)
       .map((g) => ({ carrierBookingNo: g.carrierBookingNo, containerCount: g.containerNos.length || 1, sheetRows: g.sheetRows }));
-    return NextResponse.json({ dryRun: true, duplicateGroups, undatedGroups });
+    return NextResponse.json({ dryRun: true, duplicateGroups, undatedGroups, dateFixes });
   }
 
   const toInsert = groups.filter((g) => {
@@ -182,7 +188,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (toInsert.length === 0) {
-    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+    return NextResponse.json({ imported: 0, total: rows.length, skipped, dateFixes });
   }
 
   // 1 round trip: bulk-insert every booking in the file at once.
@@ -202,7 +208,7 @@ export async function POST(req: NextRequest) {
     // isolate it.
     const reason = insertError.message;
     for (const g of toInsert) for (const sheetRow of g.sheetRows) skipped.push({ row: sheetRow, reason });
-    return NextResponse.json({ imported: 0, total: rows.length, skipped });
+    return NextResponse.json({ imported: 0, total: rows.length, skipped, dateFixes });
   }
 
   const bookingIdByKey = new Map(toInsert.map((g, idx) => [g.carrierBookingNo.toLowerCase(), insertedBookings[idx].id]));
@@ -293,5 +299,5 @@ export async function POST(req: NextRequest) {
   }
 
   const imported = toInsert.reduce((sum, g) => sum + g.sheetRows.length, 0);
-  return NextResponse.json({ imported, total: rows.length, skipped });
+  return NextResponse.json({ imported, total: rows.length, skipped, dateFixes });
 }
