@@ -12,11 +12,13 @@ export default function BookingActions({
   bookingId,
   blNumber,
   containerId,
+  containerNos = [],
   instructionStatus,
 }: {
   bookingId: string;
   blNumber: string | null;
   containerId: string | null;
+  containerNos?: string[];
   instructionStatus: string | null;
 }) {
   const router = useRouter();
@@ -27,7 +29,7 @@ export default function BookingActions({
     <table>
       <tbody>
         <tr>
-          <UploadBlCell bookingId={bookingId} blNumber={blNumber} onApplied={() => router.refresh()} />
+          <UploadBlCell bookingId={bookingId} blNumber={blNumber} containerNos={containerNos} onApplied={() => router.refresh()} />
           <SendInstructionsCell
             bookingId={bookingId}
             containerId={containerId}
