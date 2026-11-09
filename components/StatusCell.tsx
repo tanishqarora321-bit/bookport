@@ -1,86 +1,47 @@
 "use client";
 
 import { useState } from "react";
-import StatusPill, { statusLabel } from "@/components/ui/StatusPill";
-import { PencilIcon, CheckIcon, CloseIcon } from "@/components/EditableCell";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
-// Must match the bookings.status check constraint (migration 0001) and
-// the "All Status" filter list already in BookingsClient.tsx.
-const STATUSES = ["draft", "confirmed", "in_transit", "delivered", "cancelled"];
-
-// "delivered" reads as "Closed" - see STATUS_LABELS in StatusPill.
-const label = statusLabel;
+// Same floating pill menu as the ledgers' Paid / Status (live) columns. Must
+// match the bookings.status check constraint (migration 0001); `delivered`
+// reads "Closed" (lib/bookings-data.ts CLOSED_STATUS). Picking Closed or
+// Cancelled moves the booking to that section - the grid handles that in
+// onChanged.
+const STATUS_OPTIONS: StatusOption[] = [
+  { value: "draft", label: "Draft", badgeClass: "b-neu" },
+  { value: "confirmed", label: "Confirmed", badgeClass: "b-info" },
+  { value: "in_transit", label: "In Transit", badgeClass: "b-warn" },
+  { value: "delivered", label: "Closed", badgeClass: "b-ok" },
+  { value: "cancelled", label: "Cancelled", badgeClass: "b-crit" },
+];
 
 export default function StatusCell({
   bookingId, value, onChanged
 }: { bookingId: string; value: string; onChanged: (value: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(value);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save() {
-    setSaving(true);
+  async function save(next: string) {
     setError(null);
     try {
       const res = await fetch(`/api/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: val })
+        body: JSON.stringify({ status: next })
       });
       const text = await res.text();
       let json: any = {};
       try { json = text ? JSON.parse(text) : {}; } catch { /* non-JSON body, fall through to status */ }
       if (!res.ok) throw new Error(json.error || `Save failed (${res.status})`);
-      onChanged(val);
-      setEditing(false);
+      onChanged(next);
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setSaving(false);
     }
   }
 
-  if (!editing) {
-    return (
-      <td>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <StatusPill value={value} />
-          <button
-            onClick={() => { setVal(value); setEditing(true); }}
-            aria-label="Edit status"
-            className="pen"
-            style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}
-          >
-            <PencilIcon />
-          </button>
-        </span>
-      </td>
-    );
-  }
-
   return (
-    <td style={{ minWidth: 170 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <select
-          autoFocus
-          className="select select-s"
-          style={{ width: "auto", flex: 1, borderColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accentS)" }}
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          disabled={saving}
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>{label(s)}</option>
-          ))}
-        </select>
-        <button onClick={save} disabled={saving} aria-label="Save" className="ib" style={{ background: "var(--accent)", color: "var(--onAccent)" }}>
-          <CheckIcon />
-        </button>
-        <button onClick={() => setEditing(false)} disabled={saving} aria-label="Close" className="ib">
-          <CloseIcon />
-        </button>
-      </div>
+    <td style={{ minWidth: 150 }}>
+      <StatusMenuButton value={value} options={STATUS_OPTIONS} ariaLabel="Booking status" onChange={save} />
       {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );

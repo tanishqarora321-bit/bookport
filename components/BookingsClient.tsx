@@ -15,6 +15,7 @@ import SendInstructionsCell from "@/components/SendInstructionsCell";
 import UploadBlCell from "@/components/UploadBlCell";
 import { useYear } from "@/lib/year-context";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -54,7 +55,13 @@ type Stage = "open" | "closed" | "cancelled";
 // `cancelled`; moving a booking back to Booking & Instructions sets it to
 // `confirmed`.
 const STAGE_STATUS: Record<Stage, string> = { open: "confirmed", closed: "delivered", cancelled: "cancelled" };
+function stageForStatus(status: string): Stage {
+  return status === "delivered" ? "closed" : status === "cancelled" ? "cancelled" : "open";
+}
 const STAGE_LABEL: Record<Stage, string> = { open: "Booking & Instructions", closed: "Closed Bookings", cancelled: "Cancelled Bookings" };
+
+// Every dropdown in the filter bar shares one width, like the ledgers'.
+const FILTER_WIDTH = 170;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -118,6 +125,7 @@ export default function BookingsClient({
   rows: initialRows,
   stage = "open",
   closedRows = [],
+  cancelledRows = [],
   forwarders,
   truckers,
   suppliers,
@@ -130,8 +138,9 @@ export default function BookingsClient({
   // field filled in, or moved there by hand), "cancelled" = Cancelled
   // Bookings (moved there by hand).
   stage?: Stage;
-  // "open" only: the Closed Bookings rows, for the "Closed" KPI card.
+  // "open" only: the Closed / Cancelled Bookings rows, for those KPI cards.
   closedRows?: Row[];
+  cancelledRows?: Row[];
   forwarders: PartyOption[];
   truckers: PartyOption[];
   suppliers: PartyOption[];
@@ -155,6 +164,31 @@ export default function BookingsClient({
   useEffect(() => {
     setRows(initialRows);
   }, [initialRows]);
+
+  // Local copies of the Closed/Cancelled lists so their KPI cards update the
+  // moment a booking moves there from this grid, without a reload.
+  const [closedList, setClosedList] = useState(closedRows);
+  const [cancelledList, setCancelledList] = useState(cancelledRows);
+  useEffect(() => setClosedList(closedRows), [closedRows]);
+  useEffect(() => setCancelledList(cancelledRows), [cancelledRows]);
+
+  // A booking whose status now belongs to another section leaves this grid
+  // straight away - whether it was moved with the selection bar or its
+  // Status pill was changed. Every row of the booking goes together.
+  function applyStatusChange(bookingIds: string[], newStatus: string) {
+    const ids = new Set(bookingIds);
+    const target = stageForStatus(newStatus);
+    if (target === stage) {
+      setRows((prev) => prev.map((r) => (ids.has(r.booking_id) ? { ...r, status: newStatus } : r)));
+      return;
+    }
+    const moved = rows.filter((r) => ids.has(r.booking_id)).map((r) => ({ ...r, status: newStatus }));
+    setRows((prev) => prev.filter((r) => !ids.has(r.booking_id)));
+    if (target === "closed") setClosedList((prev) => [...moved, ...prev]);
+    if (target === "cancelled") setCancelledList((prev) => [...moved, ...prev]);
+    if (stage === "closed") setClosedList((prev) => prev.filter((r) => !ids.has(r.booking_id)));
+    if (stage === "cancelled") setCancelledList((prev) => prev.filter((r) => !ids.has(r.booking_id)));
+  }
 
   // The sidebar's Year selector is the one working-year filter for this
   // grid - always on, no separate opt-in toggle, since having both was
@@ -322,7 +356,7 @@ export default function BookingsClient({
         failures.push(`${bookingId}: ${err?.message || "network error"}`);
       }
     }
-    setRows((prev) => prev.filter((r) => !succeeded.includes(r.booking_id)));
+    applyStatusChange(succeeded, STAGE_STATUS[to]);
     setMoving(false);
     bulk.clear();
     if (failures.length > 0) {
@@ -347,8 +381,12 @@ export default function BookingsClient({
   const confirmedCount = new Set(kpiRows.filter((r) => r.status === "confirmed").map((r) => r.booking_id)).size;
   const inTransitCount = new Set(kpiRows.filter((r) => r.status === "in_transit").map((r) => r.booking_id)).size;
   const closedCount = useMemo(
-    () => new Set(closedRows.filter((r) => inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
-    [closedRows, year, monthFilter]
+    () => new Set(closedList.filter((r) => inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
+    [closedList, year, monthFilter]
+  );
+  const cancelledCount = useMemo(
+    () => new Set(cancelledList.filter((r) => inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
+    [cancelledList, year, monthFilter]
   );
   const instructionsSentCount = new Set(kpiRows.filter((r) => r.instruction_status === "sent").map((r) => r.booking_id)).size;
 
@@ -474,15 +512,18 @@ export default function BookingsClient({
           <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
           <StatCard icon={AlertTriangle} label="Cut-off within 48h" value={cutoffSoonCount} tone="danger" />
           <StatCard icon={PackageCheck} label="Closed" value={closedCount} tone="success" />
+          <StatCard icon={Ban} label="Cancelled" value={cancelledCount} tone={cancelledCount > 0 ? "danger" : "default"} />
           <StatCard icon={Mail} label="Instructions Sent" value={instructionsSentCount} tone="success" />
         </section>
       )}
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
       <section className="card" aria-label="Bookings table" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
+        {/* One filter bar, same layout as the Forwarders ledger: search, then
+            equal-width dropdowns, then the toggle chips - wrapping evenly. */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-            <label style={{ flex: "1 1 300px", maxWidth: 380, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
+            <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
               <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
               <span className="sr">Search bookings</span>
               <input
@@ -493,21 +534,69 @@ export default function BookingsClient({
                 style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
               />
             </label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="select select-s" style={{ width: "auto" }}>
+            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Months ({year})</option>
+              {MONTH_NAMES.map((m, i) => (
+                <option key={m} value={i}>{m} {year}</option>
+              ))}
+            </select>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" className="select select-s" style={{ width: FILTER_WIDTH }}>
               <option value="all">All Status</option>
               <option value="draft">Draft</option>
               <option value="confirmed">Confirmed</option>
               <option value="in_transit">In Transit</option>
-              <option value="delivered">Closed</option>
-              <option value="cancelled">Cancelled</option>
+              {stage === "closed" && <option value="delivered">Closed</option>}
+              {stage === "cancelled" && <option value="cancelled">Cancelled</option>}
             </select>
-            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"}>
+            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Lines</option>
+              {lines.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Destinations</option>
+              {destinations.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <div style={{ flex: "1 1 0" }} />
+            <span className="lbl num" aria-live="polite">
+              <b style={{ color: "var(--tx)" }}>{filtered.length}</b> bookings
+            </span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Forwarders</option>
+              {forwarderOptions.map((f) => (
+                <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
+              ))}
+            </select>
+            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Truckers</option>
+              {truckerOptions.map((t) => (
+                <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
+              ))}
+            </select>
+            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Suppliers</option>
+              {supplierOptions.map((sp) => (
+                <option key={sp.id} value={sp.legal_name}>{sp.legal_name}</option>
+              ))}
+            </select>
+            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s" style={{ width: FILTER_WIDTH }}>
+              <option value="all">All Buyers</option>
+              {buyerOptions.map((b) => (
+                <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
+              ))}
+            </select>
+            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
               </svg>
-              Cut off within 3 days
+              Cut-off in 3 days
             </button>
-            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"}>
+            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"} style={{ height: 36 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 3l10 18H2zM12 10v4" />
               </svg>
@@ -518,6 +607,7 @@ export default function BookingsClient({
                 onClick={() => setMultipleOnly(!multipleOnly)}
                 aria-pressed={multipleOnly}
                 className={multipleOnly ? "chip on" : "chip"}
+                style={{ height: 36 }}
                 title="Booking numbers with more than one container"
               >
                 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -526,74 +616,18 @@ export default function BookingsClient({
                 Multiple only{multipleCount > 0 ? ` (${multipleCount})` : ""}
               </button>
             )}
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: "auto" }}>
-              <option value="all">All Months ({year})</option>
-              {MONTH_NAMES.map((m, i) => (
-                <option key={m} value={i}>{m} {year}</option>
-              ))}
-            </select>
-            <div style={{ flex: "1 1 0" }} />
-            <span className="lbl num" aria-live="polite">
-              <b style={{ color: "var(--tx)" }}>{filtered.length}</b> bookings
-            </span>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s select-filter">
-              <option value="all">All Lines</option>
-              {lines.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s select-filter">
-              <option value="all">All Destinations</option>
-              {destinations.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s select-filter">
-              <option value="all">All Forwarders</option>
-              {forwarderOptions.map((f) => (
-                <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
-              ))}
-            </select>
-            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s select-filter">
-              <option value="all">All Truckers</option>
-              {truckerOptions.map((t) => (
-                <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
-              ))}
-            </select>
-            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s select-filter">
-              <option value="all">All Suppliers</option>
-              {supplierOptions.map((s) => (
-                <option key={s.id} value={s.legal_name}>{s.legal_name}</option>
-              ))}
-            </select>
-            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s select-filter">
-              <option value="all">All Buyers</option>
-              {buyerOptions.map((b) => (
-                <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
-              ))}
-            </select>
-            {activeChips.length > 0 && (
-              <button onClick={clearFilters} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13, marginLeft: 4 }}>
+            {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
+              <button
+                onClick={() => {
+                  clearFilters();
+                  setMonthFilter("all");
+                }}
+                style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13, marginLeft: 4 }}
+              >
                 Clear filters
               </button>
             )}
           </div>
-          {activeChips.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-              <span className="meta">Active:</span>
-              {activeChips.map((c) => (
-                <button key={c.label} onClick={c.clear} className="chip on" style={{ height: 28 }}>
-                  {c.label}
-                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                  <span className="sr">Remove filter</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
       {bulk.selectedCount > 0 && (
@@ -750,7 +784,7 @@ export default function BookingsClient({
                   <StatusCell
                     bookingId={r.booking_id}
                     value={r.status}
-                    onChanged={(v) => updateRowsForBooking(r.booking_id, { status: v })}
+                    onChanged={(v) => applyStatusChange([r.booking_id], v)}
                   />
                   <SendInstructionsCell
                     bookingId={r.booking_id}
@@ -765,7 +799,10 @@ export default function BookingsClient({
                   />
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      <Link href={`/bookings/${r.booking_id}`} style={{ fontWeight: 600 }}>
+                      <Link
+                        href={`/bookings/${r.booking_id}`}
+                        className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white no-underline"
+                      >
                         View →
                       </Link>
                       <button
@@ -887,23 +924,19 @@ export default function BookingsClient({
 // have gone out to the carrier yet. Blank (unset) has no color, matching
 // how every other optional field in this grid reads "—" rather than a
 // colored pill until someone actually sets it.
-const INSTRUCTION_STATUS_BADGE: Record<string, string> = {
-  sent: "b-ok",
-  not_sent: "b-crit",
-};
-const INSTRUCTION_STATUS_LABELS: Record<string, string> = {
-  sent: "Sent",
-  not_sent: "Not Sent",
-};
+// Same floating pill menu as the ledgers' Paid column.
+const INSTRUCTION_STATUS_OPTIONS: StatusOption[] = [
+  { value: "", label: "— set —", badgeClass: "b-neu" },
+  { value: "sent", label: "Sent", badgeClass: "b-ok" },
+  { value: "not_sent", label: "Not Sent", badgeClass: "b-crit" },
+];
 
 function InstructionStatusCell({
   bookingId, value, onChanged
 }: { bookingId: string; value: string | null; onChanged: (value: string) => void }) {
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleChange(next: string) {
-    setSaving(true);
     setError(null);
     try {
       const res = await fetch(`/api/bookings/${bookingId}`, {
@@ -918,27 +951,12 @@ function InstructionStatusCell({
       onChanged(next);
     } catch (err: any) {
       setError(err.message);
-    } finally {
-      setSaving(false);
     }
   }
 
-  const badgeClass = value ? INSTRUCTION_STATUS_BADGE[value] ?? "b-neu" : "b-neu";
-
   return (
     <td style={{ minWidth: 140 }}>
-      <select
-        value={value ?? ""}
-        onChange={(e) => handleChange(e.target.value)}
-        disabled={saving}
-        aria-label="Instruction Status"
-        className={`badge ${badgeClass}`}
-        style={{ border: 0, cursor: "pointer", font: "inherit", fontSize: 12, fontWeight: 600 }}
-      >
-        <option value="">—</option>
-        <option value="sent">{INSTRUCTION_STATUS_LABELS.sent}</option>
-        <option value="not_sent">{INSTRUCTION_STATUS_LABELS.not_sent}</option>
-      </select>
+      <StatusMenuButton value={value ?? ""} options={INSTRUCTION_STATUS_OPTIONS} ariaLabel="Instruction Status" onChange={handleChange} />
       {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
     </td>
   );

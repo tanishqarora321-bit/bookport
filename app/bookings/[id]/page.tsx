@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 import AmendableField from "./AmendableField";
 import BookingActions from "./BookingActions";
 import EditableCell from "@/components/EditableCell";
@@ -110,9 +111,14 @@ export default async function BookingDetail({ params }: { params: { id: string }
     <div className="max-w-5xl mx-auto space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href="/bookings" className="text-muted hover:text-ink text-lg leading-none" title="Back to Bookings">
-            ←
-          </Link>
+          {/* Back to whichever section the booking sits in (lib/bookings-data.ts). */}
+          {booking.status === "cancelled" ? (
+            <BackButton href="/bookings/cancelled" label="Back to Cancelled Bookings" />
+          ) : booking.status === "delivered" ? (
+            <BackButton href="/bookings/closed" label="Back to Closed Bookings" />
+          ) : (
+            <BackButton href="/bookings" label="Back to Booking & Instructions" />
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-semibold text-ink">{booking.carrier_booking_no || booking.booking_no}</h1>

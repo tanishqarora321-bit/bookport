@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import BackButton from "@/components/ui/BackButton";
 
 type FieldVal = { value: string | null; confidence: number; source_quote: string };
 type Extracted = Record<string, FieldVal>;
@@ -137,11 +138,11 @@ function NewBookingPageInner() {
   if (mode === "choose") {
     return (
       <div className="h-full flex flex-col">
-        <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-          ← Back to Booking &amp; Instructions
-        </Link>
-        <div className="max-w-2xl mx-auto mt-12 space-y-4 w-full">
-          <h1 className="text-xl font-semibold text-center">{forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}</h1>
+        <div className="max-w-2xl mx-auto mt-6 space-y-4 w-full">
+          <div className="flex items-center gap-3">
+            <BackButton href="/bookings" label="Back to Booking & Instructions" />
+            <h1 className="h1">{forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}</h1>
+          </div>
           {forMultiple && (
             <p className="text-sm text-amber-700 bg-amber-50 rounded px-3 py-2">
               Only for an intentional second entry under a Booking Number already in Booking & Instructions — Excel import isn't available here.
@@ -160,7 +161,7 @@ function NewBookingPageInner() {
               <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
             </label>
             {!forMultiple && (
-              <Link href="/bookings/import" className="border rounded-lg p-6 bg-surface hover:border-ink text-left block">
+              <Link href="/bookings/import" className="border rounded-lg p-6 bg-surface hover:border-ink text-left block text-ink no-underline">
                 <div className="font-medium">Import Excel</div>
                 <div className="text-sm text-text-2">Bring in existing bookings from a spreadsheet, in bulk.</div>
               </Link>
@@ -174,12 +175,12 @@ function NewBookingPageInner() {
 
   return (
     <div className="h-full flex flex-col max-w-2xl space-y-1">
-      <Link href="/bookings" className="text-sm text-accent mb-2 w-fit inline-flex items-center gap-1 hover:underline">
-        ← Back to Booking &amp; Instructions
-      </Link>
-      <h1 className="text-xl font-semibold mb-4">
-        {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}
-      </h1>
+      <div className="flex items-center gap-3 mb-4">
+        <BackButton onClick={() => setMode("choose")} label="Back to New Booking options" />
+        <h1 className="h1">
+          {mode === "review" ? "Review extracted fields" : forMultiple ? "New Entry for an Existing Booking Number" : "New Booking"}
+        </h1>
+      </div>
       {mode === "review" && (
         <p className="text-sm text-text-2 mb-4">
           AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.

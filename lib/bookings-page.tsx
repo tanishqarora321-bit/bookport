@@ -33,6 +33,7 @@ export async function renderBookingsPage(stage: BookingStage) {
       rows={rows}
       stage={stage}
       closedRows={stage === "open" ? stages.closedRows : []}
+      cancelledRows={stage === "open" ? stages.cancelledRows : []}
       forwarders={forwarders ?? []}
       truckers={truckers ?? []}
       suppliers={suppliers ?? []}
