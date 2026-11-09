@@ -275,6 +275,18 @@ export default function BookingsClient({
     setPage(0);
   }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
 
+  // Each booking's container numbers, for the Upload BL dialog's manual
+  // entry (pre-fills its container table).
+  const containerNosByBooking = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const r of rows) {
+      if (!r.container_no) continue;
+      if (!m.has(r.booking_id)) m.set(r.booking_id, []);
+      m.get(r.booking_id)!.push(r.container_no);
+    }
+    return m;
+  }, [rows]);
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
   const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
@@ -506,7 +518,7 @@ export default function BookingsClient({
       </div>
 
       {stage === "open" && (
-        <section aria-label="Booking totals" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 9 }}>
+        <section aria-label="Booking totals" style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(130px, 1fr))", gap: 9, overflowX: "auto" }}>
           <StatCard icon={ClipboardList} label="Total Bookings" value={totalBookings} />
           <StatCard icon={CheckCircle2} label="Confirmed" value={confirmedCount} />
           <StatCard icon={Ship} label="In Transit" value={inTransitCount} />
@@ -712,6 +724,7 @@ export default function BookingsClient({
                   <UploadBlCell
                     bookingId={r.booking_id}
                     blNumber={r.bl_number}
+                    containerNos={containerNosByBooking.get(r.booking_id) ?? []}
                     // A BL can update fields across every container on this
                     // booking at once (not just this row's own), so patching
                     // local state by hand for every affected row/container
@@ -801,9 +814,10 @@ export default function BookingsClient({
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                       <Link
                         href={`/bookings/${r.booking_id}`}
-                        className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white no-underline"
+                        className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
+                        style={{ textDecoration: "none" }}
                       >
-                        View →
+                        View
                       </Link>
                       <button
                         onClick={() => deleteBooking(r.booking_id, r.carrier_booking_no)}

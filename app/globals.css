@@ -86,8 +86,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 /* Booking & Instructions: a booking number with more than one container (it
    used to live on its own Multiple Bookings page) - tinted, with an amber
    edge on the first column, so the block stands out in the main grid. */
-.tbl tbody tr.row-multi td,.tbl tbody tr.row-multi .stk,.tbl tbody tr.row-multi .stk2{background:var(--warnS)}
-.tbl tbody tr.row-multi td.stk{box-shadow:inset 3px 0 0 var(--warn)}
+.tbl>tbody>tr.row-multi>td{background:var(--warnS)}
+.tbl>tbody>tr.row-multi>td.stk{box-shadow:inset 3px 0 0 var(--warn)}
 .pen{color:var(--mut);opacity:0}
 .tbl tr:hover .pen{opacity:1}
 .dash{color:var(--mut)}

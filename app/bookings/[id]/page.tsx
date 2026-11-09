@@ -130,6 +130,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
         <BookingActions
           bookingId={booking.id}
           blNumber={booking.bl_number}
+          containerNos={(containers ?? []).map((c: any) => c.container_no).filter(Boolean)}
           containerId={firstContainerId}
           instructionStatus={booking.instruction_status}
         />

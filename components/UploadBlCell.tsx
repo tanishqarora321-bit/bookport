@@ -36,10 +36,14 @@ const FIELD_LABELS: { key: keyof FormState; label: string; isDate?: boolean }[] 
 export default function UploadBlCell({
   bookingId,
   blNumber,
+  containerNos = [],
   onApplied,
 }: {
   bookingId: string;
   blNumber: string | null;
+  // This booking's container numbers - pre-fill the container table when
+  // the BL is typed in by hand instead of read from a PDF.
+  containerNos?: string[];
   onApplied: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -72,17 +76,19 @@ export default function UploadBlCell({
           </>
         )}
       </button>
-      {open && <UploadBlModal bookingId={bookingId} onClose={() => setOpen(false)} onApplied={onApplied} />}
+      {open && <UploadBlModal bookingId={bookingId} containerNos={containerNos} onClose={() => setOpen(false)} onApplied={onApplied} />}
     </td>
   );
 }
 
 function UploadBlModal({
   bookingId,
+  containerNos,
   onClose,
   onApplied,
 }: {
   bookingId: string;
+  containerNos: string[];
   onClose: () => void;
   onApplied: () => void;
 }) {
@@ -95,6 +101,21 @@ function UploadBlModal({
   const [meta, setMeta] = useState<Record<string, ExtractedField>>({});
   const [containers, setContainers] = useState<ContainerRow[]>([]);
   const [result, setResult] = useState<{ containersMatched: number; unmatchedContainers: string[] } | null>(null);
+  // Typed in by hand rather than read from a PDF - same review form and the
+  // same save route, just empty to start with (and no document to mark
+  // reviewed).
+  const [manual, setManual] = useState(false);
+
+  function startManual() {
+    setManual(true);
+    setError(null);
+    setDocumentId(null);
+    setMeta({});
+    setForm(BLANK_FORM);
+    const blankRow = { container_no: "", seal_no: "", gross_weight: "", weight_unit: "", bales: "" };
+    setContainers(containerNos.length > 0 ? containerNos.map((no) => ({ ...blankRow, container_no: no })) : [blankRow]);
+    setStep("review");
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -230,6 +251,17 @@ function UploadBlModal({
                 <span className="meta">PDF only · or drop the file here</span>
                 <input type="file" accept="application/pdf" className="sr" onChange={handleUpload} disabled={uploading} />
               </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                <span className="meta">or</span>
+                <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+              </div>
+              <button type="button" onClick={startManual} disabled={uploading} className="btn" style={{ alignSelf: "center" }}>
+                <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4" />
+                </svg>
+                Enter BL details manually
+              </button>
               {error && <div className="err">{error}</div>}
             </div>
             <div className="mf"><button onClick={onClose} className="btn btn-s">Cancel</button></div>
@@ -243,7 +275,11 @@ function UploadBlModal({
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth={2} strokeLinecap="round">
                   <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5" />
                 </svg>
-                <span style={{ fontSize: 13 }}>AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save.</span>
+                <span style={{ fontSize: 13 }}>
+                  {manual
+                    ? "Type in the BL details — nothing is saved until you click Save."
+                    : "AI-filled fields are marked. Confirm or correct each one — nothing is saved until you click Save."}
+                </span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px 16px" }}>
@@ -314,7 +350,11 @@ function UploadBlModal({
               {error && <div className="err">{error}</div>}
             </div>
             <div className="mf" style={{ justifyContent: "space-between" }}>
-              <span className="lbl" style={{ alignSelf: "center" }}>{fieldsRead} fields read</span>
+              {manual ? (
+                <button onClick={() => setStep("upload")} className="btn btn-s btn-g">Back</button>
+              ) : (
+                <span className="lbl" style={{ alignSelf: "center" }}>{fieldsRead} fields read</span>
+              )}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={onClose} className="btn btn-s">Cancel</button>
                 <button onClick={handleSave} disabled={saving} className="btn btn-s btn-p">
