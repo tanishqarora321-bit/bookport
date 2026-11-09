@@ -69,11 +69,25 @@ denied` lines on git commands are harmless noise — ignore them.
   fills existing invoices or creates the booking+container+invoice. Repeat
   invoices (same booking+container, different invoice number) are cloned as
   separate rows (tracking_id left null — there's a unique constraint on it).
-- **Booking & Instructions vs Multiple Bookings** (`lib/bookings-data.ts`):
-  the split counts **containers** per booking number (after flattening to one
-  row per container). A booking number with >1 container → **Multiple Bookings
-  & Instructions**; exactly one container → main page. (Owner's definition:
-  same number + different container numbers = "multiple".)
+- **Booking stages** (`lib/bookings-data.ts` `fetchBookingsByStage`, one
+  loader `lib/bookings-page.tsx`, one grid `BookingsClient` with `stage`):
+  **Booking & Instructions** (`/bookings`, open), **Closed Bookings**
+  (`/bookings/closed`) and **Cancelled Bookings** (`/bookings/cancelled`).
+  Closed = status `delivered` (shown as "Closed" via `STATUS_LABELS` in
+  `StatusPill` - the status check constraint has no "closed", so no migration)
+  OR every field filled (`isBookingComplete`, which also saves the status).
+  Cancelled = status `cancelled`. Rows are moved by selecting them (everyone,
+  not just admins; bulk delete stays admin-only). The old **Multiple Bookings**
+  page is gone (`/bookings/multiple` redirects to `/bookings?multiple=1`): a
+  booking number with >1 container is flagged `is_multiple`, tinted amber in
+  the grid, with a "Multiple only" filter chip.
+- **Working Year applies to every module except Workspace**
+  (`lib/year-scope.ts`): invoices by Month of Loading else Invoice Date;
+  tracking by its booking's ERD else ETA; offer sheets by Period else
+  created_at; anything undated shows under every year. Payment History lists
+  payments whose `applies_to_year` is the Working Year, against that year's
+  invoiced total. Freight Comparison follows the sidebar year (its Year picker
+  sets it). Partner LIST pages (company names) aren't year-bound.
 - **`booking.erd` is the visibility key:** Booking & Instructions hides any
   booking with a null `erd` (`inYearScope`). Imports MUST set `booking.erd`
   from the row's Month of Loading (backfilled only when null). A one-time repair

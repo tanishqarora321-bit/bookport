@@ -47,8 +47,15 @@ const TEXT_CLASS: Record<string, string> = {
   critical: "text-critical",
 };
 
-function label(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+// Stored values shown under a different name. A booking's `delivered`
+// status IS "Closed" (lib/bookings-data.ts CLOSED_STATUS) - bookings.status
+// has no "closed" value of its own.
+export const STATUS_LABELS: Record<string, string> = {
+  delivered: "Closed",
+};
+
+export function statusLabel(value: string) {
+  return STATUS_LABELS[value.toLowerCase()] ?? value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export default function StatusPill({ value }: { value: string | null | undefined }) {
@@ -57,7 +64,7 @@ export default function StatusPill({ value }: { value: string | null | undefined
   return (
     <span className={`inline-flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ${TEXT_CLASS[tone]}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_CLASS[tone]}`} />
-      {label(value)}
+      {statusLabel(value)}
     </span>
   );
 }

@@ -24,11 +24,11 @@ function fmtMoney(n: number, currency: string) {
 // Shared by Forwarders/Suppliers/Truckers' invoice ledgers - a running
 // log of actual payments made to this party, separate from the existing
 // per-invoice PAID/UNPAID toggle (which stays exactly as it is,
-// manually adjustable). "Net still owed" is deliberately always an
-// all-time balance, never year-scoped - a current balance shouldn't
-// change just because the app-wide Year selector moved. Each payment's
-// own applies_to_year (asked explicitly on entry, defaulting to the
-// Year selector) is what P&L's year-wise view reads instead.
+// manually adjustable). Scoped to the sidebar's Working Year like the rest
+// of the app: only payments whose own applies_to_year (asked explicitly on
+// entry, defaulting to the Working Year) is that year are listed, and
+// "Net still owed" is that year's invoiced total (the ledger passes it in,
+// year-scoped) minus that year's payments - the same split P&L uses.
 export default function PartyPaymentHistory({
   partyId,
   totalInvoicedUsd,
@@ -38,7 +38,8 @@ export default function PartyPaymentHistory({
 }) {
   const { year } = useYear();
   const [expanded, setExpanded] = useState(false);
-  const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [allPayments, setPayments] = useState<Payment[] | null>(null);
+  const payments = allPayments === null ? null : allPayments.filter((p) => Number(p.applies_to_year) === year);
   const [page, setPage] = useState(0);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -54,13 +55,19 @@ export default function PartyPaymentHistory({
   });
 
   useEffect(() => {
-    if (expanded && payments === null) {
+    if (expanded && allPayments === null) {
       fetch(`/api/party-payments?party_id=${partyId}`)
         .then((r) => r.json())
         .then((json) => setPayments(json.payments ?? []))
         .catch(() => setPayments([]));
     }
-  }, [expanded, payments, partyId]);
+  }, [expanded, allPayments, partyId]);
+
+  // New payments default to whichever year is being looked at.
+  useEffect(() => {
+    setForm((f) => ({ ...f, applies_to_year: String(year) }));
+    setPage(0);
+  }, [year]);
 
   const totalPaidUsd = (payments ?? []).reduce((s, p) => s + p.amount * (p.fx_rate || 1), 0);
   const netOwedUsd = totalInvoicedUsd - totalPaidUsd;
@@ -130,7 +137,7 @@ export default function PartyPaymentHistory({
       <div className="flex items-center justify-between gap-3 p-4">
         <div>
           <h2 id="payment-history-heading" className="text-base font-semibold text-ink">Payment History</h2>
-          <p className="text-xs text-muted mt-0.5">Payments made to this party, counted against the invoiced total</p>
+          <p className="text-xs text-muted mt-0.5">Payments made to this party for {year}, counted against {year}&apos;s invoiced total</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {expanded && (
@@ -164,15 +171,15 @@ export default function PartyPaymentHistory({
         <div id="payment-history-body" className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-surface-2 border border-line rounded-lg p-3.5">
-              <div className="text-xs text-muted">Total Invoiced (USD)</div>
+              <div className="text-xs text-muted">Total Invoiced {year} (USD)</div>
               <div className="text-lg font-semibold text-ink mt-1 tabular-nums">{fmtMoney(totalInvoicedUsd, "USD")}</div>
             </div>
             <div className="bg-surface-2 border border-line rounded-lg p-3.5">
-              <div className="text-xs text-muted">Total Paid (USD)</div>
+              <div className="text-xs text-muted">Total Paid {year} (USD)</div>
               <div className="text-lg font-semibold text-success mt-1 tabular-nums">{fmtMoney(totalPaidUsd, "USD")}</div>
             </div>
             <div className={`rounded-lg p-3.5 border ${netOwedUsd > 0 ? "bg-warning-soft border-ai-border" : "bg-success-soft border-success"}`}>
-              <div className="text-xs text-muted">Net Still Owed (USD)</div>
+              <div className="text-xs text-muted">Net Still Owed {year} (USD)</div>
               <div className={`text-lg font-semibold mt-1 tabular-nums ${netOwedUsd > 0 ? "text-warning" : "text-success"}`}>{fmtMoney(netOwedUsd, "USD")}</div>
             </div>
           </div>

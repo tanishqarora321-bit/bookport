@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   // number belongs on the normal Booking & Instructions page, not here.
   if (requireDuplicateOf && !existingMatch) {
     return NextResponse.json(
-      { error: `Booking Number "${carrierBookingNo}" doesn't exist yet in Booking & Instructions - create it there first, not from Multiple Bookings.` },
+      { error: `Booking Number "${carrierBookingNo}" doesn't exist yet in Booking & Instructions - create it there first.` },
       { status: 400 }
     );
   }

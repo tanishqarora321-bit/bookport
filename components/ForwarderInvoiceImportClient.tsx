@@ -391,8 +391,8 @@ export default function ForwarderInvoiceImportClient({ forwarderId, forwarderNam
             <p className="sub">
               Reassigning these to {forwarderName} would move them away from whoever&apos;s currently on them. For each
               one, choose whether this is really the same booking (reassign it) or a different shipment that
-              happens to reuse the number (add it as a separate entry — it&apos;ll show up on Multiple Bookings &amp;
-              Instructions).
+              happens to reuse the number (add it as a separate entry — it&apos;ll be highlighted as Multiple in
+              Booking &amp; Instructions).
             </p>
           </div>
         </div>

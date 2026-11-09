@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import StatusPill from "@/components/ui/StatusPill";
+import StatusPill, { statusLabel } from "@/components/ui/StatusPill";
 import { PencilIcon, CheckIcon, CloseIcon } from "@/components/EditableCell";
 
 // Must match the bookings.status check constraint (migration 0001) and
 // the "All Status" filter list already in BookingsClient.tsx.
 const STATUSES = ["draft", "confirmed", "in_transit", "delivered", "cancelled"];
 
-function label(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+// "delivered" reads as "Closed" - see STATUS_LABELS in StatusPill.
+const label = statusLabel;
 
 export default function StatusCell({
   bookingId, value, onChanged
