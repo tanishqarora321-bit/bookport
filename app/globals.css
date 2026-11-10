@@ -159,7 +159,12 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .secbtn.on{background:var(--accentS);font-weight:600}
 /* Booking details (/bookings/[id]): ~64/36 main column + right rail, stacking
    to one column on narrower screens. */
-.booking-detail-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(300px,1fr);gap:18px;align-items:start}
+/* Both columns always end on the same line, whatever the booking's data
+   (amendments lengthen the left column, extra containers or a margin the
+   right): the grid stretches both columns to the taller one's height, and
+   each column's LAST card grows to fill what's left. */
+.booking-detail-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(300px,1fr);gap:18px;align-items:stretch}
+.booking-detail-grid>div>section:last-child{flex:1 1 auto}
 @media (max-width:1050px){.booking-detail-grid{grid-template-columns:minmax(0,1fr)}}
 .tbl.detail-field td{border-bottom:0;padding:4px 12px;background:transparent;white-space:normal}
 .tbl.detail-field tr:hover td{background:transparent}
