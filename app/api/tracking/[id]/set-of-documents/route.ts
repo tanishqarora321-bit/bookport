@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateSetOfDocumentsPdf, SODTemplateConfig } from "@/lib/pdf/generateSetOfDocuments";
 import { addDaysIso, weightInBothUnits } from "@/lib/pdf/pdfHelpers";
@@ -40,15 +41,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     .eq("tracking_id", params.id)
     .maybeSingle();
 
-  const { data: templateRow } = await supabase
-    .from("document_templates")
-    .select("template_config")
-    .eq("company_id", me.company_id)
-    .eq("doc_type", "set_of_documents")
-    .eq("is_default", true)
-    .single();
-  if (!templateRow?.template_config) {
-    return NextResponse.json({ error: "No Set of Documents template set up yet -- run migration 0035." }, { status: 400 });
+  const templateConfig = await loadDocTemplate(supabase, me.company_id, "set_of_documents");
+  if (!templateConfig) {
+    return NextResponse.json({ error: "No company letterhead set up yet -- add one in Settings before generating the Set of Documents." }, { status: 400 });
   }
 
   const { lbs, kgs } = weightInBothUnits(ctx.packingItem?.weight ?? null, ctx.packingItem?.weight_unit ?? null);
@@ -68,7 +63,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     currency: buyerInvoice?.currency || "USD",
   };
 
-  const pdfBytes = await generateSetOfDocumentsPdf(templateRow.template_config as SODTemplateConfig, fieldData);
+  const pdfBytes = await generateSetOfDocumentsPdf(templateConfig as SODTemplateConfig, fieldData);
 
   const { count } = await supabase
     .from("generated_documents")

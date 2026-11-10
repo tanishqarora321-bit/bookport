@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateFumigationCertificatePdf, FumigationTemplateConfig } from "@/lib/pdf/generateFumigationCertificate";
 import { addDaysIso } from "@/lib/pdf/pdfHelpers";
@@ -36,16 +37,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
 
-  const { data: templateRow } = await supabase
-    .from("document_templates")
-    .select("template_config")
-    .eq("company_id", me.company_id)
-    .eq("doc_type", "fumigation_certificate")
-    .eq("is_default", true)
-    .single();
+  const templateConfig = await loadDocTemplate(supabase, me.company_id, "fumigation_certificate");
 
-  if (!templateRow?.template_config) {
-    return NextResponse.json({ error: "No Fumigation Certificate template set up yet -- run migration 0034." }, { status: 400 });
+  if (!templateConfig) {
+    return NextResponse.json({ error: "No Fumigation Certificate template could be loaded." }, { status: 400 });
   }
 
   const fieldData = {
@@ -54,7 +49,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     location: `${ctx.booking.pol} USA`,
   };
 
-  const pdfBytes = await generateFumigationCertificatePdf(templateRow.template_config as FumigationTemplateConfig, fieldData);
+  const pdfBytes = await generateFumigationCertificatePdf(templateConfig as FumigationTemplateConfig, fieldData);
 
   const { count } = await supabase
     .from("generated_documents")
