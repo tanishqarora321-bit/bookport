@@ -168,7 +168,9 @@ export default async function BookingDetail({ params }: { params: { id: string }
   ];
 
   const cardStyle: React.CSSProperties = { padding: 20 };
-  const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: "1px solid var(--line)", padding: "12px 0", fontSize: 13 };
+  // Compact rows in the right rail, so it ends about level with the main
+  // column instead of running far below it.
+  const rowStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, borderTop: "1px solid var(--line)", padding: "9px 0", fontSize: 13 };
 
   return (
     <div style={{ maxWidth: 1480, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
@@ -298,7 +300,7 @@ export default async function BookingDetail({ params }: { params: { id: string }
             <h2 className="h2">Parties</h2>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px", marginTop: 8 }}>
               {(["supplier", "buyer", "forwarder", "trucker"] as const).map((role) => (
-                <div key={role} style={{ borderBottom: "1px solid var(--line)", padding: "10px 0" }}>
+                <div key={role} style={{ borderBottom: "1px solid var(--line)", padding: "8px 0" }}>
                   <div className="meta" style={{ textTransform: "capitalize", marginBottom: 4 }}>{role}</div>
                   {partyByRole[role] ? (
                     <b style={{ fontSize: 13 }}>{partyByRole[role].name}</b>
@@ -311,24 +313,19 @@ export default async function BookingDetail({ params }: { params: { id: string }
           </section>
 
           <section className="card" style={cardStyle}>
-            <h2 className="h2">Estimated Margin</h2>
-            <p className="lbl" style={{ margin: "4px 0 0" }}>Buyer invoice minus forwarder, supplier and trucker expenses</p>
-            {marginComplete ? (
-              <>
-                <div style={{ fontSize: 27, fontWeight: 800, margin: "12px 0 3px", color: estimatedMargin >= 0 ? "var(--ok)" : "var(--crit)" }}>
-                  {usd(estimatedMargin)}
-                </div>
-                <p className="lbl" style={{ margin: 0 }}>{usd(buyerInv.total)} buyer − {usd(expenses)} expenses</p>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 27, fontWeight: 800, margin: "12px 0 3px", color: "var(--mut)" }}>—</div>
-                <p className="lbl" style={{ margin: 0 }}>
-                  Waiting for complete financial data
-                  {buyerInv.count === 0 ? " - no buyer invoice yet" : " - some invoices are still pending"}
-                </p>
-              </>
-            )}
+            {/* Figure beside the title (not on its own line below) to keep the
+                right rail short. */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+              <h2 className="h2">Estimated Margin</h2>
+              <span style={{ fontSize: 22, fontWeight: 800, color: !marginComplete ? "var(--mut)" : estimatedMargin >= 0 ? "var(--ok)" : "var(--crit)" }}>
+                {marginComplete ? usd(estimatedMargin) : "—"}
+              </span>
+            </div>
+            <p className="lbl" style={{ margin: "6px 0 0" }}>
+              {marginComplete
+                ? `${usd(buyerInv.total)} buyer − ${usd(expenses)} forwarder, supplier & trucker expenses`
+                : `Waiting for complete financial data${buyerInv.count === 0 ? " - no buyer invoice yet" : " - some invoices are still pending"}`}
+            </p>
           </section>
 
           <section className="card" style={cardStyle}>
@@ -340,11 +337,12 @@ export default async function BookingDetail({ params }: { params: { id: string }
                 {(containers ?? []).map((c: any) => {
                   const item = (c.packing_items ?? [])[0];
                   return (
-                    <div key={c.id} style={{ ...rowStyle, display: "block" }}>
+                    // One line per container: number left, packing summary right.
+                    <div key={c.id} style={{ ...rowStyle, flexWrap: "wrap" }}>
                       <b className="mono">{c.container_no || "— not set —"}</b>
-                      <div className="lbl" style={{ marginTop: 3 }}>
+                      <span className="lbl" style={{ textAlign: "right" }}>
                         {item ? `Seal ${item.seal_no ?? "—"} · ${item.bales ?? "—"} bales · ${item.weight ?? "—"} ${item.weight_unit ?? ""}` : "No packing details yet"}
-                      </div>
+                      </span>
                     </div>
                   );
                 })}
