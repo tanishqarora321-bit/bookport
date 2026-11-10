@@ -16,8 +16,21 @@ function formatDate(value: string, isDateTime: boolean) {
 // pencil icon that only shows on hover -- editing opens ONLY from clicking
 // that pencil, never from clicking the cell itself.
 export default function EditableCell({
-  bookingId, column, value, isDate = false, highlight = false, sticky = false, bold = false
-}: { bookingId: string; column: string; value: string | null; isDate?: boolean; highlight?: boolean; sticky?: boolean; bold?: boolean }) {
+  bookingId, column, value, isDate = false, highlight = false, sticky = false, bold = false, compactDate = false
+}: {
+  bookingId: string;
+  column: string;
+  value: string | null;
+  isDate?: boolean;
+  highlight?: boolean;
+  sticky?: boolean;
+  bold?: boolean;
+  // Dates as "01 Sep 2026" with the time on a small second line - and no
+  // time at all when it's exactly midnight UTC, which is what a date
+  // entered/imported WITHOUT a time is stored as (it displayed as a
+  // meaningless "05:30" in India). Off = the original one-line date+time.
+  compactDate?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -69,13 +82,33 @@ export default function EditableCell({
 
   const display = savedValue ? (isDate ? formatDate(savedValue, savedValue.includes("T")) : savedValue) : "—";
 
+  // Compact date: date line + (only when a real time was entered) time line.
+  let compact: { date: string; time: string | null } | null = null;
+  if (compactDate && isDate && savedValue) {
+    const d = new Date(savedValue);
+    if (!isNaN(d.getTime())) {
+      const noTime = !savedValue.includes("T") || (d.getUTCHours() === 0 && d.getUTCMinutes() === 0);
+      compact = {
+        date: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+        time: noTime ? null : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      };
+    }
+  }
+
   const stickyClass = sticky ? "stk2" : "";
 
   if (!editing) {
     return (
       <td className={`${stickyClass} ${highlight ? "num" : ""}`.trim()} style={highlight ? { color: "var(--crit)", fontWeight: 500 } : undefined}>
         <span className={display === "—" ? "dash" : ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: bold ? 700 : undefined }}>
-          {display}
+          {compact ? (
+            <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1.25 }}>
+              <span>{compact.date}</span>
+              {compact.time && <span className="meta">{compact.time}</span>}
+            </span>
+          ) : (
+            display
+          )}
           <button onClick={() => { setVal(savedValue ?? ""); setEditing(true); }} aria-label="Edit" className="pen" style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", display: "inline-flex" }}>
             <PencilIcon />
           </button>

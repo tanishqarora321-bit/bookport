@@ -86,7 +86,9 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
    Booking Number): its offset is the measured width of the two columns
    before it, kept in --stk3-left by the grid itself (see BookingsClient). */
 .stk3{position:sticky;left:var(--stk3-left,236px);z-index:2;box-shadow:1px 0 0 var(--line);background:var(--surf);will-change:transform}
-.tbl-bk .stk2{box-shadow:none}
+/* Booking grids: a divider after Booking Number too (not only after the
+   frozen Container Number), so the two frozen columns read as separate. */
+.tbl-bk .stk2{box-shadow:inset -1px 0 0 var(--line)}
 .tbl tbody tr:hover .stk,.tbl tbody tr:hover .stk2,.tbl tbody tr:hover .stk3{background:var(--surf2)}
 /* Booking & Instructions: a booking number with more than one container (it
    used to live on its own Multiple Bookings page) - tinted, with an amber

@@ -221,6 +221,27 @@ export default function BookingsClient({
   // where that page's old URL now redirects - opens with it on.
   const searchParams = useSearchParams();
   const [multipleOnly, setMultipleOnly] = useState(searchParams?.get("multiple") === "1");
+  // "Compact dates": ERD / DOC / Cargo Cut Off as "01 Sep 2026" (time on a
+  // second line only when one was really entered). A per-browser display
+  // preference - switch it off to get the original one-line date + time.
+  const COMPACT_DATES_KEY = "bookport:compact-dates";
+  const [compactDates, setCompactDates] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COMPACT_DATES_KEY) === "0") setCompactDates(false);
+    } catch {
+      /* private window / blocked storage - keep the default */
+    }
+  }, []);
+  function toggleCompactDates() {
+    const next = !compactDates;
+    setCompactDates(next);
+    try {
+      localStorage.setItem(COMPACT_DATES_KEY, next ? "1" : "0");
+    } catch {
+      /* not persisted - fine */
+    }
+  }
   // "No ERD": bookings still missing their ERD (filed by a cut-off date, or
   // undated) - so they can be found and filled in.
   const [noErdOnly, setNoErdOnly] = useState(false);
@@ -750,6 +771,18 @@ export default function BookingsClient({
               </svg>
               No ERD{noErdCount > 0 ? ` (${noErdCount})` : ""}
             </button>
+            <button
+              onClick={toggleCompactDates}
+              aria-pressed={compactDates}
+              className={compactDates ? "chip on" : "chip"}
+              style={{ height: 36 }}
+              title="ERD / DOC / Cargo Cut Off as a short date, with the time only when one was entered. Switch off for the full date and time."
+            >
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 6h16v14H4zM4 10h16M8 14h3" />
+              </svg>
+              Compact dates
+            </button>
             {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
               <button
                 onClick={() => {
@@ -863,9 +896,9 @@ export default function BookingsClient({
                       </td>
                     );
                   })()}
-                  <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate />
-                  <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate />
-                  <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} />
+                  <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate compactDate={compactDates} />
+                  <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate compactDate={compactDates} />
+                  <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} compactDate={compactDates} />
                   <EditableCell bookingId={r.booking_id} column="pol" value={r.pol} />
                   <EditableCell bookingId={r.booking_id} column="pod" value={r.pod} />
                   <EditableCell bookingId={r.booking_id} column="final_destination" value={r.final_destination} />
