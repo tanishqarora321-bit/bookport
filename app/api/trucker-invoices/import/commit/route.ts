@@ -1,3 +1,4 @@
+import { fillTrackingBlanks } from "@/lib/tracking-master";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
@@ -609,8 +610,9 @@ export async function POST(req: NextRequest) {
       const trackingId = existingRow?.tracking_id ?? null;
 
       if (Object.keys(trackingUpdates).length > 0 && trackingId) {
-        const { error: trackingError } = await supabase.from("tracking").update(trackingUpdates).eq("id", trackingId);
-        if (!trackingError) trackingChanged = true;
+        // Fill-only: Shipment Tracking is the master once it has a value.
+        const { applied, error: trackingError } = await fillTrackingBlanks(supabase, trackingId, trackingUpdates);
+        if (!trackingError && Object.keys(applied).length > 0) trackingChanged = true;
       }
 
       if (existingRow && !existingRow.month_of_loading && !updates.month_of_loading && trackingId) {

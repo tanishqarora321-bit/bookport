@@ -152,6 +152,27 @@ denied` lines on git commands are harmless noise — ignore them.
   (blank fields, unassigned parties, missing containers, containers without
   packing) - never overwrites; re-importing is idempotent. Dates that don't
   exist (29-02-2026) roll forward to the next day and are listed on Done.
+- **Shipment Tracking (2026-11, owner spec):** one row per container
+  (`app/tracking/page.tsx` + `components/TrackingClient.tsx`), created by
+  `sync_container_to_tracking` the moment a container number is added -
+  every booking, open/closed/cancelled. Columns: Booking + Container (both
+  frozen), Shipping Line, Forwarder, Trucker, Supplier, Consignee / Buyer
+  (all read LIVE from the booking + booking_parties), BL Number (booking's
+  `bl_number` from Upload BL / manual entry) + BL Status (Y when there is a
+  BL number, else N), Invoice Number (`buyer_invoices.invoice_number`, made
+  by Generate Invoice in the Buyers ledger), Invoice Sent, Docs Sent, ETA,
+  Release Status, Last Checked, Remarks, Docs. **ETA and Release Status are
+  the master here**: every party ledger shows them read-only; invoice
+  imports only FILL a blank ETA/Status (`lib/tracking-master.ts`), never
+  overwrite. Last Checked = stamped whenever ETA changes (PATCH
+  /api/tracking/[id]) or by hand (✓ button). **Docs** opens a dialog with
+  the latest Invoice / Fumigation Cert / Certificate of Origin / Set of
+  Documents PDFs and emails them to the buyer (`/api/tracking/[id]/send-docs`,
+  compose -> preview -> send like Send Instructions, PDFs attached via
+  Resend `attachments`): sending the invoice flips Invoice Sent, sending
+  the documents flips Docs Sent. Generating a PDF no longer flips either.
+  The old "Invoice →" full invoice page now lives in the Buyers ledger
+  (column after Generate Invoice; `?back=` returns to that ledger).
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

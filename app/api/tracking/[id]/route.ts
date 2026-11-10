@@ -20,6 +20,9 @@ const EDITABLE_COLUMNS = [
   "ocean_freight_currency",
   "item_id",
   "forwarder_id",
+  // "Last Checked" can also be stamped by hand (Shipment Tracking's
+  // "Mark checked now"), not only by an ETA change.
+  "last_tracking_check_at",
 ];
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -41,6 +44,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   updates.updated_at = new Date().toISOString();
+  // Shipment Tracking is the master for ETA: whenever it changes, "Last
+  // Checked" moves with it (owner rule - Last Checked = when the ETA was
+  // last updated, or a manual stamp).
+  if ("eta" in updates && !("last_tracking_check_at" in updates)) {
+    updates.last_tracking_check_at = updates.updated_at;
+  }
 
   const { data, error } = await supabase
     .from("tracking")

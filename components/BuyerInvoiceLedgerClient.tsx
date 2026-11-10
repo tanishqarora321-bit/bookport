@@ -49,11 +49,6 @@ type Invoice = {
 const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
 
 // Same floating Status/Paid menus as the Forwarders/Truckers/Suppliers ledgers.
-const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
-  { value: "", label: "— set —", badgeClass: "b-neu" },
-  { value: "On Water", label: "On Water", badgeClass: "b-info" },
-  { value: "Released", label: "Released", badgeClass: "b-ok" },
-];
 const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
   { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
   { value: "PAID", label: "PAID", badgeClass: "b-ok" },
@@ -64,9 +59,9 @@ const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
 // the other ledgers. Order matches the <colgroup>/<thead>: Booking Number,
 // Container Number, Date, Month of Loading, Invoice, Forwarder, Location,
 // BL Date, Due Date, Weight, Total, Total (USD), ETA (live), Status (live),
-// Paid, Generate Invoice, Fumigation Cert., Certificate of Origin, Set of
-// Documents, Cost section, Delete.
-const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 130, 130, 120, 150, 110, 160, 150, 180, 160, 150, 80];
+// Paid, Generate Invoice, Invoice → (the full invoice page), Fumigation
+// Cert., Certificate of Origin, Set of Documents, Cost section, Delete.
+const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 130, 130, 120, 150, 110, 160, 110, 150, 180, 160, 150, 80];
 const CHECKBOX_COLUMN_WIDTH = 40;
 
 function fmtDate(d: string | null) {
@@ -83,19 +78,6 @@ function fmtMoney(amount: number | null | undefined, currency: string) {
   } catch {
     return `${currency} ${(amount ?? 0).toFixed(2)}`;
   }
-}
-
-// ETA/Status are read live from `tracking` - editing them writes to that
-// same row (the route Shipment Tracking uses), as on the other ledgers.
-async function patchTracking(trackingId: string, updates: Record<string, any>) {
-  const res = await fetch(`/api/tracking/${trackingId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Save failed");
-  return json;
 }
 
 async function patchInvoice(id: string, updates: Record<string, any>) {
@@ -394,6 +376,7 @@ export default function BuyerInvoiceLedgerClient({
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
+              <Th></Th>
               <Th></Th>
               <Th></Th>
               <Th></Th>
@@ -992,27 +975,14 @@ function InvoiceRows({
         <Td>
           <span className="text-text-2">{fmtMoney(inv.total_usd, "USD")}</span>
         </Td>
-        {inv.tracking_id ? (
-          <EditableCell
-            value={inv.tracking?.eta ?? null}
-            isDate
-            onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
-          />
-        ) : (
-          <Td><span className="text-muted">—</span></Td>
-        )}
-        {inv.tracking_id ? (
-          <td className="px-3 py-3.5 whitespace-nowrap">
-            <StatusMenuButton
-              value={inv.tracking?.release_status ?? ""}
-              options={RELEASE_STATUS_MENU_OPTIONS}
-              ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
-              onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
-            />
-          </td>
-        ) : (
-          <td className="px-3 py-3.5"><StatusPill value={null} /></td>
-        )}
+        {/* ETA / Status are read-only here: Shipment Tracking is the master
+            and every ledger shows its live value (lib/tracking-master.ts). */}
+        <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+          {inv.tracking?.eta ? fmtDate(inv.tracking.eta) : <span className="text-muted">—</span>}
+        </td>
+        <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+          <StatusPill value={inv.tracking?.release_status || null} />
+        </td>
         <td className="px-3 py-3.5">
           <StatusMenuButton
             value={inv.paid_status}
@@ -1031,6 +1001,21 @@ function InvoiceRows({
             {generating ? "Generating…" : "Generate Invoice"}
           </button>
           {genError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{genError}</div>}
+        </td>
+        <td className="px-3 py-2 whitespace-nowrap">
+          {/* The full invoice page (review / edit the fields, version
+              history) - moved here from Shipment Tracking's Docs column. */}
+          {inv.tracking_id ? (
+            <Link
+              href={`/tracking/${inv.tracking_id}/documents?back=${encodeURIComponent(`/parties/${buyerId}/invoices`)}`}
+              className="text-xs font-medium"
+              title="Review and edit the invoice, see its versions"
+            >
+              Invoice →
+            </Link>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           <button

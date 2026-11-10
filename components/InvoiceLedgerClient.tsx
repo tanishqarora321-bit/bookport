@@ -55,21 +55,6 @@ async function patchInvoice(id: string, updates: Record<string, any>) {
   return json;
 }
 
-// ETA/Status here are read live from `tracking` (see the page's join) -
-// editing them writes to that same tracking row via its own route, the
-// same one components/TrackingClient.tsx uses, so a change here shows
-// up in Shipment Tracking too and vice versa - there's only one copy.
-async function patchTracking(trackingId: string, updates: Record<string, any>) {
-  const res = await fetch(`/api/tracking/${trackingId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Save failed");
-  return json;
-}
-
 async function createCustomColumn(label: string, valueType: "number" | "text" | "date"): Promise<CustomColumn> {
   const res = await fetch("/api/forwarder-invoice-columns", {
     method: "POST",
@@ -89,11 +74,6 @@ const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
 // (no colors, no checkmark), which is what StatusMenuButton replaces with
 // a real floating menu rendered via a portal, escaping this table's own
 // overflow:auto instead of being clipped or overlapping it.
-const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
-  { value: "", label: "— set —", badgeClass: "b-neu" },
-  { value: "On Water", label: "On Water", badgeClass: "b-info" },
-  { value: "Released", label: "Released", badgeClass: "b-ok" },
-];
 const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
   { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
   { value: "PAID", label: "PAID", badgeClass: "b-ok" },
@@ -205,7 +185,6 @@ export default function InvoiceLedgerClient({
       setDeletingColumnId(null);
     }
   }
-
 
   // Options for the Month/Line filters are whatever actually appears in
   // this forwarder's own invoices - same "derive from live data" approach
@@ -715,27 +694,14 @@ function InvoiceRow({
       <Td>
         <span className="font-medium">{fmtMoney(invoiceTotalUsd(inv, customColumns), "USD")}</span>
       </Td>
-      {inv.tracking_id ? (
-        <EditableCell
-          value={inv.tracking?.eta ?? null}
-          isDate
-          onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
-        />
-      ) : (
-        <Td><span className="text-muted">—</span></Td>
-      )}
-      {inv.tracking_id ? (
-        <td className="px-3 py-3.5 whitespace-nowrap">
-          <StatusMenuButton
-            value={inv.tracking?.release_status ?? ""}
-            options={RELEASE_STATUS_MENU_OPTIONS}
-            ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
-            onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
-          />
-        </td>
-      ) : (
-        <td className="px-3 py-3.5"><StatusPill value={null} /></td>
-      )}
+      {/* ETA / Status are read-only here: Shipment Tracking is the master
+          and every ledger shows its live value (lib/tracking-master.ts). */}
+      <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+        {inv.tracking?.eta ? fmtDate(inv.tracking.eta) : <span className="text-muted">—</span>}
+      </td>
+      <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+        <StatusPill value={inv.tracking?.release_status || null} />
+      </td>
       <td className="px-3 py-3.5">
         <StatusMenuButton
           value={inv.paid_status}
