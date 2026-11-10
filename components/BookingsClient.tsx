@@ -62,6 +62,8 @@ const STAGE_LABEL: Record<Stage, string> = { open: "Booking & Instructions", clo
 
 // Every dropdown in the filter bar shares one width, like the ledgers'.
 const FILTER_WIDTH = 160;
+// "Multiple only" and "No ERD" are the same width.
+const TOGGLE_CHIP_WIDTH = 150;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -639,13 +641,15 @@ export default function BookingsClient({
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
       <section className="card" aria-label="Bookings table" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        {/* Two filter rows, kept to two so the table gets the height: search
-            + Month / Status / Lines / Destinations / Forwarders, then Truckers
-            / Suppliers / Buyers + the cut-off, Multiple and No ERD chips. Every
-            dropdown is the same width (FILTER_WIDTH). The booking count lives
+        {/* One wrapping filter row, in this order: search, Month, Status,
+            Lines, Destinations, Forwarders, Truckers, Suppliers, Buyers, then
+            the cut-off, Multiple and No ERD chips. Items flow onto the second
+            line only where they don't fit, so with the sidebar collapsed
+            Truckers moves up beside Forwarders. Every dropdown is the same
+            width (FILTER_WIDTH); Multiple only and No ERD share a width too. The booking count lives
             in the footer ("Showing 1-25 of N"), not up here. ERD / cut-off
             dates are always shown compact (EditableCell compactDate). */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
               <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
@@ -690,8 +694,6 @@ export default function BookingsClient({
                 <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
               ))}
             </select>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s" style={{ width: FILTER_WIDTH }}>
               <option value="all">All Truckers</option>
               {truckerOptions.map((t) => (
@@ -729,7 +731,7 @@ export default function BookingsClient({
                 onClick={() => setMultipleOnly(!multipleOnly)}
                 aria-pressed={multipleOnly}
                 className={multipleOnly ? "chip on" : "chip"}
-                style={{ height: 36 }}
+                style={{ height: 36, minWidth: TOGGLE_CHIP_WIDTH, justifyContent: "center" }}
                 title="Booking numbers with more than one container"
               >
                 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -742,7 +744,7 @@ export default function BookingsClient({
               onClick={() => setNoErdOnly(!noErdOnly)}
               aria-pressed={noErdOnly}
               className={noErdOnly ? "chip on-crit" : "chip"}
-              style={{ height: 36 }}
+              style={{ height: 36, minWidth: TOGGLE_CHIP_WIDTH, justifyContent: "center" }}
               title="Bookings with no ERD yet - filed by their cut-off date, or shown under every year when they have none"
             >
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
