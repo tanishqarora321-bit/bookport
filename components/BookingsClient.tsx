@@ -61,7 +61,7 @@ function stageForStatus(status: string): Stage {
 const STAGE_LABEL: Record<Stage, string> = { open: "Booking & Instructions", closed: "Closed Bookings", cancelled: "Cancelled Bookings" };
 
 // Every dropdown in the filter bar shares one width, like the ledgers'.
-const FILTER_WIDTH = 170;
+const FILTER_WIDTH = 160;
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -639,9 +639,10 @@ export default function BookingsClient({
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
       <section className="card" aria-label="Bookings table" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        {/* Two filter rows, kept to two so the table gets the height: search,
-            the booking-level dropdowns and the cut-off chips, then the party
-            dropdowns and the Multiple / No ERD chips. The booking count lives
+        {/* Two filter rows, kept to two so the table gets the height: search
+            + Month / Status / Lines / Destinations / Forwarders, then Truckers
+            / Suppliers / Buyers + the cut-off, Multiple and No ERD chips. Every
+            dropdown is the same width (FILTER_WIDTH). The booking count lives
             in the footer ("Showing 1-25 of N"), not up here. ERD / cut-off
             dates are always shown compact (EditableCell compactDate). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
@@ -683,26 +684,14 @@ export default function BookingsClient({
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
-              </svg>
-              Cut-off in 3 days
-            </button>
-            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"} style={{ height: 36 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3l10 18H2zM12 10v4" />
-              </svg>
-              Cut-off overdue
-            </button>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s" style={{ width: FILTER_WIDTH }}>
               <option value="all">All Forwarders</option>
               {forwarderOptions.map((f) => (
                 <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
               ))}
             </select>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s" style={{ width: FILTER_WIDTH }}>
               <option value="all">All Truckers</option>
               {truckerOptions.map((t) => (
@@ -721,6 +710,18 @@ export default function BookingsClient({
                 <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
               ))}
             </select>
+            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
+              </svg>
+              Cut-off in 3 days
+            </button>
+            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"} style={{ height: 36 }}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l10 18H2zM12 10v4" />
+              </svg>
+              Cut-off overdue
+            </button>
             {/* On all three pages - Closed and Cancelled bookings keep their
                 multiple-container highlight too. */}
             {(
