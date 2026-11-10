@@ -86,16 +86,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
    Booking Number): its offset is the measured width of the two columns
    before it, kept in --stk3-left by the grid itself (see BookingsClient). */
 .stk3{position:sticky;left:var(--stk3-left,236px);z-index:2;box-shadow:1px 0 0 var(--line);background:var(--surf);will-change:transform}
-/* Booking grids: no vertical dividers on the frozen columns - instead each
-   frozen cell paints its row's horizontal line itself (inset shadow), since
-   the cell's own border-bottom could be dropped under a sticky, separately
-   composited cell, leaving the row lines starting only after the frozen
-   columns. */
+/* Booking grids: no vertical dividers on the frozen columns, and their row
+   lines are the same 1px border every other cell has. will-change is
+   dropped on these cells: it put each frozen cell on its own compositing
+   layer, which on some screens (fractional display scaling) clipped or
+   faded that bottom border, so the row lines seemed to start only after
+   the frozen columns. */
 .tbl-bk .stk2,.tbl-bk .stk3{box-shadow:none}
-/* The line takes the border's own 1px (border removed, padding +1) so it
-   sits exactly level with the rest of the row's border. */
-table.tbl-bk>tbody>tr>td.stk,table.tbl-bk>tbody>tr>td.stk2,table.tbl-bk>tbody>tr>td.stk3{box-shadow:inset 0 -1px 0 var(--line);border-bottom:0;padding-bottom:16px}
-table.tbl-bk>tbody>tr.row-multi>td.stk{box-shadow:inset 3px 0 0 var(--warn),inset 0 -1px 0 var(--line)}
+.tbl-bk .stk,.tbl-bk .stk2,.tbl-bk .stk3{will-change:auto}
 .tbl tbody tr:hover .stk,.tbl tbody tr:hover .stk2,.tbl tbody tr:hover .stk3{background:var(--surf2)}
 /* Booking & Instructions: a booking number with more than one container (it
    used to live on its own Multiple Bookings page) - tinted, with an amber
