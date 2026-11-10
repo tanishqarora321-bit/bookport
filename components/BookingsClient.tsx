@@ -598,8 +598,11 @@ export default function BookingsClient({
 
   return (
     <div className="flex flex-col h-full" style={{ gap: 20 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
-        <div>
+      {/* Title + description on the left, actions (Export CSV / New Booking)
+          always on the right: a long description wraps instead of pushing
+          the buttons onto their own line below it. */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ flex: "1 1 auto", minWidth: 0 }}>
           <h1 className="h1">{STAGE_LABEL[stage]}</h1>
           <p className="sub">
             {stage === "closed"
@@ -609,7 +612,7 @@ export default function BookingsClient({
               : "Source of truth — click the pencil icon on any cell to edit. Highlighted rows share a booking number with more than one container."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
           <button onClick={exportCsv} className="btn">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
