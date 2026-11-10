@@ -221,27 +221,6 @@ export default function BookingsClient({
   // where that page's old URL now redirects - opens with it on.
   const searchParams = useSearchParams();
   const [multipleOnly, setMultipleOnly] = useState(searchParams?.get("multiple") === "1");
-  // "Compact dates": ERD / DOC / Cargo Cut Off as "01 Sep 2026" (time on a
-  // second line only when one was really entered). A per-browser display
-  // preference - switch it off to get the original one-line date + time.
-  const COMPACT_DATES_KEY = "bookport:compact-dates";
-  const [compactDates, setCompactDates] = useState(true);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(COMPACT_DATES_KEY) === "0") setCompactDates(false);
-    } catch {
-      /* private window / blocked storage - keep the default */
-    }
-  }, []);
-  function toggleCompactDates() {
-    const next = !compactDates;
-    setCompactDates(next);
-    try {
-      localStorage.setItem(COMPACT_DATES_KEY, next ? "1" : "0");
-    } catch {
-      /* not persisted - fine */
-    }
-  }
   // "No ERD": bookings still missing their ERD (filed by a cut-off date, or
   // undated) - so they can be found and filled in.
   const [noErdOnly, setNoErdOnly] = useState(false);
@@ -660,8 +639,11 @@ export default function BookingsClient({
 
       {/* This is the ONLY element that scrolls - header/cards/filters stay put */}
       <section className="card" aria-label="Bookings table" style={{ overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        {/* One filter bar, same layout as the Forwarders ledger: search, then
-            equal-width dropdowns, then the toggle chips - wrapping evenly. */}
+        {/* Two filter rows, kept to two so the table gets the height: search,
+            the booking-level dropdowns and the cut-off chips, then the party
+            dropdowns and the Multiple / No ERD chips. The booking count lives
+            in the footer ("Showing 1-25 of N"), not up here. ERD / cut-off
+            dates are always shown compact (EditableCell compactDate). */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
@@ -701,10 +683,18 @@ export default function BookingsClient({
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <div style={{ flex: "1 1 0" }} />
-            <span className="lbl num" aria-live="polite">
-              <b style={{ color: "var(--tx)" }}>{filtered.length}</b> bookings
-            </span>
+            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
+              </svg>
+              Cut-off in 3 days
+            </button>
+            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"} style={{ height: 36 }}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l10 18H2zM12 10v4" />
+              </svg>
+              Cut-off overdue
+            </button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
             <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s" style={{ width: FILTER_WIDTH }}>
@@ -731,18 +721,6 @@ export default function BookingsClient({
                 <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
               ))}
             </select>
-            <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
-              </svg>
-              Cut-off in 3 days
-            </button>
-            <button onClick={() => setOverdueOnly(!overdueOnly)} aria-pressed={overdueOnly} className={overdueOnly ? "chip on-crit" : "chip"} style={{ height: 36 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3l10 18H2zM12 10v4" />
-              </svg>
-              Cut-off overdue
-            </button>
             {/* On all three pages - Closed and Cancelled bookings keep their
                 multiple-container highlight too. */}
             {(
@@ -770,18 +748,6 @@ export default function BookingsClient({
                 <path d="M4 6h16v14H4zM4 10h16M9 3v4M15 3v4" />
               </svg>
               No ERD{noErdCount > 0 ? ` (${noErdCount})` : ""}
-            </button>
-            <button
-              onClick={toggleCompactDates}
-              aria-pressed={compactDates}
-              className={compactDates ? "chip on" : "chip"}
-              style={{ height: 36 }}
-              title="ERD / DOC / Cargo Cut Off as a short date, with the time only when one was entered. Switch off for the full date and time."
-            >
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 6h16v14H4zM4 10h16M8 14h3" />
-              </svg>
-              Compact dates
             </button>
             {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
               <button
@@ -896,9 +862,9 @@ export default function BookingsClient({
                       </td>
                     );
                   })()}
-                  <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate compactDate={compactDates} />
-                  <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate compactDate={compactDates} />
-                  <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} compactDate={compactDates} />
+                  <EditableCell bookingId={r.booking_id} column="erd" value={r.erd} isDate compactDate />
+                  <EditableCell bookingId={r.booking_id} column="si_cutoff" value={r.si_cutoff} isDate compactDate />
+                  <EditableCell bookingId={r.booking_id} column="cargo_cutoff" value={r.cargo_cutoff} isDate highlight={!!cutoffSoon} compactDate />
                   <EditableCell bookingId={r.booking_id} column="pol" value={r.pol} />
                   <EditableCell bookingId={r.booking_id} column="pod" value={r.pod} />
                   <EditableCell bookingId={r.booking_id} column="final_destination" value={r.final_destination} />
