@@ -1,0 +1,151 @@
+[
+{
+"page": 1,
+"run": 1,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "exp1",
+"align": "left"
+},
+{
+"page": 1,
+"run": 1,
+"text": "LOTUS RECYCLERS",
+"key": "con1",
+"align": "left"
+},
+{
+"page": 1,
+"run": 2,
+"text": "137 FRIENDSHIP CT",
+"key": "exp2",
+"align": "left"
+},
+{
+"page": 1,
+"run": 2,
+"text": "SHED NO. 179  -A1 ,  SECTOR 1",
+"key": "con2",
+"align": "left"
+},
+{
+"page": 1,
+"run": 3,
+"text": "WHITE PLAINS, N.Y. 10603",
+"key": "exp3",
+"align": "left"
+},
+{
+"page": 1,
+"run": 3,
+"text": "KANDLA SPECIAL ECONOMIC ZONE,GANDHIDHAM,",
+"key": "con3",
+"align": "left"
+},
+{
+"page": 1,
+"run": 4,
+"text": "CONTACT - NITIN SINGLA",
+"key": "exp4",
+"align": "left"
+},
+{
+"page": 1,
+"run": 4,
+"text": "Kutch, Gujarat, 370230",
+"key": "con4",
+"align": "left"
+},
+{
+"page": 1,
+"run": 5,
+"text": "TEL 646-932-4426",
+"key": "exp5",
+"align": "left"
+},
+{
+"page": 1,
+"run": 5,
+"text": "INDIA",
+"key": "con5",
+"align": "left"
+},
+{
+"page": 1,
+"run": 9,
+"text": "OLD AND USED WORN CLOTHING COMPLETELY FUMIGATED",
+"key": "desc",
+"align": "left"
+},
+{
+"page": 1,
+"run": 13,
+"text": "FCIU9844912",
+"key": "container",
+"align": "left"
+},
+{
+"page": 1,
+"run": 13,
+"text": "UL 8377521",
+"key": "seal",
+"align": "left"
+},
+{
+"page": 1,
+"run": 13,
+"text": "36",
+"key": "bales",
+"align": "left"
+},
+{
+"page": 1,
+"run": 13,
+"text": "18,056.000",
+"key": "qty",
+"align": "left"
+},
+{
+"page": 1,
+"run": 13,
+"text": "18,056.000",
+"occ": 1,
+"key": "gross",
+"align": "left"
+},
+{
+"page": 1,
+"run": 15,
+"text": "36",
+"key": "tot_bales",
+"align": "left"
+},
+{
+"page": 1,
+"run": 15,
+"text": "18,056.000",
+"key": "tot_qty",
+"align": "left"
+},
+{
+"page": 1,
+"run": 15,
+"text": "18,056.000",
+"occ": 1,
+"key": "tot_gross",
+"align": "left"
+},
+{
+"page": 1,
+"run": 24,
+"text": "22-Aug-26",
+"key": "date",
+"align": "left"
+},
+{
+"page": 1,
+"run": 11,
+"text": "#",
+"key": "_hash",
+"align": "left"
+}
+]

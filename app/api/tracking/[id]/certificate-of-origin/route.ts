@@ -45,11 +45,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     container_no: ctx.tracking.container_number,
     seal_no: ctx.packingItem?.seal_no || "",
     bales: ctx.packingItem?.bales != null ? String(ctx.packingItem.bales) : "",
-    gross_weight: ctx.packingItem?.weight != null ? String(ctx.packingItem.weight) : "",
-    weight_unit: ctx.packingItem?.weight_unit || "KGS",
-    origin_country: "USA",
+    weight: ctx.packingItem?.weight ?? null,
+    weight_unit: ctx.packingItem?.weight_unit ?? null,
     date: addDaysIso(ctx.booking.bl_date, 3),
   };
+
 
   const pdfBytes = await generateCertificateOfOriginPdf(templateConfig as COOTemplateConfig, fieldData);
 

@@ -4,7 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateSetOfDocumentsPdf, SODTemplateConfig } from "@/lib/pdf/generateSetOfDocuments";
-import { addDaysIso, weightInBothUnits } from "@/lib/pdf/pdfHelpers";
+import { addDaysIso } from "@/lib/pdf/pdfHelpers";
 
 // Same no-override-form design as the other two generators - the
 // Invoice Number must already exist on this tracking row (generate it
@@ -31,36 +31,34 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   if (!ctx.tracking.container_number) {
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
-  if (!ctx.tracking.invoice_no) {
-    return NextResponse.json({ error: "Generate an invoice number on this row first (Generate Invoice)." }, { status: 400 });
-  }
 
   const { data: buyerInvoice } = await supabase
     .from("buyer_invoices")
-    .select("total, currency")
+    .select("invoice_number, total, total_usd, currency")
     .eq("tracking_id", params.id)
     .maybeSingle();
+  if (!buyerInvoice?.invoice_number && !ctx.tracking.invoice_no) {
+    return NextResponse.json({ error: "Generate an invoice number on this row first (Generate Invoice)." }, { status: 400 });
+  }
 
   const templateConfig = await loadDocTemplate(supabase, me.company_id, "set_of_documents");
   if (!templateConfig) {
     return NextResponse.json({ error: "No company letterhead set up yet -- add one in Settings before generating the Set of Documents." }, { status: 400 });
   }
 
-  const { lbs, kgs } = weightInBothUnits(ctx.packingItem?.weight ?? null, ctx.packingItem?.weight_unit ?? null);
-
   const fieldData = {
-    invoice_no: ctx.tracking.invoice_no,
+    invoice_no: (buyerInvoice?.invoice_number || ctx.tracking.invoice_no) as string,
     date: addDaysIso(ctx.booking.bl_date, 3),
     consignee_name: ctx.buyerParty.legal_name,
     consignee_address: ctx.gstEntry?.address || ctx.buyerParty.address || "",
     description_of_goods: ctx.gstEntry?.description_of_goods || ctx.booking.commodity || "",
-    container_line: ctx.booking.container_size || "",
+    container_size: ctx.booking.container_size,
     container_no: ctx.tracking.container_number,
     bales: ctx.packingItem?.bales != null ? String(ctx.packingItem.bales) : "",
-    weight_lbs: lbs,
-    weight_kgs: kgs,
-    amount: buyerInvoice?.total != null ? String(buyerInvoice.total) : "",
-    currency: buyerInvoice?.currency || "USD",
+    weight: ctx.packingItem?.weight ?? null,
+    weight_unit: ctx.packingItem?.weight_unit ?? null,
+    // The sample's amounts are in US $ ("TOTAL US $").
+    amount: buyerInvoice?.total_usd ?? buyerInvoice?.total ?? null,
   };
 
   const pdfBytes = await generateSetOfDocumentsPdf(templateConfig as SODTemplateConfig, fieldData);
