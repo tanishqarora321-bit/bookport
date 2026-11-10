@@ -753,14 +753,22 @@ export default function BookingsClient({
               No ERD{noErdCount > 0 ? ` (${noErdCount})` : ""}
             </button>
             {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
+              // A compact round ✕ (tooltip "Clear filters") rather than a text
+              // link, so it fits at the end of the last filter line instead of
+              // wrapping onto a line of its own.
               <button
                 onClick={() => {
                   clearFilters();
                   setMonthFilter("all");
                 }}
-                style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13, marginLeft: 4 }}
+                aria-label="Clear filters"
+                title="Clear filters"
+                className="chip"
+                style={{ height: 36, width: 36, padding: 0, justifyContent: "center", color: "var(--accent)", borderColor: "var(--accent)" }}
               >
-                Clear filters
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
               </button>
             )}
           </div>
