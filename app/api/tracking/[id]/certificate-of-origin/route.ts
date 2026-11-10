@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateCertificateOfOriginPdf, COOTemplateConfig } from "@/lib/pdf/generateCertificateOfOrigin";
 import { addDaysIso } from "@/lib/pdf/pdfHelpers";
@@ -32,15 +33,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
 
-  const { data: templateRow } = await supabase
-    .from("document_templates")
-    .select("template_config")
-    .eq("company_id", me.company_id)
-    .eq("doc_type", "certificate_of_origin")
-    .eq("is_default", true)
-    .single();
-  if (!templateRow?.template_config) {
-    return NextResponse.json({ error: "No Certificate of Origin template set up yet -- run migration 0034." }, { status: 400 });
+  const templateConfig = await loadDocTemplate(supabase, me.company_id, "certificate_of_origin");
+  if (!templateConfig) {
+    return NextResponse.json({ error: "No company letterhead set up yet -- add one in Settings before generating the Certificate of Origin." }, { status: 400 });
   }
 
   const fieldData = {
@@ -56,7 +51,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     date: addDaysIso(ctx.booking.bl_date, 3),
   };
 
-  const pdfBytes = await generateCertificateOfOriginPdf(templateRow.template_config as COOTemplateConfig, fieldData);
+  const pdfBytes = await generateCertificateOfOriginPdf(templateConfig as COOTemplateConfig, fieldData);
 
   const { count } = await supabase
     .from("generated_documents")

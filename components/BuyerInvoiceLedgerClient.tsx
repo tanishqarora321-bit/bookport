@@ -842,7 +842,7 @@ function InvoiceRows({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [generatingDoc, setGeneratingDoc] = useState<"fumigation" | "coo" | "sod" | null>(null);
-  const [docError, setDocError] = useState<string | null>(null);
+  const [docError, setDocError] = useState<{ kind: "fumigation" | "coo" | "sod"; message: string } | null>(null);
 
   // "Generate Invoice" reuses the existing Final Invoice PDF pipeline
   // (app/api/tracking/[id]/documents/route.ts) rather than a new
@@ -933,7 +933,7 @@ function InvoiceRows({
       if (!res.ok) throw new Error(json.error || "Failed to generate");
       if (json.url) window.open(json.url, "_blank");
     } catch (err: any) {
-      setDocError(err.message);
+      setDocError({ kind, message: err.message });
     } finally {
       setGeneratingDoc(null);
     }
@@ -1026,6 +1026,7 @@ function InvoiceRows({
           >
             {generatingDoc === "fumigation" ? "Generating…" : "Fumigation Cert."}
           </button>
+          {docError?.kind === "fumigation" && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError.message}</div>}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           <button
@@ -1036,6 +1037,7 @@ function InvoiceRows({
           >
             {generatingDoc === "coo" ? "Generating…" : "Certificate of Origin"}
           </button>
+          {docError?.kind === "coo" && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError.message}</div>}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           <button
@@ -1046,7 +1048,7 @@ function InvoiceRows({
           >
             {generatingDoc === "sod" ? "Generating…" : "Set of Documents"}
           </button>
-          {docError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError}</div>}
+          {docError?.kind === "sod" && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError.message}</div>}
         </td>
         <td className="px-3 py-3.5 whitespace-nowrap">
           {/* Same look as Booking & Instructions' View button. */}
