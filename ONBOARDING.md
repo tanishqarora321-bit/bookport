@@ -173,6 +173,16 @@ denied` lines on git commands are harmless noise — ignore them.
   the documents flips Docs Sent. Generating a PDF no longer flips either.
   The old "Invoice →" full invoice page now lives in the Buyers ledger
   (column after Generate Invoice; `?back=` returns to that ledger).
+- **Fumigation Certificate (2026-11):** the owner's REAL International
+  Fumigators certificate is the template
+  (`lib/pdf/assets/fumigation-certificate-template.pdf`, their Excel print
+  with logo + signature; the old date/year/container were stripped from its
+  text once). Only TWO values change: the date (BL date + 3 days, "DD
+  MONTH" + bold underlined year) and the container number - "Located at
+  SEATTLE USA" and everything else stay as printed (owner rule). Printed in
+  Caladea (OFL look-alike of the original's Cambria) at Cambria's spacing,
+  with ActualText so copy/search reads the values. Assets are shipped to
+  the route via `outputFileTracingIncludes` in next.config.js.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

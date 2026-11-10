@@ -6,11 +6,10 @@ import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateFumigationCertificatePdf, FumigationTemplateConfig } from "@/lib/pdf/generateFumigationCertificate";
 import { addDaysIso } from "@/lib/pdf/pdfHelpers";
 
-// No override form by design (per Tanishq's own spec: "if the date and
-// POL is not available... backtrack to Booking & Instructions and add
-// them manually before generating") - this reads the BL date/container/
-// POL that should already be correct on the booking, rather than asking
-// the user to re-type them here. bl_date comes from the booking's own
+// No override form by design: the certificate is the owner's real
+// International Fumigators certificate with only TWO values changed - the
+// container number and the date (lib/pdf/generateFumigationCertificate.ts).
+// Both are read from the booking rather than re-typed here. bl_date comes from the booking's own
 // uploaded BL (Upload BL on Booking & Instructions, migration 0033) -
 // the fumigation date is always 3 days after it.
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -27,12 +26,6 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       { status: 400 }
     );
   }
-  if (!ctx.booking?.pol) {
-    return NextResponse.json(
-      { error: "This booking has no Port of Loading set yet -- add it on Booking & Instructions first." },
-      { status: 400 }
-    );
-  }
   if (!ctx.tracking.container_number) {
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
@@ -46,7 +39,6 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const fieldData = {
     date: addDaysIso(ctx.booking.bl_date, 3),
     container_no: ctx.tracking.container_number,
-    location: `${ctx.booking.pol} USA`,
   };
 
   const pdfBytes = await generateFumigationCertificatePdf(templateConfig as FumigationTemplateConfig, fieldData);
