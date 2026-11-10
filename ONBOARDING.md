@@ -183,6 +183,19 @@ denied` lines on git commands are harmless noise — ignore them.
   Caladea (OFL look-alike of the original's Cambria) at Cambria's spacing,
   with ActualText so copy/search reads the values. Assets are shipped to
   the route via `outputFileTracingIncludes` in next.config.js.
+- **Certificate of Origin + Set of Documents (2026-11):** exact copies of
+  the owner's real PDFs (`lib/pdf/assets/*-template.pdf`, per-shipment
+  values stripped out; positions in `lib/pdf/slots/*`), filled by
+  `lib/pdf/templateFill.ts` with OFL fonts metric-identical to the
+  originals (Liberation Sans/Serif, Carlito; kerning off; Carlito embedded
+  whole - fontkit's subsetting drops its glyphs). Owner decisions: date =
+  BL date + 3 days; exporter/letterhead = Settings letterhead (company name
+  + address; COO also CONTACT/TEL, in capitals like the sample); "1X 40
+  FCL" follows the booking's Container Size; everything else (SEA - 0,
+  MUNDRA SEAPORT, CAD, PRE-PAID, stamps, Chamber of Commerce block) stays as
+  printed; COO "SEAL#" printed as "SEAL" (earlier owner request). Bank
+  details come from the Set of Documents template in Settings, else the
+  sample's own. Rebuilding a template: `scripts/pdf-templates/README.md`.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

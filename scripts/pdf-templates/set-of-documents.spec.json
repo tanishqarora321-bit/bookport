@@ -1,0 +1,610 @@
+[
+{
+"page": 1,
+"run": 0,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "hdr1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 1,
+"text": "137 Friendship Ct",
+"key": "hdr2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 2,
+"text": "White Plains, NY 10603",
+"key": "hdr3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 3,
+"text": "U.S.A",
+"key": "hdr4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 0,
+"text": "CN INTERNATIONAL USA INC. ",
+"key": "hdr1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 1,
+"text": "137 Friendship Ct",
+"key": "hdr2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 2,
+"text": "White Plains, NY 10603",
+"key": "hdr3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 3,
+"text": "U.S.A",
+"key": "hdr4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 0,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "hdr1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 1,
+"text": "137 Friendship Ct",
+"key": "hdr2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 2,
+"text": "White Plains, NY 10603",
+"key": "hdr3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 3,
+"text": "U.S.A",
+"key": "hdr4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 0,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "hdr1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 1,
+"text": "137 Friendship Ct",
+"key": "hdr2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 2,
+"text": "White Plains, NY 10603",
+"key": "hdr3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 3,
+"text": "U.S.A",
+"key": "hdr4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 7,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "exp1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 10,
+"text": "137 Friendship Ct",
+"key": "exp2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 11,
+"text": "White Plains, NY 10603",
+"key": "exp3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 12,
+"text": "U.S.A",
+"key": "exp4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 8,
+"text": "22-08-2026",
+"key": "date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 9,
+"text": "2026-LG/19",
+"key": "inv",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 14,
+"text": "LOTUS RECYCLERS",
+"key": "con1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 15,
+"text": "SHED NO. 179 , A1 SECTOR 1",
+"key": "con2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 16,
+"text": "KANDLA SPECIAL ECONOMIC ZONE,GANDHIDHAM,",
+"key": "con3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 18,
+"text": "Kutch, Gujarat, 370230",
+"key": "con4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 55,
+"text": "OLD AND USED WORN CLOTHING",
+"key": "desc1",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 56,
+"text": "COMPLETELY FUMIGATED",
+"key": "desc2",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 41,
+"text": "40",
+"key": "size",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 42,
+"text": "FCIU9844912",
+"key": "container",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 53,
+"text": "18,056.00",
+"key": "qty",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 53,
+"text": "36",
+"key": "bales",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 54,
+"text": "10415.08",
+"key": "amount",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 43,
+"text": "18,056.00",
+"key": "tot_qty",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 45,
+"text": "10,415.08",
+"key": "tot_amount",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 46,
+"text": "FLAGSTAR BANK",
+"key": "bank_name",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 47,
+"text": "1503904833",
+"key": "bank_account",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 48,
+"text": "CN INTERNATIONALUSA INC.",
+"key": "account_name",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 49,
+"text": "SIGNUS33",
+"key": "swift_code",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 50,
+"text": "26013576",
+"key": "aba_code",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 51,
+"text": "360 HAMILTON AVENUE WHITE PLAINS NY 10601",
+"key": "bank_address1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 52,
+"text": "USA",
+"key": "bank_address2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 7,
+"text": "CN INTERNATIONAL  USA INC.",
+"key": "exp1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 10,
+"text": "137 Friendship Ct",
+"key": "exp2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 11,
+"text": "White Plains, NY 10603",
+"key": "exp3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 12,
+"text": "U.S.A",
+"key": "exp4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 8,
+"text": "22-08-2026",
+"key": "date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 2,
+"run": 9,
+"text": "2026-LG/19",
+"key": "inv",
+"align": "center",
+"occ": 0
+},
+{
+"page": 2,
+"run": 14,
+"text": "LOTUS RECYCLERS",
+"key": "con1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 15,
+"text": "SHED NO. 179 , A1 SECTOR 1",
+"key": "con2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 16,
+"text": "KANDLA SPECIAL ECONOMIC ZONE,GANDHIDHAM,",
+"key": "con3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 18,
+"text": "Kutch, Gujarat, 370230",
+"key": "con4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 20,
+"text": "OLD AND USED WORN CLOTHING COMPLETELY FUMIGATED",
+"key": "desc",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 23,
+"text": "CN INTERNATIONAL USA INC.",
+"key": "shipped_by",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 26,
+"text": "FCIU9844912",
+"key": "container",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 27,
+"text": "39,806",
+"key": "lbs",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 28,
+"text": "18,056.00",
+"key": "kgs",
+"align": "left",
+"occ": 0
+},
+{
+"page": 2,
+"run": 29,
+"text": "36",
+"key": "bales",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 5,
+"text": "22-08-2026",
+"key": "date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 3,
+"run": 6,
+"text": "2026-LG/19",
+"key": "inv",
+"align": "center",
+"occ": 0
+},
+{
+"page": 3,
+"run": 8,
+"text": "LOTUS RECYCLERS",
+"key": "con1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 9,
+"text": "SHED NO. 179 , A1 SECTOR 1",
+"key": "con2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 10,
+"text": "KANDLA SPECIAL ECONOMIC ZONE,GANDHIDHAM,",
+"key": "con3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 11,
+"text": "Kutch, Gujarat, 370230",
+"key": "con4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 13,
+"text": "40",
+"key": "size",
+"align": "left",
+"occ": 0
+},
+{
+"page": 3,
+"run": 14,
+"text": "FCIU9844912",
+"key": "container",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 5,
+"text": "22-08-2026",
+"key": "date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 4,
+"run": 6,
+"text": "2026-LG/19",
+"key": "inv",
+"align": "center",
+"occ": 0
+},
+{
+"page": 4,
+"run": 8,
+"text": "LOTUS RECYCLERS",
+"key": "con1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 9,
+"text": "SHED NO. 179 , A1 SECTOR 1",
+"key": "con2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 10,
+"text": "KANDLA SPECIAL ECONOMIC ZONE,GANDHIDHAM,",
+"key": "con3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 11,
+"text": "Kutch, Gujarat, 370230",
+"key": "con4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 12,
+"text": "40",
+"key": "size",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 13,
+"text": "FCIU9844912",
+"key": "container",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 15,
+"text": "36",
+"key": "bales",
+"align": "left",
+"occ": 0
+},
+{
+"page": 4,
+"run": 16,
+"text": "OLD AND USED WORN CLOTHING COMPLETELY FUMIGATED",
+"key": "desc",
+"align": "left",
+"occ": 0
+}
+]
