@@ -45,11 +45,6 @@ type Invoice = {
 const RELEASE_STATUS_OPTIONS = ["On Water", "Released"];
 
 // Same floating Status/Paid menus as the Forwarders and Truckers ledgers.
-const RELEASE_STATUS_MENU_OPTIONS: StatusOption[] = [
-  { value: "", label: "— set —", badgeClass: "b-neu" },
-  { value: "On Water", label: "On Water", badgeClass: "b-info" },
-  { value: "Released", label: "Released", badgeClass: "b-ok" },
-];
 const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
   { value: "UNPAID", label: "UNPAID", badgeClass: "b-crit" },
   { value: "PAID", label: "PAID", badgeClass: "b-ok" },
@@ -79,19 +74,6 @@ function fmtMoney(amount: number | null | undefined, currency: string) {
   } catch {
     return `${currency} ${(amount ?? 0).toFixed(2)}`;
   }
-}
-
-// ETA/Status are read live from `tracking` - editing them writes to that
-// same row (the route Shipment Tracking uses), as on the Truckers ledger.
-async function patchTracking(trackingId: string, updates: Record<string, any>) {
-  const res = await fetch(`/api/tracking/${trackingId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Save failed");
-  return json;
 }
 
 async function patchInvoice(id: string, updates: Record<string, any>) {
@@ -857,27 +839,14 @@ function InvoiceRows({
         <Td>
           <span className="font-medium">{fmtMoney(inv.total_usd, "USD")}</span>
         </Td>
-        {inv.tracking_id ? (
-          <EditableCell
-            value={inv.tracking?.eta ?? null}
-            isDate
-            onSave={(v) => patchTracking(inv.tracking_id!, { eta: v }).then(() => onChange({ tracking: { eta: v, release_status: inv.tracking?.release_status ?? null } }))}
-          />
-        ) : (
-          <Td><span className="text-muted">—</span></Td>
-        )}
-        {inv.tracking_id ? (
-          <td className="px-3 py-3.5 whitespace-nowrap">
-            <StatusMenuButton
-              value={inv.tracking?.release_status ?? ""}
-              options={RELEASE_STATUS_MENU_OPTIONS}
-              ariaLabel={`Status (live) for ${inv.container_number ?? inv.booking_number ?? ""}`}
-              onChange={(v) => patchTracking(inv.tracking_id!, { release_status: v }).then(() => onChange({ tracking: { eta: inv.tracking?.eta ?? null, release_status: v } }))}
-            />
-          </td>
-        ) : (
-          <td className="px-3 py-3.5"><StatusPill value={null} /></td>
-        )}
+        {/* ETA / Status are read-only here: Shipment Tracking is the master
+            and every ledger shows its live value (lib/tracking-master.ts). */}
+        <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+          {inv.tracking?.eta ? fmtDate(inv.tracking.eta) : <span className="text-muted">—</span>}
+        </td>
+        <td className="px-3 py-3.5 whitespace-nowrap" title="Updated in Shipment Tracking">
+          <StatusPill value={inv.tracking?.release_status || null} />
+        </td>
         <td className="px-3 py-3.5">
           <StatusMenuButton
             value={inv.paid_status}

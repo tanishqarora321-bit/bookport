@@ -90,10 +90,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     .single();
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // The Set of Documents packet includes its own Commercial Invoice -
-  // counts as both "invoice made" and "docs made" for Shipment
-  // Tracking's toggles, same auto-flip pattern as Send Instructions.
-  await supabase.from("tracking").update({ invoice_sent: true, documents_sent: true }).eq("id", params.id);
+  // Generating a PDF no longer marks it "Sent" - Invoice Sent / Docs Sent
+  // flip only when the PDF is actually emailed from Shipment Tracking's
+  // Docs dialog (app/api/tracking/[id]/send-docs).
 
   const { data: signedUrl } = await supabase.storage.from("documents").createSignedUrl(filePath, 60 * 60);
 

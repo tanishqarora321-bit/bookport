@@ -7,7 +7,7 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export default async function TrackingDocumentsPage({ params }: { params: { id: string } }) {
+export default async function TrackingDocumentsPage({ params, searchParams }: { params: { id: string }; searchParams?: { back?: string } }) {
   const me = await getCurrentProfile();
   if (!me) return <SignInRequired />;
 
@@ -49,6 +49,10 @@ export default async function TrackingDocumentsPage({ params }: { params: { id: 
       partyAddress={party?.address ?? null}
       itemName={item?.name ?? null}
       existingDocs={existingDocs ?? []}
+      // Only an in-app Buyers ledger path is accepted as the way back.
+      {...(searchParams?.back && /^\/parties\/[\w-]+\/invoices$/.test(searchParams.back)
+        ? { backHref: searchParams.back, backLabel: "Back to Buyer ledger" }
+        : {})}
     />
   );
 }

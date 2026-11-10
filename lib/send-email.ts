@@ -30,6 +30,9 @@ export type SendEmailInput = {
   // since a single shared company-wide reply-to doesn't make sense once
   // more than one teammate is sending under their own name.
   replyTo?: string;
+  // Files to attach (e.g. the invoice / document PDFs sent from Shipment
+  // Tracking's Docs dialog). `content` is base64.
+  attachments?: { filename: string; content: string }[];
 };
 
 export type SendEmailResult = { ok: true; id: string | null } | { ok: false; error: string };
@@ -68,6 +71,7 @@ export async function sendEmail(supabase: any, input: SendEmailInput): Promise<S
         reply_to: input.replyTo || undefined,
         subject: input.subject,
         html: input.html,
+        attachments: input.attachments && input.attachments.length > 0 ? input.attachments : undefined,
       }),
     });
     const json = await res.json().catch(() => ({}));

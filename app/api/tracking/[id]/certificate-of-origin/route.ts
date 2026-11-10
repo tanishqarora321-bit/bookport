@@ -78,10 +78,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     .single();
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  // Same auto-flip pattern as Send Instructions - a real generated
-  // document is the strongest signal Shipment Tracking's "Docs Sent"
-  // toggle should reflect.
-  await supabase.from("tracking").update({ documents_sent: true }).eq("id", params.id);
+  // Generating a PDF no longer marks it "Sent" - Invoice Sent / Docs Sent
+  // flip only when the PDF is actually emailed from Shipment Tracking's
+  // Docs dialog (app/api/tracking/[id]/send-docs).
 
   const { data: signedUrl } = await supabase.storage.from("documents").createSignedUrl(filePath, 60 * 60);
 

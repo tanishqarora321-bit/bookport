@@ -1,3 +1,4 @@
+import { fillTrackingBlanks } from "@/lib/tracking-master";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
@@ -533,7 +534,8 @@ export async function POST(req: NextRequest) {
 
     if (trackingId) {
       if (Object.keys(trackingUpdates).length > 0) {
-        await supabase.from("tracking").update(trackingUpdates).eq("id", trackingId);
+        // Fill-only: Shipment Tracking is the master once it has a value.
+        await fillTrackingBlanks(supabase, trackingId, trackingUpdates);
       }
       // Fill whatever the sheet and the invoice both lack from the live
       // tracking row: Month of Loading from its ETA, Forwarder/Consignee

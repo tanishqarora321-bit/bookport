@@ -46,6 +46,8 @@ export default function DocumentsClient({
   partyAddress,
   itemName,
   existingDocs,
+  backHref = "/tracking",
+  backLabel = "Back to Tracking",
 }: {
   trackingId: string;
   tracking: { booking_number: string | null; container_number: string | null; shipping_line: string | null; seal_number: string | null; invoice_no: string | null };
@@ -53,6 +55,10 @@ export default function DocumentsClient({
   partyAddress: string | null;
   itemName: string | null;
   existingDocs: Doc[];
+  // Opened from the Buyers / Consignee ledger's "Invoice →" link, it goes
+  // back there.
+  backHref?: string;
+  backLabel?: string;
 }) {
   const latest = existingDocs[0];
   const [docs, setDocs] = useState(existingDocs);
@@ -107,13 +113,13 @@ export default function DocumentsClient({
   return (
     <div className="flex flex-col gap-5">
       <Link
-        href="/tracking"
+        href={backHref}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium self-start text-ink"
       >
         <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 12H5M11 18l-6-6 6-6" />
         </svg>
-        Back to Tracking
+        {backLabel}
       </Link>
 
       <div className="max-w-[900px]">
