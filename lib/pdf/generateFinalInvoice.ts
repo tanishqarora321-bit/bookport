@@ -1,4 +1,5 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { INVOICE_SLOTS } from "./slots/finalInvoice";
+import { fillTemplate, fitLines, wrapForSlot } from "./templateFill";
 
 export type TemplateConfig = {
   company_name: string;
@@ -11,14 +12,14 @@ export type TemplateConfig = {
 
 export type InvoiceLineItem = {
   description: string | null;
-  weight_kg: number | null;
+  weight_kg: number | null; // the Cost section's weight (in the invoice's weight unit)
   unit_price: number | null;
   amount: number;
 };
 
 export type InvoiceFieldData = {
   invoice_no: string;
-  invoice_date: string; // ISO date
+  invoice_date: string; // ISO date - also the Ship Date, as on the owner's sample
   consignee_name: string;
   consignee_address: string;
   booking_number: string;
@@ -27,161 +28,115 @@ export type InvoiceFieldData = {
   ship_via: string; // shipping line
   terms: string;
   reference_no: string;
-  weight_lbs: string;
+  weight_lbs: string; // the shipment weight (in weight_unit)
+  weight_unit?: string; // "LBS" (default) or "KG"
   qty_bales: string;
-  description: string;
+  description: string; // the goods line's description ("Mixed Rags") when there are no Cost section lines
+  goods_description?: string; // the Description column's heading line ("OLD USED CLOTHING")
+  location?: string; // the line under the charges ("GOODWILL Nashville") - the buyer invoice's Location
   rate: string;
   amount: string;
   currency: string;
-  // The invoice ledger's own per-row cost-section breakdown (Mixed Rags
-  // rate, Trucking, Commission, Ocean Freight, etc., each its own line
-  // and amount) - printed as separate lines below the summary row rather
-  // than collapsed into just the one combined total, per Tanishq's own
-  // real example and explicit ask ("prints the whole amount not the
-  // breaking which is shareable").
+  signed_by?: string; // "By: ..." under the company name
+  // The Buyers ledger's Cost section: each line printed on its own, the
+  // way the owner's sample lists them -
+  //   with a weight and a rate:  "39 Bales Mixed Rags 38950 LBS@0.15=$5842.5"
+  //   amount only (charges):     "  Trucking  @=$850"
   items?: InvoiceLineItem[];
 };
 
-// Hex like "#0f172a" -> pdf-lib rgb(0-1 scale)
-function hexToRgb(hex?: string) {
-  if (!hex) return rgb(0.06, 0.09, 0.16);
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.substring(0, 2), 16) / 255;
-  const g = parseInt(clean.substring(2, 4), 16) / 255;
-  const b = parseInt(clean.substring(4, 6), 16) / 255;
-  return rgb(r, g, b);
+const MAX_LINES = 6;
+
+function money(n: number | string | null | undefined) {
+  const v = typeof n === "number" ? n : parseFloat(String(n ?? "").replace(/[^0-9.-]/g, ""));
+  if (!isFinite(v)) return "";
+  // Plain number like the sample ("$5842.5", "$ 8929"), at most 2 decimals.
+  return String(Math.round(v * 100) / 100);
 }
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+function dmy(iso: string) {
+  const d = new Date(`${(iso || "").slice(0, 10)}T00:00:00Z`);
+  if (isNaN(d.getTime())) return "";
+  return `${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${d.getUTCFullYear()}`;
 }
 
-/**
- * Renders the "Final Invoice" layout -- matches the real CN International
- * example: letterhead + INVOICE title top-right, Date/Invoice# box,
- * Consignee + Notify Party blocks, a booking/container/terms/ship-date/
- * ship-via/seal/reference row, then a weight/qty/description/rate/amount row.
- *
- * Company details come entirely from `template` (document_templates.template_config),
- * not hardcoded here -- a different company's layout data produces a
- * different-looking invoice from this exact same function.
- */
+// Exact copy of the owner's real INVOICE (lib/pdf/assets/final-invoice-
+// template.pdf): boxes, headings, "TOTAL AMOUNT CIF MUNDRA PORT", the
+// certification text and "Payments/Credits $" stay exactly as printed.
+// Filled in: the letterhead (Settings, in capitals like the sample), Date +
+// Invoice #, Consignee + Notify Party (both the buyer, as on the sample),
+// the Booking / Container / Terms / Ship Date / Ship Via / Seal / Reference
+// row, Weight + Qty, the Description column (goods heading, one line per
+// Cost section item, location, total weight), and Amount / Cost of Goods /
+// Balance Due (= the sum of the lines).
 export async function generateFinalInvoicePdf(template: TemplateConfig, data: InvoiceFieldData): Promise<Uint8Array> {
-  const doc = await PDFDocument.create();
-  const page = doc.addPage([612, 792]); // US Letter, points
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const accent = hexToRgb(template.accent_color);
-  const black = rgb(0.1, 0.1, 0.1);
-  const gray = rgb(0.45, 0.45, 0.45);
+  const v: Record<string, string> = {};
+  const unit = (data.weight_unit || "LBS").toUpperCase().startsWith("KG") ? "KG" : "LBS";
 
-  let y = 740;
-  const left = 50;
-  const right = 340;
+  // Letterhead: name, 2 address lines, VOICE / FAX, E-mail.
+  v.hdr1 = (template.company_name || "").toUpperCase();
+  fitLines((template.address_lines ?? []).map((l) => l.trim()).filter(Boolean), 2).forEach((l, i) => (v[`hdr${i + 2}`] = l.toUpperCase()));
+  const voice = [template.phone ? `VOICE: ${template.phone}` : "", template.fax ? `FAX: ${template.fax}` : ""].filter(Boolean).join(" - ");
+  v.hdr4 = voice;
+  v.hdr5 = template.email ? `E-mail: ${template.email}` : "";
+  v.footer_company = template.company_name || "";
+  v.footer_by = data.signed_by || "";
 
-  const draw = (text: string, x: number, yy: number, opts: { font?: any; size?: number; color?: any } = {}) => {
-    page.drawText(text ?? "", {
-      x,
-      y: yy,
-      size: opts.size ?? 9,
-      font: opts.font ?? font,
-      color: opts.color ?? black,
-    });
-  };
+  v.date = dmy(data.invoice_date);
+  v.inv = data.invoice_no;
 
-  // ---- Letterhead ----
-  draw(template.company_name, left, y, { font: bold, size: 13, color: accent });
-  y -= 14;
-  for (const line of template.address_lines) {
-    draw(line, left, y, { size: 8.5, color: gray });
-    y -= 11;
-  }
-  const contactBits = [
-    template.phone ? `Voice: ${template.phone}` : null,
-    template.fax ? `Fax: ${template.fax}` : null,
-  ].filter(Boolean);
-  if (contactBits.length) {
-    draw(contactBits.join("  ·  "), left, y, { size: 8.5, color: gray });
-    y -= 11;
-  }
-  if (template.email) {
-    draw(`E-mail: ${template.email}`, left, y, { size: 8.5, color: gray });
-  }
-
-  // ---- INVOICE title + Date/Invoice# box (top right) ----
-  draw("INVOICE", right + 90, 740, { font: bold, size: 16, color: accent });
-  draw("Date", right, 715, { font: bold, size: 8.5 });
-  draw("Invoice #", right + 100, 715, { font: bold, size: 8.5 });
-  draw(formatDate(data.invoice_date), right, 702, { size: 9 });
-  draw(data.invoice_no, right + 100, 702, { size: 9 });
-
-  y = 660;
-
-  // ---- Consignee / Notify blocks ----
-  draw("CONSIGNEE:", left, y, { font: bold, size: 9 });
-  draw("NOTIFY PARTY:", right, y, { font: bold, size: 9 });
-  y -= 13;
-  const consigneeLines = data.consignee_address.split("\n").filter(Boolean);
-  draw(data.consignee_name, left, y, { size: 9 });
-  draw(data.consignee_name, right, y, { size: 9 });
-  y -= 12;
-  consigneeLines.forEach((line, i) => {
-    draw(line, left, y - i * 11, { size: 8.5 });
-    draw(line, right, y - i * 11, { size: 8.5 });
+  const party = [data.consignee_name, ...(await wrapForSlot(data.consignee_address || "", INVOICE_SLOTS.con1[0], 300))].filter(Boolean);
+  fitLines(party, 4).forEach((l, i) => {
+    v[`con${i + 1}`] = l;
+    v[`notify${i + 1}`] = l;
   });
-  y -= consigneeLines.length * 11 + 20;
 
-  // ---- Booking / Container / Terms / Ship Date / Ship Via / Seal / Reference row ----
-  const cols = [
-    { label: "Booking #", value: data.booking_number, x: left },
-    { label: "Container #", value: data.container_number, x: left + 90 },
-    { label: "Terms", value: data.terms, x: left + 180 },
-    { label: "Ship Date", value: formatDate(data.invoice_date), x: left + 240 },
-    { label: "Ship Via", value: data.ship_via, x: left + 320 },
-    { label: "Seal #", value: data.seal_number, x: left + 390 },
-    { label: "Reference #", value: data.reference_no, x: left + 450 },
-  ];
-  page.drawLine({ start: { x: left, y: y + 12 }, end: { x: 562, y: y + 12 }, thickness: 0.5, color: gray });
-  cols.forEach((c) => draw(c.label, c.x, y, { font: bold, size: 7.5 }));
-  y -= 12;
-  cols.forEach((c) => draw(c.value || "-", c.x, y, { size: 8 }));
-  page.drawLine({ start: { x: left, y: y - 8 }, end: { x: 562, y: y - 8 }, thickness: 0.5, color: gray });
-  y -= 30;
+  v.booking = data.booking_number;
+  v.container = data.container_number;
+  v.terms = data.terms;
+  v.ship_date = dmy(data.invoice_date);
+  v.ship_via = data.ship_via;
+  v.seal = data.seal_number;
+  v.reference = data.reference_no;
 
-  // ---- Weight / Qty / Description / Rate / Amount row ----
-  const cols2 = [
-    { label: "Weight", value: `${data.weight_lbs} LBS`, x: left },
-    { label: "Qty/Units", value: `${data.qty_bales} BALES`, x: left + 90 },
-    { label: "Description", value: data.description, x: left + 180 },
-    { label: "Rate", value: data.rate || "", x: left + 420 },
-    { label: "Amount", value: `${data.currency} ${data.amount}`, x: left + 470 },
-  ];
-  cols2.forEach((c) => draw(c.label, c.x, y, { font: bold, size: 7.5 }));
-  y -= 12;
-  cols2.forEach((c) => draw(c.value, c.x, y, { size: 8 }));
-  y -= 20;
+  const weight = (data.weight_lbs || "").trim();
+  const bales = (data.qty_bales || "").trim();
+  v.weight = weight ? `${weight} ${unit}` : "";
+  v.qty = bales ? `${bales} BALES` : "";
+  v.desc = data.goods_description || "";
+  v.location = data.location || "";
+  v.total_weight = weight ? `TOTAL WEIGHT ${weight} ${unit}` : "";
 
-  // Itemized breakdown (Mixed Rags rate, Trucking, Commission, Ocean
-  // Freight, etc.) - one line per cost-section item, each with its own
-  // amount, rather than only the combined total shown above.
-  const items = data.items ?? [];
+  // Description lines: the goods line(s) flush left, charges indented.
+  type Line = { text: string; indent: boolean };
+  const items = (data.items ?? []).filter((it) => (it.description ?? "").trim() || Number(it.amount));
+  let lines: Line[];
+  let total: number;
   if (items.length > 0) {
-    items.forEach((item) => {
-      const bits = [item.description || ""];
-      if (item.weight_kg != null) bits.push(`${item.weight_kg} KG`);
-      if (item.unit_price != null) bits.push(`@ ${item.unit_price}`);
-      draw(`${bits.join(" ")} = ${data.currency} ${item.amount}`, left, y, { size: 8, color: gray });
-      y -= 12;
+    lines = items.map((it) => {
+      const desc = (it.description ?? "").trim();
+      const amount = money(it.amount);
+      if (it.weight_kg != null && it.unit_price != null) {
+        const lead = bales ? `${bales} Bales ` : "";
+        return { text: `${lead}${desc} ${money(it.weight_kg)} ${unit}@${money(it.unit_price)}=$${amount}`, indent: false };
+      }
+      return { text: `${desc}  @=$${amount}`, indent: true };
     });
+    total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
   } else {
-    draw(
-      `${data.qty_bales} Bales ${data.description} ${data.weight_lbs} LBS @ ${data.rate}=${data.currency} ${data.amount}`,
-      left,
-      y,
-      { size: 8, color: gray }
-    );
+    const amount = money(data.amount);
+    const goods = `${bales ? `${bales} Bales ` : ""}${data.description || ""} ${weight ? `${weight} ${unit}` : ""}${data.rate ? `@${data.rate}` : ""}${amount ? `=$${amount}` : ""}`;
+    lines = goods.trim() ? [{ text: goods.replace(/\s+/g, " ").trim(), indent: false }] : [];
+    total = parseFloat(String(data.amount || "").replace(/[^0-9.-]/g, "")) || 0;
   }
+  if (lines.length > MAX_LINES) {
+    const rest = lines.slice(MAX_LINES - 1).map((l) => l.text.trim()).join(" ; ");
+    lines = [...lines.slice(0, MAX_LINES - 1), { text: rest, indent: true }];
+  }
+  lines.forEach((l, i) => (v[l.indent ? `line${i + 1}i` : `line${i + 1}`] = l.text));
 
-  return doc.save();
+  const totalText = total ? `$ ${money(total)}` : "";
+  v.amount = v.cost_of_goods = v.balance_due = totalText;
+
+  return fillTemplate("final-invoice-template.pdf", INVOICE_SLOTS, v, `Invoice ${data.invoice_no}`);
 }

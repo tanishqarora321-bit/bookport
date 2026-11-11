@@ -1,0 +1,290 @@
+[
+{
+"page": 1,
+"run": 19,
+"text": "CNINTERNATIONALUSA INC.",
+"key": "hdr1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 20,
+"text": "137 FRIENDSHIP CT",
+"key": "hdr2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 22,
+"text": "WHITE PLAINS, NY 10603, USA",
+"key": "hdr3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 23,
+"text": "VOICE: 646.932.4426 - FAX: 914.517.1393",
+"key": "hdr4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 18,
+"text": "E-mail: nitinsingla@gmail.com",
+"key": "hdr5",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 2,
+"text": "23-06-2026",
+"key": "date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 2,
+"text": "2026-TD/45",
+"key": "inv",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 27,
+"text": "TEX POLY IMPEX",
+"key": "con1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 27,
+"text": "TEX POLY IMPEX",
+"key": "notify1",
+"align": "left",
+"occ": 1
+},
+{
+"page": 1,
+"run": 28,
+"text": "SHED NO 283 & 293, SECTOR-3,",
+"key": "con2",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 28,
+"text": "SHED NO 283 & 293, SECTOR-3,",
+"key": "notify2",
+"align": "left",
+"occ": 1
+},
+{
+"page": 1,
+"run": 24,
+"text": "MARSHALLING YARD, KSEZ,",
+"key": "con3",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 24,
+"text": "MARSHALLING YARD, KSEZ,",
+"key": "notify3",
+"align": "left",
+"occ": 1
+},
+{
+"page": 1,
+"run": 25,
+"text": "GANDHIDHAM - 370230 (GUJRAT)",
+"key": "con4",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 25,
+"text": "GANDHIDHAM - 370230 (GUJRAT)",
+"key": "notify4",
+"align": "left",
+"occ": 1
+},
+{
+"page": 1,
+"run": 4,
+"text": "6449840441",
+"key": "booking",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "UETU5173417",
+"key": "container",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "Advance",
+"key": "terms",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "23-06-2026",
+"key": "ship_date",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "COSCO",
+"key": "ship_via",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "01965993",
+"key": "seal",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 4,
+"text": "2010BL01",
+"key": "reference",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 31,
+"text": "38950 LBS",
+"key": "weight",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 31,
+"text": "39 BALES",
+"key": "qty",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 32,
+"text": "OLD USED CLOTHING",
+"key": "desc",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 33,
+"text": "$ 8929",
+"key": "amount",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 7,
+"text": "39 Bales Mixed Rags 38950 LBS@0.15=$5842.5",
+"key": "line1",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 8,
+"text": "Trucking  @=$850",
+"key": "line2i",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 9,
+"text": "Commission  @=$389.5",
+"key": "line3i",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 10,
+"text": "Ocean Freight  @=$1847",
+"key": "line4i",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 11,
+"text": "GOODWILL Nashville",
+"key": "location",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 12,
+"text": "TOTAL WEIGHT 38950 LBS",
+"key": "total_weight",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 14,
+"text": "$ 8929",
+"key": "cost_of_goods",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 29,
+"text": "$ 8929",
+"key": "balance_due",
+"align": "center",
+"occ": 0
+},
+{
+"page": 1,
+"run": 16,
+"text": "CNINTERNATIONALUSA INC.",
+"key": "footer_company",
+"align": "left",
+"occ": 0
+},
+{
+"page": 1,
+"run": 17,
+"text": "NITIN SINGLA",
+"key": "footer_by",
+"align": "left",
+"occ": 0
+}
+]

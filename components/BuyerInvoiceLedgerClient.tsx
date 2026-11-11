@@ -886,25 +886,10 @@ function InvoiceRows({
       const res2 = await fetch(`/api/tracking/${inv.tracking_id}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          overrides: {
-            invoice_date: inv.invoice_date,
-            terms: "Advance",
-            reference_no: invoiceNumber,
-            weight_lbs: String(inv.weight ?? ""),
-            qty_bales: "",
-            description: inv.items[0]?.description || "",
-            rate: "",
-            amount: String(inv.total ?? ""),
-            currency: inv.currency,
-            items: inv.items.map((it) => ({
-              description: it.description,
-              weight_kg: it.weight_kg,
-              unit_price: it.unit_price,
-              amount: it.amount,
-            })),
-          },
-        }),
+        // Everything (date, weight, bales, seal, location and the Cost
+        // section lines) is read server-side from this buyer invoice and
+        // the container's packing - nothing to pass from here.
+        body: JSON.stringify({ overrides: {} }),
       });
       const json2 = await res2.json();
       if (!res2.ok) throw new Error(json2.error || "Failed to generate invoice");
