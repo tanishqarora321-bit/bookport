@@ -75,7 +75,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // 2. Defaults come from the data the app already has - the Buyers ledger
-  // row (invoice no., date, weight, location, Cost section lines), the
+  // row (invoice no., date, weight, Cost section lines), the booking's
+  // Supplier (printed under the charges, e.g. "GOODWILL Nashville"), the
   // container's packing (bales, seal, weight) and the buyer's shipping
   // details - so the invoice is complete from either "Generate Invoice" or
   // the Invoice page. Anything the user edited on the Invoice page
@@ -85,11 +86,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     getTrackingDocContext(supabase, params.id, me.company_id),
     supabase
       .from("buyer_invoices")
-      .select("invoice_number, invoice_date, weight, weight_unit, location, total, currency, items:buyer_invoice_items (description, weight_kg, unit_price, amount, sort_order)")
+      .select("invoice_number, invoice_date, weight, weight_unit, total, currency, items:buyer_invoice_items (description, weight_kg, unit_price, amount, sort_order)")
       .eq("tracking_id", params.id)
       .maybeSingle(),
   ]);
   const packing = ctx?.packingItem ?? null;
+  const { data: supplierRow } = ctx?.tracking.booking_id
+    ? await supabase
+        .from("booking_parties")
+        .select("parties (legal_name)")
+        .eq("booking_id", ctx.tracking.booking_id)
+        .eq("role", "supplier")
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  const supplierName = ((supplierRow as any)?.parties?.legal_name as string | undefined) ?? "";
   const items = ((buyerInvoice as any)?.items ?? [])
     .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
     .map((it: any) => ({ description: it.description, weight_kg: it.weight_kg, unit_price: it.unit_price, amount: Number(it.amount) || 0 }));
@@ -113,7 +124,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     qty_bales: packing?.bales != null ? String(packing.bales) : "",
     description: item?.name || "",
     goods_description: item?.name || ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || "",
-    location: buyerInvoice?.location || "",
+    supplier_name: supplierName,
     rate: "",
     amount: buyerInvoice?.total != null ? String(buyerInvoice.total) : "",
     currency: buyerInvoice?.currency || "USD",

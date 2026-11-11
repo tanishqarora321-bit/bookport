@@ -200,14 +200,16 @@ denied` lines on git commands are harmless noise — ignore them.
   INVOICE (`lib/pdf/assets/final-invoice-template.pdf`, slots in
   `lib/pdf/slots/finalInvoice.ts`), same engine as COO/SOD. The documents
   route now fills everything from the buyer invoice row (invoice no./date,
-  weight + unit, Location, Cost section lines), the container's packing
+  weight + unit, Cost section lines), the booking's Supplier (the line under
+  the charges, e.g. "GOODWILL Nashville"), the container's packing
   (bales, seal) and the buyer's shipping details; Invoice-page edits
   override, but blank overrides are ignored (the old 01/01/1970 bug). Each
   Cost section line = one invoice line: weight + unit price ->
   "39 Bales Mixed Rags 38950 LBS@0.15=$5842.5"; amount only -> indented
   "Trucking  @=$850"; up to 6 lines (more are joined on the last); total =
   sum. Letterhead from Settings (capitals), "By:" = the signed-in user,
-  Ship Date = invoice date, Reference # editable on the Invoice page.
+  Ship Date = invoice date, Reference # blank by default (owner adds it
+  on the Invoice page after confirming with the client).
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

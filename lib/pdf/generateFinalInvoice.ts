@@ -33,7 +33,7 @@ export type InvoiceFieldData = {
   qty_bales: string;
   description: string; // the goods line's description ("Mixed Rags") when there are no Cost section lines
   goods_description?: string; // the Description column's heading line ("OLD USED CLOTHING")
-  location?: string; // the line under the charges ("GOODWILL Nashville") - the buyer invoice's Location
+  supplier_name?: string; // the line under the charges ("GOODWILL Nashville") - the booking's Supplier
   rate: string;
   amount: string;
   currency: string;
@@ -67,7 +67,7 @@ function dmy(iso: string) {
 // Invoice #, Consignee + Notify Party (both the buyer, as on the sample),
 // the Booking / Container / Terms / Ship Date / Ship Via / Seal / Reference
 // row, Weight + Qty, the Description column (goods heading, one line per
-// Cost section item, location, total weight), and Amount / Cost of Goods /
+// Cost section item, supplier name, total weight), and Amount / Cost of Goods /
 // Balance Due (= the sum of the lines).
 export async function generateFinalInvoicePdf(template: TemplateConfig, data: InvoiceFieldData): Promise<Uint8Array> {
   const v: Record<string, string> = {};
@@ -104,7 +104,7 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   v.weight = weight ? `${weight} ${unit}` : "";
   v.qty = bales ? `${bales} BALES` : "";
   v.desc = data.goods_description || "";
-  v.location = data.location || "";
+  v.location = data.supplier_name || ""; // template slot under the charges
   v.total_weight = weight ? `TOTAL WEIGHT ${weight} ${unit}` : "";
 
   // Description lines: the goods line(s) flush left, charges indented.
