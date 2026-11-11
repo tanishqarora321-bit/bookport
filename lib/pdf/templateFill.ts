@@ -17,7 +17,7 @@ import fontkit from "@pdf-lib/fontkit";
 //
 // Slot coordinates are in the original's 96-dpi px space (its content
 // stream draws at 0.75pt per px, y measured from the top of the page).
-export type SlotFont = "Arial" | "Arial Bold" | "Calibri" | "Times New Roman";
+export type SlotFont = "Arial" | "Arial Bold" | "Calibri" | "Times New Roman" | "Times New Roman Bold" | "Times New Roman Italic";
 export type Slot = {
   page: number; // 1-based
   font: string;
@@ -36,6 +36,8 @@ const FONT_FILES: Record<SlotFont, string> = {
   "Arial Bold": "LiberationSans-Bold.ttf",
   Calibri: "Carlito-Regular.ttf",
   "Times New Roman": "LiberationSerif-Regular.ttf",
+  "Times New Roman Bold": "LiberationSerif-Bold.ttf",
+  "Times New Roman Italic": "LiberationSerif-Italic.ttf",
 };
 
 // Characters these fonts can't show (Excel's soft/real hyphens) become a

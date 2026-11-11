@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
+import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
@@ -73,29 +74,59 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  // 2. Merge: auto-filled fields first, then anything the user explicitly
-  // edited in the review screen (body.overrides) wins -- this is the
-  // "editable field so if invoice generated incorrectly we can fix it" ask.
+  // 2. Defaults come from the data the app already has - the Buyers ledger
+  // row (invoice no., date, weight, location, Cost section lines), the
+  // container's packing (bales, seal, weight) and the buyer's shipping
+  // details - so the invoice is complete from either "Generate Invoice" or
+  // the Invoice page. Anything the user edited on the Invoice page
+  // (body.overrides) wins, but a blank/null override never wipes a default
+  // (that's how a missing invoice date used to print as 01/01/1970).
+  const [ctx, { data: buyerInvoice }] = await Promise.all([
+    getTrackingDocContext(supabase, params.id, me.company_id),
+    supabase
+      .from("buyer_invoices")
+      .select("invoice_number, invoice_date, weight, weight_unit, location, total, currency, items:buyer_invoice_items (description, weight_kg, unit_price, amount, sort_order)")
+      .eq("tracking_id", params.id)
+      .maybeSingle(),
+  ]);
+  const packing = ctx?.packingItem ?? null;
+  const items = ((buyerInvoice as any)?.items ?? [])
+    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((it: any) => ({ description: it.description, weight_kg: it.weight_kg, unit_price: it.unit_price, amount: Number(it.amount) || 0 }));
+  const useInvoiceWeight = buyerInvoice?.weight != null;
+  const weight = useInvoiceWeight ? buyerInvoice!.weight : packing?.weight ?? null;
+  const weightUnit = useInvoiceWeight ? buyerInvoice!.weight_unit : packing?.weight_unit;
+
   const autoFilled: InvoiceFieldData = {
-    invoice_no: tracking.invoice_no || "",
-    invoice_date: body.overrides?.invoice_date || new Date().toISOString().slice(0, 10),
+    invoice_no: buyerInvoice?.invoice_number || tracking.invoice_no || "",
+    invoice_date: buyerInvoice?.invoice_date || new Date().toISOString().slice(0, 10),
     consignee_name: party?.legal_name || "",
-    consignee_address: party?.address || "",
+    consignee_address: ctx?.gstEntry?.address || party?.address || "",
     booking_number: tracking.booking_number || "",
     container_number: tracking.container_number || "",
-    seal_number: tracking.seal_number || "",
+    seal_number: tracking.seal_number || packing?.seal_no || "",
     ship_via: tracking.shipping_line || "",
-    terms: body.overrides?.terms || "Advance",
-    reference_no: body.overrides?.reference_no || "",
-    weight_lbs: body.overrides?.weight_lbs || "",
-    qty_bales: body.overrides?.qty_bales || "",
-    description: body.overrides?.description || item?.name || "",
-    rate: body.overrides?.rate || "",
-    amount: body.overrides?.amount || "",
-    currency: body.overrides?.currency || "USD",
-    items: body.overrides?.items || [],
+    terms: "Advance",
+    reference_no: "",
+    weight_lbs: weight != null ? String(weight) : "",
+    weight_unit: /^KG/i.test(weightUnit || "") ? "KG" : "LBS",
+    qty_bales: packing?.bales != null ? String(packing.bales) : "",
+    description: item?.name || "",
+    goods_description: item?.name || ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || "",
+    location: buyerInvoice?.location || "",
+    rate: "",
+    amount: buyerInvoice?.total != null ? String(buyerInvoice.total) : "",
+    currency: buyerInvoice?.currency || "USD",
+    signed_by: me.full_name || me.email || "",
+    items,
   };
-  const finalData: InvoiceFieldData = { ...autoFilled, ...(body.overrides ?? {}) };
+  const overrides: Record<string, any> = {};
+  for (const [k, val] of Object.entries(body.overrides ?? {})) {
+    if (val == null || val === "") continue;
+    if (Array.isArray(val) && val.length === 0) continue;
+    overrides[k] = val;
+  }
+  const finalData: InvoiceFieldData = { ...autoFilled, ...overrides };
 
   if (!finalData.consignee_name) {
     return NextResponse.json({ error: "This tracking entry has no party assigned yet -- can't generate a consignee." }, { status: 400 });
