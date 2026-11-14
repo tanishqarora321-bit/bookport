@@ -3,9 +3,9 @@
 // are auto-created from Booking & Instructions - see migration 0015),
 // but if a row's Booking Number doesn't exist anywhere yet, the commit
 // route creates that booking (with this forwarder assigned) using
-// whatever of the BOOKING_CREATE_KEYS fields below are mapped - those
-// fields are ignored for a row that matches an EXISTING booking, since
-// that booking already has its own data. Any custom columns
+// whatever of the BOOKING_CREATE_KEYS fields below are mapped. For a row
+// that matches an EXISTING booking those fields only fill what's still
+// blank in Booking & Instructions (lib/import-booking-fields.ts). Any custom columns
 // (migration 0016) are appended to this list at runtime by the
 // parse/commit routes and the client, since those vary per company.
 export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; required?: boolean }[] = [
@@ -16,16 +16,16 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
   // booking or not - it was already a plain display column on the ledger
   // with no way to set it from a sheet.
   { key: "consignee_name", label: "Consignee" },
-  { key: "pol", label: "POL (new bookings only)" },
-  { key: "pod", label: "Port of Discharge (new bookings only)" },
-  { key: "final_destination", label: "Port of Delivery (new bookings only)" },
-  { key: "carrier", label: "Shipping Line (new bookings only)" },
+  { key: "pol", label: "POL (fills a blank in Booking & Instructions)" },
+  { key: "pod", label: "Port of Discharge (fills a blank in Booking & Instructions)" },
+  { key: "final_destination", label: "Port of Delivery (fills a blank in Booking & Instructions)" },
+  { key: "carrier", label: "Shipping Line (fills a blank in Booking & Instructions)" },
   // A booking created here with no ERD is invisible on Booking &
   // Instructions forever - that page filters out anything with no
   // Month of Loading/ERD under every year, with no other way to set one
   // short of opening the booking there and editing it by hand. Mapping
   // this lets the sheet's own date (if it has one) carry straight over.
-  { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
+  { key: "erd", label: "Month of Loading / ERD (fills a blank in Booking & Instructions)" },
   // eta and release_status live on the `tracking` row this invoice points
   // at (read live into the ledger's ETA / Status columns), not on
   // forwarder_invoices itself - the commit route writes these onto that
@@ -48,8 +48,8 @@ export const FORWARDER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requ
   { key: "paid_status", label: "Paid / Not Paid" }
 ];
 
-// Only meaningful when this row's Booking Number requires creating a
-// brand-new booking - these become that booking's own columns.
+// Booking columns, not invoice columns: a new booking takes them from the
+// sheet; an existing one only where Booking & Instructions is blank.
 export const FORWARDER_INVOICE_BOOKING_CREATE_KEYS = new Set(["pol", "pod", "final_destination", "carrier", "erd"]);
 
 // These don't live on forwarder_invoices at all - they're written onto

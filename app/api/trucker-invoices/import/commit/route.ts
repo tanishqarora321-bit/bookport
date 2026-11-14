@@ -9,6 +9,7 @@ import {
   TRUCKER_INVOICE_TRACKING_KEYS
 } from "@/lib/trucker-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
+import { fillBookingBlanks } from "@/lib/import-booking-fields";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
@@ -567,18 +568,19 @@ export async function POST(req: NextRequest) {
     // tracking.eta, so the backfill below never fires for any of them.
     if (rowErd) updates.month_of_loading = rowErd;
 
-    // The booking's own erd must carry this month too, not just the invoice -
-    // Booking & Instructions filters bookings by booking.erd and hides any
-    // with none, so an import that only set month_of_loading on invoices left
-    // the booking invisible there. Backfill only when still null. See the
-    // identical fix on the Forwarders import.
-    if (rowErd) {
+    // Booking-level values (Month of Loading / ERD, Shipping Line, POL, POD,
+    // Port of Delivery): fill only what's still blank in Booking &
+    // Instructions - same rule in all four imports (lib/import-booking-fields.ts).
+    {
       const bookingId = bookingIdByNumber.get(bookingNumber.toLowerCase());
       if (bookingId) {
-        const { data: bk } = await supabase.from("bookings").select("erd").eq("id", bookingId).single();
-        if (bk && !bk.erd) {
-          await supabase.from("bookings").update({ erd: rowErd }).eq("id", bookingId);
-        }
+        await fillBookingBlanks(supabase, bookingId, {
+          erd: rowErd,
+          carrier: get("carrier"),
+          pol: get("pol"),
+          pod: get("pod"),
+          final_destination: get("final_destination"),
+        });
       }
     }
 
