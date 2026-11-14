@@ -145,6 +145,8 @@ export default function TruckerInvoiceLedgerClient({
   const [customColumns, setCustomColumns] = useState(initialCustomColumns);
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  // "Pending Invoices" toggle: only invoices with no invoice number yet.
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [paidFilter, setPaidFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [lineFilter, setLineFilter] = useState("all");
@@ -196,6 +198,7 @@ export default function TruckerInvoiceLedgerClient({
     const q = search.trim().toLowerCase();
     return yearInvoices.filter((inv) => {
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
+      if (pendingOnly && inv.invoice_number) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
       if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
       if (lineFilter !== "all" && inv.location !== lineFilter) return false;
@@ -208,7 +211,7 @@ export default function TruckerInvoiceLedgerClient({
       }
       return true;
     });
-  }, [yearInvoices, statusFilter, paidFilter, monthFilter, lineFilter, search]);
+  }, [yearInvoices, pendingOnly, statusFilter, paidFilter, monthFilter, lineFilter, search]);
 
   // Pagination matches the Forwarders ledger / Booking & Instructions.
   const [pageSize, setPageSize] = useState(25);
@@ -217,7 +220,7 @@ export default function TruckerInvoiceLedgerClient({
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   useEffect(() => {
     setPage(0);
-  }, [statusFilter, paidFilter, monthFilter, lineFilter, search, pageSize]);
+  }, [pendingOnly, statusFilter, paidFilter, monthFilter, lineFilter, search, pageSize]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
   const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
@@ -297,6 +300,17 @@ export default function TruckerInvoiceLedgerClient({
         </div>
         {/* Equal columns sized to the widest label - all buttons the same size. */}
         <div className="grid grid-flow-col auto-cols-fr gap-2">
+          {/* Pending = no invoice number yet (the rows with "Enter Invoice") -
+              a toggle up here like Booking & Instructions' Open Bookings, so
+              it costs the table no space. */}
+          <button
+            onClick={() => setPendingOnly((v) => !v)}
+            aria-pressed={pendingOnly}
+            title="Invoices that don't have an invoice number yet"
+            className={`text-sm border rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5 ${pendingOnly ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-surface-2"}`}
+          >
+            <Clock className="w-4 h-4" size={16} /> Pending Invoices ({pendingCount})
+          </button>
           <Link href={`/truckers/${truckerId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
             Import Excel
           </Link>
@@ -406,9 +420,10 @@ export default function TruckerInvoiceLedgerClient({
             ))}
           </select>
         )}
-        {(statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || lineFilter !== "all" || search) && (
+        {(pendingOnly || statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || lineFilter !== "all" || search) && (
           <button
             onClick={() => {
+              setPendingOnly(false);
               setStatusFilter("all");
               setPaidFilter("all");
               setMonthFilter("all");

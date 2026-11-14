@@ -176,13 +176,20 @@ export async function POST(req: NextRequest) {
     const sheetRows = seenRows.get(key) ?? [];
     const containers = new Set<string>();
     let month: number | null = null;
+    let dateYear: number | null = null;
     for (const r of sheetRows) {
       const row = rows[r - 2];
       const c = cell(row, "container_number");
       if (c) containers.add(c.toUpperCase());
       if (month === null) month = rowMonthDay(row)?.month ?? null;
+      // The year the sheet's own full dates fall in - pre-selected on the
+      // New bookings step (a 2025 statement isn't filed under 2026).
+      for (const k of ["invoice_date", "erd"]) {
+        const fullDate: Date | null = dateYear === null && cell(row, k) ? parseDateish(cell(row, k)) : null;
+        if (fullDate) dateYear = fullDate.getUTCFullYear();
+      }
     }
-    return { carrierBookingNo: bookingOf(rows[sheetRows[0] - 2]), sheetRows, containers: Array.from(containers), month };
+    return { carrierBookingNo: bookingOf(rows[sheetRows[0] - 2]), sheetRows, containers: Array.from(containers), month, dateYear };
   }
 
   if (dryRun) {
