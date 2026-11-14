@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus, Search } from "lucide-react";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Plus, Search, Wallet } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import { useYear } from "@/lib/year-context";
 import { invoiceInWorkingYear } from "@/lib/year-scope";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
+import { PAYMENTS_LAYOUT } from "@/lib/ui-flags";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
@@ -224,6 +225,8 @@ export default function InvoiceLedgerClient({
   // many rows in the DOM at once for its scroll container to behave).
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(0);
+  // Payments & History side panel (lib/ui-flags.ts PAYMENTS_LAYOUT).
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
   useEffect(() => {
     setPage(0);
   }, [statusFilter, paidFilter, monthFilter, lineFilter, search, pageSize]);
@@ -304,18 +307,28 @@ export default function InvoiceLedgerClient({
           <BackButton href="/forwarders" label="Back to Forwarders" />
           <h1 className="text-xl font-semibold text-ink">{forwarderName} — Invoices</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/forwarders/${forwarderId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
+        {/* Equal columns sized to the widest label - all buttons the same size. */}
+        <div className="grid grid-flow-col auto-cols-fr gap-2">
+          <Link href={`/forwarders/${forwarderId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
             Import Excel
           </Link>
           <button
             onClick={() => setAddColumnOpen((v) => !v)}
             disabled={customColumns.length >= MAX_CUSTOM_COLUMNS}
-            className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center gap-1 disabled:opacity-50"
+            className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1 disabled:opacity-50"
             title={customColumns.length >= MAX_CUSTOM_COLUMNS ? "Maximum of 10 custom columns reached" : "Add a column"}
           >
             <Plus className="w-4 h-4" size={16} /> Add Column ({customColumns.length}/{MAX_CUSTOM_COLUMNS})
           </button>
+          {PAYMENTS_LAYOUT === "drawer" && (
+            <button
+              onClick={() => setPaymentsOpen(true)}
+              aria-haspopup="dialog"
+              className="text-sm bg-accent hover:bg-accent-hover text-white rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5"
+            >
+              <Wallet className="w-4 h-4" size={16} /> Payments &amp; History
+            </button>
+          )}
         </div>
       </div>
 
@@ -347,11 +360,22 @@ export default function InvoiceLedgerClient({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-      <div className="mt-4 shrink-0">
-      <PartyPaymentHistory partyId={forwarderId} totalInvoicedUsd={totalUsd} />
-      </div>
+      {PAYMENTS_LAYOUT === "card" ? (
+        <div className="mt-4 shrink-0">
+          <PartyPaymentHistory partyId={forwarderId} totalInvoicedUsd={totalUsd} />
+        </div>
+      ) : (
+        <PartyPaymentHistory
+          partyId={forwarderId}
+          partyName={forwarderName}
+          totalInvoicedUsd={totalUsd}
+          variant="drawer"
+          open={paymentsOpen}
+          onClose={() => setPaymentsOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+      <div className={`flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden ${PAYMENTS_LAYOUT === "drawer" ? "mt-4" : ""}`}>
       <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 border-b border-line shrink-0">
         <label style={{ flex: "1 1 260px", maxWidth: 340, display: "flex", alignItems: "center", gap: 8, height: 36, padding: "0 12px", border: "1px solid var(--line2)", borderRadius: 9, background: "var(--surf)" }}>
           <Search className="shrink-0" size={15} style={{ color: "var(--tx2)" }} />
@@ -392,6 +416,7 @@ export default function InvoiceLedgerClient({
           </select>
         )}
         {(statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || lineFilter !== "all" || search) && (
+          // Same compact round ✕ as Booking & Instructions' clear-filters.
           <button
             onClick={() => {
               setStatusFilter("all");
@@ -400,9 +425,12 @@ export default function InvoiceLedgerClient({
               setLineFilter("all");
               setSearch("");
             }}
-            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13 }}
+            aria-label="Clear filters"
+            title="Clear filters"
+            className="chip"
+            style={{ height: 36, width: 36, padding: 0, justifyContent: "center", color: "var(--accent)", borderColor: "var(--accent)" }}
           >
-            Clear filters
+            ✕
           </button>
         )}
         <div style={{ flex: "1 1 0" }} />
@@ -811,6 +839,9 @@ function EnterInvoiceModal({
   );
   const [suggestedCharges, setSuggestedCharges] = useState<{ name: string; amount: number }[]>([]);
   const [uploading, setUploading] = useState(false);
+  // The PDF the fields were read from - stored with the invoice on Save, in
+  // the container's Shipment Tracking documents (lib/forwarder-invoice-pdf.ts).
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [fetchingRate, setFetchingRate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -826,6 +857,7 @@ function EnterInvoiceModal({
       const res = await fetch("/api/forwarder-invoices/extract", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Extraction failed");
+      setPdfFile(file);
       const ex = json.extracted ?? {};
       setForm((f) => ({
         ...f,
@@ -910,6 +942,15 @@ function EnterInvoiceModal({
           customColumns.map((c) => [c.key, c.value_type === "number" ? Number(customValues[c.key]) || 0 : customValues[c.key] ?? ""])
         );
       }
+      // File the uploaded PDF first, so a failure stops before anything is
+      // saved (re-saving simply replaces it).
+      if (pdfFile && inv.tracking_id) {
+        const body = new FormData();
+        body.append("file", pdfFile);
+        const res = await fetch(`/api/forwarder-invoices/${inv.id}/pdf`, { method: "POST", body });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "Couldn't store the invoice PDF");
+      }
       const result = await patchInvoice(inv.id, updates);
       onSaved(result.invoice);
     } catch (err: any) {
@@ -930,7 +971,12 @@ function EnterInvoiceModal({
         </div>
 
         <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
-          <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          <div className="text-sm font-medium">{uploading ? "Extracting…" : pdfFile ? `📎 ${pdfFile.name} - read into the fields below` : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          {pdfFile && !uploading && (
+            <div className="text-xs text-muted mt-1">
+              {inv.tracking_id ? "Saved with this invoice - you'll find it under Docs in Shipment Tracking." : "Not linked to a container in Shipment Tracking, so the PDF itself won't be kept."}
+            </div>
+          )}
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
 

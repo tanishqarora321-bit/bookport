@@ -210,6 +210,22 @@ denied` lines on git commands are harmless noise — ignore them.
   sum. Letterhead from Settings (capitals), "By:" = the signed-in user,
   Ship Date = invoice date, Reference # blank by default (owner adds it
   on the Invoice page after confirming with the client).
+- **Forwarders polish (2026-11):** list + ledger header buttons are equal
+  width (grid of equal columns); the list's table header is sticky; the
+  ledger's clear-filters is the round ✕ like Booking & Instructions.
+  **Payments & History** is now a button next to Import Excel / Add Column
+  that opens Payment History in a right-side drawer (`PartyPaymentHistory`
+  `variant="drawer"`). REVERSIBLE: set `PAYMENTS_LAYOUT = "card"` in
+  `lib/ui-flags.ts` to get the old inline card back (owner asked to be able
+  to undo it). Truckers/Suppliers still use the card.
+- **Forwarder invoice PDFs (2026-11):** an invoice entered by uploading its
+  PDF (Enter Invoice) keeps the PDF in the `documents` bucket at
+  `{company}/{tracking}/forwarder-invoice-{invoiceId}.pdf`
+  (`lib/forwarder-invoice-pdf.ts`, no migration) and shows it in Shipment
+  Tracking's Docs dialog (view only, never emailed). Manual / Excel-import
+  invoices store nothing. The PDF is deleted with its invoice: invoice
+  delete, clearing the forwarder on the booking, container or booking
+  delete.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

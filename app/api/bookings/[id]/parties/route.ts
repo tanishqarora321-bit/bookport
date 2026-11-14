@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { removeForwarderInvoicePdfs } from "@/lib/forwarder-invoice-pdf";
 
 const VALID_ROLES = ["forwarder", "trucker", "supplier", "buyer"];
 
@@ -95,7 +96,13 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const trackingIds = (ownTracking ?? []).map((t: { id: string }) => t.id);
     if (trackingIds.length > 0) {
       const { table, partyCol } = INVOICE_TABLE_BY_ROLE[role];
+      // A forwarder's uploaded invoice PDFs go with their invoices.
+      const { data: removing } =
+        role === "forwarder"
+          ? await supabase.from(table).select("id, tracking_id").eq(partyCol, previousPartyId).in("tracking_id", trackingIds)
+          : { data: null };
       await supabase.from(table).delete().eq(partyCol, previousPartyId).in("tracking_id", trackingIds);
+      if (removing?.length) await removeForwarderInvoicePdfs(supabase, me.company_id, removing);
     }
   }
 
