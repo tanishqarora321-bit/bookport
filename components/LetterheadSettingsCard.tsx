@@ -9,6 +9,7 @@ type Config = {
   phone?: string;
   fax?: string;
   email?: string;
+  signed_by?: string;
   accent_color?: string;
   shipper_declaration?: string;
 };
@@ -24,6 +25,7 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
   const [phone, setPhone] = useState(config?.phone ?? "");
   const [fax, setFax] = useState(config?.fax ?? "");
   const [email, setEmail] = useState(config?.email ?? "");
+  const [signedBy, setSignedBy] = useState(config?.signed_by ?? "");
   const [accentColor, setAccentColor] = useState(config?.accent_color ?? "#0f172a");
   const [shipperDeclaration, setShipperDeclaration] = useState(config?.shipper_declaration ?? "");
   const [saving, setSaving] = useState(false);
@@ -44,6 +46,7 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
           phone,
           fax,
           email,
+          signed_by: signedBy,
           accent_color: accentColor,
           shipper_declaration: shipperDeclaration,
         }),
@@ -139,6 +142,10 @@ export default function LetterheadSettingsCard({ config, isAdmin }: { config: Co
                   <label htmlFor="le">Email</label>
                   <input id="le" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
+              </div>
+              <div className="field">
+                <label htmlFor="lsig">Invoice signatory (printed as &quot;By: …&quot; at the bottom of the Final Invoice)</label>
+                <input id="lsig" className="input" placeholder="NITIN SINGLA" value={signedBy} onChange={(e) => setSignedBy(e.target.value)} />
               </div>
               <div className="field">
                 <label htmlFor="lcol">Accent color</label>

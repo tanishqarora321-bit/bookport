@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt, Search } from "lucide-react";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt, Search, Wallet } from "lucide-react";
+import PartyPaymentHistory from "@/components/PartyPaymentHistory";
+import { PAYMENTS_LAYOUT } from "@/lib/ui-flags";
 import StatCard from "@/components/ui/StatCard";
 import { useYear } from "@/lib/year-context";
 import { invoiceInWorkingYear } from "@/lib/year-scope";
@@ -110,9 +112,13 @@ export default function BuyerInvoiceLedgerClient({
   // belongs to).
   const { year } = useYear();
   const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
-  const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [entering, setEntering] = useState<Invoice | null>(null);
+  // Pending = no invoice number yet (not imported, not generated) - a toggle
+  // in the header like the other ledgers, so it costs the table no space.
+  const [pendingOnly, setPendingOnly] = useState(false);
+  // Payments Received side panel (same Payment History as the other ledgers,
+  // but money received FROM the buyer).
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [paidFilter, setPaidFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
@@ -151,6 +157,7 @@ export default function BuyerInvoiceLedgerClient({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return yearInvoices.filter((inv) => {
+      if (pendingOnly && inv.invoice_number) return false;
       if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
       if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
       if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
@@ -163,14 +170,14 @@ export default function BuyerInvoiceLedgerClient({
       }
       return true;
     });
-  }, [yearInvoices, statusFilter, paidFilter, monthFilter, search]);
+  }, [yearInvoices, pendingOnly, statusFilter, paidFilter, monthFilter, search]);
 
   // Pagination matches the other ledgers.
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(0);
   useEffect(() => {
     setPage(0);
-  }, [statusFilter, paidFilter, monthFilter, search, pageSize, year]);
+  }, [pendingOnly, statusFilter, paidFilter, monthFilter, search, pageSize, year]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = page * pageSize;
   const paginated = useMemo(() => filtered.slice(pageStart, pageStart + pageSize), [filtered, pageStart, pageSize]);
@@ -224,32 +231,51 @@ export default function BuyerInvoiceLedgerClient({
   const unpaidCount = yearInvoices.filter((i) => i.paid_status === "UNPAID").length;
   const totalUsd = yearInvoices.reduce((s, i) => s + Number(i.total_usd || 0), 0);
 
-  const totalsByCurrency: Record<string, number> = {};
-  for (const inv of yearInvoices) {
-    totalsByCurrency[inv.currency] = (totalsByCurrency[inv.currency] ?? 0) + Number(inv.total || 0);
-  }
+  // Totals row (the filtered rows, like the other ledgers). "Total" is only
+  // summed when every row shares one currency.
+  const filteredTotalUsd = filtered.reduce((s, i) => s + Number(i.total_usd || 0), 0);
+  const filteredCurrencies = Array.from(new Set(filtered.map((i) => i.currency || "USD")));
+  const filteredTotal = filtered.reduce((s, i) => s + Number(i.total || 0), 0);
 
   const COLSPAN = (isAdmin ? 1 : 0) + LEDGER_COLUMN_WIDTHS.length;
   const tableWidth = (isAdmin ? CHECKBOX_COLUMN_WIDTH : 0) + LEDGER_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      <div className="shrink-0">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <BackButton href="/parties" label="Back to Buyers / Customers" />
           <h1 className="text-xl font-semibold text-ink">{buyerName} — Invoices</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/parties/${buyerId}/invoices/import`} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
+        {/* Equal columns sized to the widest label - all buttons the same
+            size. No "+ Add Invoice": a buyer invoice is imported or
+            generated (Generate Invoice on its row), never typed in. */}
+        <div className="grid grid-flow-col auto-cols-fr gap-2">
+          <button
+            onClick={() => setPendingOnly((v) => !v)}
+            aria-pressed={pendingOnly}
+            title="Invoices that don't have an invoice number yet (not imported or generated)"
+            className={`text-sm border rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5 ${pendingOnly ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-surface-2"}`}
+          >
+            <Clock className="w-4 h-4" size={16} /> Pending Invoices ({pendingCount})
+          </button>
+          <Link href={`/parties/${buyerId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
             Import Excel
           </Link>
-          <button onClick={() => setAdding(true)} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium">
-            + Add Invoice
-          </button>
+          {PAYMENTS_LAYOUT === "drawer" && (
+            <button
+              onClick={() => setPaymentsOpen(true)}
+              aria-haspopup="dialog"
+              className="text-sm bg-accent hover:bg-accent-hover text-white rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5"
+            >
+              <Wallet className="w-4 h-4" size={16} /> Payments Received
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4 shrink-0">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 shrink-0">
         <StatCard icon={Clock} label="Pending" value={pendingCount} tone={pendingCount > 0 ? "warning" : "default"} />
         <StatCard icon={Ship} label="On Water" value={onWaterCount} />
         <StatCard icon={CheckCircle2} label="Released" value={releasedCount} tone="success" />
@@ -257,27 +283,26 @@ export default function BuyerInvoiceLedgerClient({
         <StatCard icon={XCircle} label="Unpaid" value={unpaidCount} tone={unpaidCount > 0 ? "danger" : "default"} />
         <StatCard icon={DollarSign} label="Total (USD)" value={fmtMoney(totalUsd, "USD")} tone="success" />
       </div>
+      </div>
 
-      {adding && (
-        <AddInvoicePanel
-          buyerId={buyerId}
-          onClose={() => setAdding(false)}
-          onCreated={(inv) => {
-            setInvoices([inv, ...invoices]);
-            setAdding(false);
-          }}
-        />
-      )}
-
-      {entering && (
-        <EnterInvoiceModal
-          inv={entering}
-          onClose={() => setEntering(null)}
-          onSaved={(updated) => {
-            updateLocal(updated.id, updated);
-            setEntering(null);
-          }}
-        />
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+      {PAYMENTS_LAYOUT === "card" ? (
+        <div className="mt-4 mb-4 shrink-0">
+          <PartyPaymentHistory partyId={buyerId} totalInvoicedUsd={totalUsd} received />
+        </div>
+      ) : (
+        <>
+          <PartyPaymentHistory
+            partyId={buyerId}
+            partyName={buyerName}
+            totalInvoicedUsd={totalUsd}
+            variant="drawer"
+            open={paymentsOpen}
+            onClose={() => setPaymentsOpen(false)}
+            received
+          />
+          <div className="mt-4 shrink-0" />
+        </>
       )}
 
       <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
@@ -312,25 +337,24 @@ export default function BuyerInvoiceLedgerClient({
           <option value="PAID">Paid</option>
           <option value="UNPAID">Unpaid</option>
         </select>
-        {(statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || search) && (
+        {(pendingOnly || statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || search) && (
           <button
             onClick={() => {
+              setPendingOnly(false);
               setStatusFilter("all");
               setPaidFilter("all");
               setMonthFilter("all");
               setSearch("");
             }}
-            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13 }}
+            aria-label="Clear filters"
+            title="Clear filters"
+            className="chip"
+            style={{ height: 36, width: 36, padding: 0, justifyContent: "center", color: "var(--accent)", borderColor: "var(--accent)" }}
           >
-            Clear filters
+            ✕
           </button>
         )}
         <div style={{ flex: "1 1 0" }} />
-        {Object.entries(totalsByCurrency).map(([cur, total]) => (
-          <span key={cur} className="lbl num">
-            Total {cur}: <b style={{ color: "var(--tx)" }}>{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
-          </span>
-        ))}
         <span className="lbl num" aria-live="polite">
           <b style={{ color: "var(--tx)" }}>{filtered.length}</b> invoice{filtered.length === 1 ? "" : "s"}
         </span>
@@ -396,7 +420,6 @@ export default function BuyerInvoiceLedgerClient({
                 onChange={(patch) => updateLocal(inv.id, patch)}
                 onDelete={() => handleDelete(inv)}
                 deleting={deletingId === inv.id}
-                onEnterInvoice={() => setEntering(inv)}
                 colSpan={COLSPAN}
                 isAdmin={isAdmin}
                 selected={bulk.selected.has(inv.id)}
@@ -409,12 +432,28 @@ export default function BuyerInvoiceLedgerClient({
                   <EmptyState
                     icon={Receipt}
                     title={yearInvoices.length === 0 ? "No invoices yet for this buyer" : "No invoices match these filters"}
-                    hint={yearInvoices.length === 0 ? 'Click "+ Add Invoice" above to enter one.' : undefined}
+                    hint={yearInvoices.length === 0 ? "An invoice appears here as soon as a container with this buyer is added in Booking & Instructions, or import one with Import Excel." : undefined}
                   />
                 </td>
               </tr>
             )}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr className="font-medium bg-surface-2 border-t border-line">
+                {/* The label sits in the frozen Booking / Container columns,
+                    so it stays put while the amounts scroll with their own
+                    columns - same as the other ledgers. */}
+                {isAdmin && <td className="sticky left-0 z-10 bg-surface-2" />}
+                <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface-2 text-ink ${isAdmin ? "left-10" : "left-0"}`}>Totals in USD</td>
+                <td className={`sticky z-10 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`} />
+                <td colSpan={8} />
+                <td className="px-3 py-2 whitespace-nowrap">{filteredCurrencies.length === 1 ? fmtMoney(filteredTotal, filteredCurrencies[0]) : <span className="text-muted">—</span>}</td>
+                <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(filteredTotalUsd, "USD")}</td>
+                <td colSpan={LEDGER_COLUMN_WIDTHS.length - 12} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
@@ -438,6 +477,7 @@ export default function BuyerInvoiceLedgerClient({
             Next
           </button>
         </div>
+      </div>
       </div>
       </div>
 
@@ -495,302 +535,6 @@ function blankItem(): DraftItem {
   return { description: "", weight_kg: "", unit_price: "", amount: "" };
 }
 
-function AddInvoicePanel({
-  buyerId,
-  onClose,
-  onCreated,
-}: {
-  buyerId: string;
-  onClose: () => void;
-  onCreated: (inv: Invoice) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [looking, setLooking] = useState(false);
-  const [lookupResult, setLookupResult] = useState<any>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-
-  const [form, setForm] = useState({
-    invoice_number: "",
-    invoice_date: "",
-    bl_date: "",
-    due_date: "",
-    location: "",
-    weight: "",
-    weight_unit: "LBS",
-    currency: "USD",
-    fx_rate: "1",
-  });
-  const [items, setItems] = useState<DraftItem[]>([blankItem()]);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setSaveError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/buyer-invoices/extract", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Extraction failed");
-      const ex = json.extracted ?? {};
-      setForm((f) => ({
-        ...f,
-        invoice_number: ex.invoice_number ?? f.invoice_number,
-        invoice_date: ex.invoice_date ?? f.invoice_date,
-        currency: ex.currency || f.currency,
-        weight: ex.weight != null ? String(ex.weight) : f.weight,
-        weight_unit: ex.weight_unit || f.weight_unit,
-      }));
-      if (Array.isArray(ex.items) && ex.items.length > 0) {
-        setItems(
-          ex.items.map((it: any) => ({
-            description: it.description ?? "",
-            weight_kg: "",
-            unit_price: "",
-            amount: it.amount != null ? String(it.amount) : "",
-          }))
-        );
-      }
-    } catch (err: any) {
-      setSaveError(err.message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function lookup() {
-    if (!query.trim()) return;
-    setLooking(true);
-    setLookupError(null);
-    try {
-      const res = await fetch(`/api/tracking-lookup?query=${encodeURIComponent(query.trim())}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Lookup failed");
-      setLookupResult(json);
-      if (!json.matched) {
-        setLookupError(
-          "No matching Tracking entry found for that number. You can still enter this invoice manually below — it just won't have a live ETA/status link, and Booking/Container/Forwarder/Month of Loading won't auto-fill."
-        );
-      }
-    } catch (err: any) {
-      setLookupError(err.message);
-    } finally {
-      setLooking(false);
-    }
-  }
-
-  function updateItem(i: number, patch: Partial<DraftItem>) {
-    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
-  }
-  function addItemRow() {
-    setItems([...items, blankItem()]);
-  }
-  function removeItemRow(i: number) {
-    setItems(items.filter((_, idx) => idx !== i));
-  }
-
-  const computedTotal = items.reduce((sum, it) => {
-    const explicit = it.amount !== "" ? Number(it.amount) : null;
-    if (explicit !== null && !Number.isNaN(explicit)) return sum + explicit;
-    const w = Number(it.weight_kg);
-    const p = Number(it.unit_price);
-    if (it.weight_kg !== "" && it.unit_price !== "" && !Number.isNaN(w) && !Number.isNaN(p)) {
-      return sum + w * p;
-    }
-    return sum;
-  }, 0);
-
-  async function save() {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch("/api/buyer-invoices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buyer_id: buyerId,
-          tracking_id: lookupResult?.tracking_id ?? null,
-          booking_number: lookupResult?.booking_number ?? query,
-          container_number: lookupResult?.container_number ?? null,
-          month_of_loading: lookupResult?.month_of_loading ?? null,
-          forwarder_name: lookupResult?.forwarder_name ?? null,
-          ...form,
-          items: items.filter((it) => it.description || it.weight_kg || it.unit_price || it.amount),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to save invoice");
-      onCreated(json.invoice);
-    } catch (err: any) {
-      setSaveError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4">
-      <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface hover:border-accent text-center cursor-pointer mb-3">
-        <div className="text-sm font-medium text-ink">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills invoice number/date/currency/weight and cost lines below)"}</div>
-        <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={uploading} />
-      </label>
-
-      <div className="flex gap-2 mb-3">
-        <input
-          placeholder="Enter Booking Number or Container Number"
-          className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm flex-1"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && lookup()}
-        />
-        <button onClick={lookup} disabled={looking} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60">
-          {looking ? "Looking up…" : "Lookup"}
-        </button>
-      </div>
-
-      {lookupError && <div className="text-xs text-warning bg-warning-soft border border-warning/30 rounded-lg p-2 mb-3">{lookupError}</div>}
-
-      {lookupResult?.matched && (
-        <div className="grid grid-cols-3 gap-2 text-xs mb-3 bg-surface border border-line rounded-lg p-3">
-          <div><span className="text-muted">Matched by:</span> {lookupResult.matched_by}</div>
-          <div><span className="text-muted">Container:</span> {lookupResult.container_number || "—"}</div>
-          <div><span className="text-muted">Forwarder:</span> {lookupResult.forwarder_name || "—"}</div>
-          <div><span className="text-muted">Month of Loading:</span> {lookupResult.month_of_loading || "—"}</div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-4 gap-3 mb-4">
-        <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
-        <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
-        <LabeledInput label="BL Date" type="date" value={form.bl_date} onChange={(v) => setForm({ ...form, bl_date: v })} />
-        <LabeledInput label="Due Date" type="date" value={form.due_date} onChange={(v) => setForm({ ...form, due_date: v })} />
-        <LabeledInput label="Location" value={form.location} onChange={(v) => setForm({ ...form, location: v })} />
-        <LabeledInput label="Weight" type="number" value={form.weight} onChange={(v) => setForm({ ...form, weight: v })} />
-        <div>
-          <div className="text-xs text-muted mb-0.5">Weight Unit</div>
-          <select
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-            value={form.weight_unit}
-            onChange={(e) => setForm({ ...form, weight_unit: e.target.value })}
-          >
-            <option value="LBS">LBS</option>
-            <option value="KG">KG</option>
-          </select>
-        </div>
-        <div>
-          <div className="text-xs text-muted mb-0.5">Currency</div>
-          <select
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-            value={form.currency}
-            onChange={(e) => setForm({ ...form, currency: e.target.value })}
-          >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="INR">INR</option>
-            <option value="GBP">GBP</option>
-            <option value="AED">AED</option>
-          </select>
-        </div>
-        <LabeledInput
-          label={`FX Rate (→ USD)`}
-          type="number"
-          value={form.fx_rate}
-          onChange={(v) => setForm({ ...form, fx_rate: v })}
-        />
-      </div>
-
-      {/* Cost section -- kept visually separate, this is the line-item table */}
-      <div className="border-t border-line pt-3">
-        <div className="text-xs font-medium text-text-2 mb-2">Cost Section</div>
-        <table className="w-full text-sm mb-2">
-          <thead>
-            <tr className="text-left text-muted">
-              <th className="pb-1 pr-2 font-normal">Description</th>
-              <th className="pb-1 pr-2 font-normal w-28">Weight (KG)</th>
-              <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
-              <th className="pb-1 pr-2 font-normal w-28">Amount</th>
-              <th className="pb-1 w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it, i) => (
-              <tr key={i}>
-                <td className="pr-2 pb-1">
-                  <input
-                    className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                    value={it.description}
-                    onChange={(e) => updateItem(i, { description: e.target.value })}
-                  />
-                </td>
-                <td className="pr-2 pb-1">
-                  <input
-                    type="number"
-                    className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                    value={it.weight_kg}
-                    onChange={(e) => updateItem(i, { weight_kg: e.target.value })}
-                  />
-                </td>
-                <td className="pr-2 pb-1">
-                  <input
-                    type="number"
-                    step="0.0001"
-                    className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                    value={it.unit_price}
-                    onChange={(e) => updateItem(i, { unit_price: e.target.value })}
-                  />
-                </td>
-                <td className="pr-2 pb-1">
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="auto"
-                    className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                    value={it.amount}
-                    onChange={(e) => updateItem(i, { amount: e.target.value })}
-                  />
-                </td>
-                <td className="pb-1 text-center">
-                  {items.length > 1 && (
-                    <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
-                      ✕
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between">
-          <button onClick={addItemRow} className="text-xs text-accent hover:underline">
-            + Add Line
-          </button>
-          <div className="text-sm text-text-2">
-            Computed total: <span className="font-medium text-ink">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
-              <span className="text-muted"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {saveError && <div className="text-xs text-cutoff mt-3">{saveError}</div>}
-
-      <div className="flex gap-2 mt-3">
-        <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50">
-          {saving ? "Saving…" : "Save Invoice"}
-        </button>
-        <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm">
-          Cancel
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function LabeledInput({
   label,
   value,
@@ -820,7 +564,6 @@ function InvoiceRows({
   onChange,
   onDelete,
   deleting,
-  onEnterInvoice,
   colSpan,
   isAdmin = false,
   selected = false,
@@ -833,7 +576,6 @@ function InvoiceRows({
   onChange: (patch: Partial<Invoice>) => void;
   onDelete: () => void;
   deleting: boolean;
-  onEnterInvoice: () => void;
   colSpan: number;
   isAdmin?: boolean;
   selected?: boolean;
@@ -865,6 +607,13 @@ function InvoiceRows({
         invoiceNumber = json.invoice_no;
         await patchInvoice(inv.id, { invoice_number: invoiceNumber });
         onChange({ invoice_number: invoiceNumber });
+      }
+      // The ledger's Date column is the invoice date - a generated invoice
+      // is dated today when it has none (the PDF prints the same date).
+      if (!inv.invoice_date) {
+        const today = new Date().toISOString().slice(0, 10);
+        await patchInvoice(inv.id, { invoice_date: today });
+        onChange({ invoice_date: today });
       }
 
       // The documents route (below) reads invoice_no off the TRACKING
@@ -936,15 +685,10 @@ function InvoiceRows({
         <td className={`px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis sticky z-10 bg-surface group-hover:bg-surface-2 font-semibold text-accent shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`}>{inv.container_number || "—"}</td>
         <EditableCell value={inv.invoice_date} isDate onSave={(v) => patchInvoice(inv.id, { invoice_date: v }).then(() => onChange({ invoice_date: v }))} />
         <Td>{fmtMonth(inv.month_of_loading)}</Td>
-        {inv.invoice_number ? (
-          <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
-        ) : (
-          <td className="px-3 py-2 whitespace-nowrap">
-            <button onClick={onEnterInvoice} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-2 py-1 text-xs font-medium">
-              Enter Invoice
-            </button>
-          </td>
-        )}
+        {/* The invoice number from the import, or the one Generate Invoice
+            assigned - no Enter Invoice / upload step (2026-11). Still
+            correctable with a click. */}
+        <EditableCell value={inv.invoice_number} onSave={(v) => patchInvoice(inv.id, { invoice_number: v }).then(() => onChange({ invoice_number: v }))} />
         <Td>{inv.forwarder_name || "—"}</Td>
         <EditableCell value={inv.location} onSave={(v) => patchInvoice(inv.id, { location: v }).then(() => onChange({ location: v }))} />
         <EditableCell value={inv.bl_date} isDate onSave={(v) => patchInvoice(inv.id, { bl_date: v }).then(() => onChange({ bl_date: v }))} />
@@ -1065,235 +809,6 @@ function InvoiceRows({
     </>
   );
 }
-
-// ---------------- Enter Invoice modal: PDF upload (or manual entry) for a pending shell ----------------
-
-function EnterInvoiceModal({
-  inv, onClose, onSaved,
-}: { inv: Invoice; onClose: () => void; onSaved: (invoice: Invoice) => void }) {
-  const [form, setForm] = useState({
-    invoice_number: inv.invoice_number ?? "",
-    invoice_date: inv.invoice_date ?? "",
-    currency: inv.currency || "USD",
-    fx_rate: String(inv.fx_rate ?? 1),
-  });
-  const [items, setItems] = useState<DraftItem[]>(
-    inv.items.length > 0
-      ? inv.items.map((it) => ({
-          description: it.description ?? "",
-          weight_kg: it.weight_kg != null ? String(it.weight_kg) : "",
-          unit_price: it.unit_price != null ? String(it.unit_price) : "",
-          amount: it.amount != null ? String(it.amount) : "",
-        }))
-      : [blankItem()]
-  );
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/buyer-invoices/extract", { method: "POST", body });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Extraction failed");
-      const ex = json.extracted ?? {};
-      setForm((f) => ({
-        invoice_number: ex.invoice_number ?? f.invoice_number,
-        invoice_date: ex.invoice_date ?? f.invoice_date,
-        currency: ex.currency || f.currency,
-        fx_rate: f.fx_rate,
-      }));
-      if (Array.isArray(ex.items) && ex.items.length > 0) {
-        setItems(
-          ex.items.map((it: any) => ({
-            description: it.description ?? "",
-            weight_kg: "",
-            unit_price: "",
-            amount: it.amount != null ? String(it.amount) : "",
-          }))
-        );
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  function updateItem(i: number, patch: Partial<DraftItem>) {
-    setItems(items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
-  }
-  function addItemRow() {
-    setItems([...items, blankItem()]);
-  }
-  function removeItemRow(i: number) {
-    setItems(items.filter((_, idx) => idx !== i));
-  }
-
-  const computedTotal = items.reduce((sum, it) => {
-    const explicit = it.amount !== "" ? Number(it.amount) : null;
-    if (explicit !== null && !Number.isNaN(explicit)) return sum + explicit;
-    const w = Number(it.weight_kg);
-    const p = Number(it.unit_price);
-    if (it.weight_kg !== "" && it.unit_price !== "" && !Number.isNaN(w) && !Number.isNaN(p)) {
-      return sum + w * p;
-    }
-    return sum;
-  }, 0);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/buyer-invoices/${inv.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_number: form.invoice_number,
-          invoice_date: form.invoice_date,
-          currency: form.currency,
-          fx_rate: form.fx_rate,
-          items: items.filter((it) => it.description || it.weight_kg || it.unit_price || it.amount),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to save invoice");
-      onSaved(json.invoice);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-ink">
-            Enter Invoice — {inv.booking_number || "—"} / {inv.container_number || "—"}
-          </h2>
-          <button onClick={onClose} className="text-muted hover:text-ink" aria-label="Close dialog">✕</button>
-        </div>
-
-        <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
-          <div className="text-sm font-medium text-ink">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
-          <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
-        </label>
-
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <LabeledInput label="Invoice Number" value={form.invoice_number} onChange={(v) => setForm({ ...form, invoice_number: v })} />
-          <LabeledInput label="Invoice Date" type="date" value={form.invoice_date} onChange={(v) => setForm({ ...form, invoice_date: v })} />
-          <div>
-            <div className="text-xs text-muted mb-0.5">Currency</div>
-            <select
-              className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-              value={form.currency}
-              onChange={(e) => setForm({ ...form, currency: e.target.value })}
-            >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="INR">INR</option>
-              <option value="GBP">GBP</option>
-              <option value="AED">AED</option>
-            </select>
-          </div>
-          <LabeledInput label="FX Rate (→ USD)" type="number" value={form.fx_rate} onChange={(v) => setForm({ ...form, fx_rate: v })} />
-        </div>
-
-        <div className="border-t border-line pt-3">
-          <div className="text-xs font-medium text-text-2 mb-2">Cost Section</div>
-          <table className="w-full text-sm mb-2">
-            <thead>
-              <tr className="text-left text-muted">
-                <th className="pb-1 pr-2 font-normal">Description</th>
-                <th className="pb-1 pr-2 font-normal w-28">Weight (KG)</th>
-                <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
-                <th className="pb-1 pr-2 font-normal w-28">Amount</th>
-                <th className="pb-1 w-8"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((it, i) => (
-                <tr key={i}>
-                  <td className="pr-2 pb-1">
-                    <input
-                      className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                      value={it.description}
-                      onChange={(e) => updateItem(i, { description: e.target.value })}
-                    />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input
-                      type="number"
-                      className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                      value={it.weight_kg}
-                      onChange={(e) => updateItem(i, { weight_kg: e.target.value })}
-                    />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input
-                      type="number"
-                      step="0.0001"
-                      className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                      value={it.unit_price}
-                      onChange={(e) => updateItem(i, { unit_price: e.target.value })}
-                    />
-                  </td>
-                  <td className="pr-2 pb-1">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="auto"
-                      className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full"
-                      value={it.amount}
-                      onChange={(e) => updateItem(i, { amount: e.target.value })}
-                    />
-                  </td>
-                  <td className="pb-1 text-center">
-                    {items.length > 1 && (
-                      <button onClick={() => removeItemRow(i)} className="text-cutoff text-xs" aria-label="Remove item row">
-                        ✕
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="flex items-center justify-between">
-            <button onClick={addItemRow} className="text-xs text-accent hover:underline">
-              + Add Line
-            </button>
-            <div className="text-sm text-text-2">
-              Computed total: <span className="font-medium text-ink">{form.currency} {computedTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              {Number(form.fx_rate) !== 1 && !Number.isNaN(Number(form.fx_rate)) && (
-                <span className="text-muted"> (≈ USD {(computedTotal * Number(form.fx_rate)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {error && <div className="text-sm text-cutoff mt-3">{error}</div>}
-
-        <div className="flex gap-2 mt-4 justify-end">
-          <button onClick={onClose} className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2 text-sm">Cancel</button>
-          <button onClick={save} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60">
-            {saving ? "Saving…" : "Save Invoice"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------- Cost section: the per-invoice line-item sub-table ----------------
 
 function CostSection({
   invoiceId,

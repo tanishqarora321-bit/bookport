@@ -1,5 +1,5 @@
 import { INVOICE_SLOTS } from "./slots/finalInvoice";
-import { fillTemplate, fitLines, wrapForSlot } from "./templateFill";
+import { fillTemplate, fitLines, wrapForSlot, type TemplateSlots } from "./templateFill";
 
 export type TemplateConfig = {
   company_name: string;
@@ -7,6 +7,7 @@ export type TemplateConfig = {
   phone?: string;
   fax?: string;
   email?: string;
+  signed_by?: string; // Settings > letterhead: the "By:" signatory
   accent_color?: string;
 };
 
@@ -79,8 +80,10 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   const voice = [template.phone ? `VOICE: ${template.phone}` : "", template.fax ? `FAX: ${template.fax}` : ""].filter(Boolean).join(" - ");
   v.hdr4 = voice;
   v.hdr5 = template.email ? `E-mail: ${template.email}` : "";
-  v.footer_company = template.company_name || "";
-  v.footer_by = data.signed_by || "";
+  // "CNINTERNATIONALUSA INC. / By: NITIN SINGLA" - capitals, as on the
+  // owner's invoice ("By:" itself is part of the template).
+  v.footer_company = (template.company_name || "").toUpperCase();
+  v.footer_by = (data.signed_by || template.signed_by || "").toUpperCase();
 
   v.date = dmy(data.invoice_date);
   v.inv = data.invoice_no;
@@ -108,7 +111,7 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   v.total_weight = weight ? `TOTAL WEIGHT ${weight} ${unit}` : "";
 
   // Description lines: the goods line(s) flush left, charges indented.
-  type Line = { text: string; indent: boolean };
+  type Line = { text: string; indent: boolean; amount?: string };
   const items = (data.items ?? []).filter((it) => (it.description ?? "").trim() || Number(it.amount));
   let lines: Line[];
   let total: number;
@@ -118,9 +121,9 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
       const amount = money(it.amount);
       if (it.weight_kg != null && it.unit_price != null) {
         const lead = bales ? `${bales} Bales ` : "";
-        return { text: `${lead}${desc} ${money(it.weight_kg)} ${unit}@${money(it.unit_price)}=$${amount}`, indent: false };
+        return { text: `${lead}${desc} ${money(it.weight_kg)} ${unit}@${money(it.unit_price)}=$${amount}`, indent: false, amount };
       }
-      return { text: `${desc}  @=$${amount}`, indent: true };
+      return { text: `${desc}  @=$${amount}`, indent: true, amount };
     });
     total = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
   } else {
@@ -131,12 +134,30 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   }
   if (lines.length > MAX_LINES) {
     const rest = lines.slice(MAX_LINES - 1).map((l) => l.text.trim()).join(" ; ");
-    lines = [...lines.slice(0, MAX_LINES - 1), { text: rest, indent: true }];
+    const restAmount = lines.slice(MAX_LINES - 1).reduce((sum, l) => sum + (parseFloat(l.amount || "") || 0), 0);
+    lines = [...lines.slice(0, MAX_LINES - 1), { text: rest, indent: true, amount: money(restAmount) }];
   }
   lines.forEach((l, i) => (v[l.indent ? `line${i + 1}i` : `line${i + 1}`] = l.text));
 
   const totalText = total ? `$ ${money(total)}` : "";
-  v.amount = v.cost_of_goods = v.balance_due = totalText;
+  v.cost_of_goods = v.balance_due = totalText;
 
-  return fillTemplate("final-invoice-template.pdf", INVOICE_SLOTS, v, `Invoice ${data.invoice_no}`);
+  // Amount column (owner, 2026-11): with Cost section lines, each line's own
+  // amount sits in the Amount column on that line's row - goods, Trucking,
+  // Commission, Ocean Freight each separated - and their sum is Cost of
+  // Goods / Balance Due. Without lines, the single total stays at the top,
+  // as on the original.
+  const slots: TemplateSlots = { ...INVOICE_SLOTS };
+  if (items.length > 0) {
+    lines.forEach((l, i) => {
+      const lineSlot = INVOICE_SLOTS[`line${i + 1}`][0];
+      // Right-aligned inside the Amount box (x 643-733 px) so the figures line up.
+      slots[`amt${i + 1}`] = [{ ...lineSlot, left: 646, right: 726, align: "right" }];
+      if (l.amount) v[`amt${i + 1}`] = `$ ${l.amount}`;
+    });
+  } else {
+    v.amount = totalText;
+  }
+
+  return fillTemplate("final-invoice-template.pdf", slots, v, `Invoice ${data.invoice_no}`);
 }
