@@ -99,7 +99,8 @@ export default function PartyPaymentHistory({
   const totalPaidUsd = (payments ?? []).reduce((s, p) => s + p.amount * (p.fx_rate || 1), 0);
   const netOwedUsd = totalInvoicedUsd - totalPaidUsd;
 
-  const PAGE_SIZE = isDrawer ? 8 : 3;
+  // Paged so Previous / Next always stays in view (5 fit the side panel).
+  const PAGE_SIZE = isDrawer ? 5 : 3;
   const pageCount = Math.max(1, Math.ceil((payments ?? []).length / PAGE_SIZE));
   const pageStart = page * PAGE_SIZE;
   const paginatedPayments = (payments ?? []).slice(pageStart, pageStart + PAGE_SIZE);

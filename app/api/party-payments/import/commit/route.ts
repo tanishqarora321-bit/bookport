@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
-import { PARTY_PAYMENT_DATE_KEYS, PARTY_PAYMENT_NUMERIC_KEYS } from "@/lib/party-payment-import-fields";
+import { PARTY_PAYMENT_IMPORT_CURRENCIES } from "@/lib/party-payment-import-fields";
 import { parseDateish } from "@/lib/parse-date";
 
 export const maxDuration = 60;
@@ -13,30 +13,12 @@ function parseNumeric(v: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-// A real sheet's Currency column is just as likely to have the symbol
-// ("$", "€") as the code ("USD", "EUR") - matches the same 5 currencies
-// the manual +Add Payment form offers (see PartyPaymentHistory.tsx's
-// CURRENCIES list).
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  "$": "USD",
-  "€": "EUR",
-  "₹": "INR",
-  "£": "GBP",
-  "AED": "AED",
-  "د.إ": "AED",
-};
-function normalizeCurrency(raw: string): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "USD";
-  if (CURRENCY_SYMBOLS[trimmed]) return CURRENCY_SYMBOLS[trimmed];
-  return trimmed.toUpperCase();
-}
-
 type Skip = { row: number; reason: string };
 
 // Bulk version of the single POST in app/api/party-payments/route.ts -
 // applies the exact same validation and defaults (amount must be a
-// positive number; currency defaults to USD; fx_rate to 1; date to
+// positive number; currency + fx_rate are chosen once in the import dialog
+// (USD, EUR or INR) and applied to every row; date to
 // today; applies_to_year from the date), just looped per sheet row and
 // writing directly to party_payments instead of calling that endpoint
 // over HTTP for each row.
@@ -61,6 +43,16 @@ export async function POST(req: NextRequest) {
     if (!headerName) continue;
     const idx = headers.indexOf(headerName);
     if (idx !== -1) colIndex[key] = idx;
+  }
+
+  // One currency + FX rate for the whole sheet, chosen in the import dialog.
+  const currency = String(body.currency || "USD").toUpperCase();
+  if (!(PARTY_PAYMENT_IMPORT_CURRENCIES as readonly string[]).includes(currency)) {
+    return NextResponse.json({ error: `Currency must be one of ${PARTY_PAYMENT_IMPORT_CURRENCIES.join(", ")}.` }, { status: 400 });
+  }
+  const fxRate = currency === "USD" ? 1 : Number(body.fx_rate);
+  if (!isFinite(fxRate) || fxRate <= 0) {
+    return NextResponse.json({ error: "Enter the FX rate to USD (a number above 0) for a non-USD import." }, { status: 400 });
   }
 
   if (colIndex["amount"] === undefined) {
@@ -94,14 +86,11 @@ export async function POST(req: NextRequest) {
     const appliesToYearRaw = get("applies_to_year");
     const appliesToYear = (appliesToYearRaw && parseNumeric(appliesToYearRaw)) || new Date(paidOn).getFullYear();
 
-    const fxRateRaw = get("fx_rate");
-    const fxRate = (fxRateRaw && parseNumeric(fxRateRaw)) || 1;
-
     toInsert.push({
       company_id: companyId,
       party_id: partyId,
       amount,
-      currency: normalizeCurrency(get("currency")),
+      currency,
       fx_rate: fxRate,
       paid_on: paidOn,
       applies_to_year: appliesToYear,
