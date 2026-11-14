@@ -8,7 +8,7 @@ import BackButton from "@/components/ui/BackButton";
 import { useYear } from "@/lib/year-context";
 
 type ParseResult = { headers: string[]; rows: string[][]; rowNumbers?: number[]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean };
-type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; bookingsCreated?: number; newBookingYear?: number | null };
+type CommitResult = { imported: number; total: number; skipped: { row: number; reason?: string }[]; bookingsCreated?: number; newBookingYear?: number | null; matchedByContainer?: number };
 // One booking number this import would have to create. `containers` are the
 // distinct Container Numbers the sheet lists for it (>1 -> it lands on
 // Multiple Bookings & Instructions); `month` (0-11) is the Month of Loading
@@ -560,6 +560,12 @@ export default function SupplierInvoiceImportClient({ supplierId, supplierName }
             {result.skipped.length > 0 && <span className="badge b-neu">{result.skipped.length} skipped</span>}
           </div>
           <div className="meta">of {result.total} invoice{result.total === 1 ? "" : "s"} in the file</div>
+          {!!result.matchedByContainer && (
+            <div className="meta">
+              {result.matchedByContainer} invoice{result.matchedByContainer === 1 ? "" : "s"} matched an existing booking by Container Number (the
+              sheet&apos;s Booking Number wasn&apos;t found anywhere).
+            </div>
+          )}
           {!!result.bookingsCreated && (
             <div className="meta">
               {result.bookingsCreated} new booking{result.bookingsCreated === 1 ? "" : "s"} created

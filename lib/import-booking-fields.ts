@@ -76,3 +76,17 @@ export async function monthOfLoadingFor(supabase: any, bookingId: string | null 
   }
   return sheetMonth;
 }
+
+// Container numbers are compared without spaces/tabs and in capitals - a
+// sheet's "FFAU 1761558" or "\tGESU6385326" is the same container as
+// FFAU1761558 / GESU6385326 (found in a real supplier statement).
+export function normalizeContainerNo(v: string | null | undefined): string {
+  return (v ?? "").replace(/\s+/g, "").toUpperCase();
+}
+
+// Normalizes the mapped Container Number column of a parsed sheet in place.
+export function normalizeContainerColumn(rows: string[][], colIndex: Record<string, number>) {
+  const c = colIndex["container_number"];
+  if (c === undefined) return;
+  for (const r of rows) if (r[c] != null) r[c] = normalizeContainerNo(r[c]);
+}

@@ -1,5 +1,5 @@
 import { fillTrackingBlanks } from "@/lib/tracking-master";
-import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor, normalizeContainerColumn, normalizeContainerNo } from "@/lib/import-booking-fields";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
@@ -112,6 +112,8 @@ export async function POST(req: NextRequest) {
     const idx = headers.indexOf(headerName);
     if (idx !== -1) colIndex[key] = idx;
   }
+  // "FFAU 1761558" / "\tGESU6385326" -> FFAU1761558 / GESU6385326.
+  normalizeContainerColumn(rows, colIndex);
 
   if (colIndex["booking_number"] === undefined) {
     return NextResponse.json({ error: "Booking Number must be mapped to a column before importing." }, { status: 400 });
@@ -200,6 +202,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Container-to-container: a statement's "Booking Number" column isn't
+  // always a real booking number (a real Evadam statement had the container
+  // number + "B" there), which would create a fake booking per container.
+  // When the sheet's booking number exists nowhere but its container is on
+  // exactly ONE existing booking, the invoice goes to that booking instead.
+  let matchedByContainer = 0;
+  {
+    const bookingNoById = new Map<string, string>();
+    for (const b of allBookings ?? []) if (b.carrier_booking_no) bookingNoById.set(b.id, b.carrier_booking_no);
+    const bookingsByContainer = new Map<string, Set<string>>();
+    for (let from = 0; ; from += 1000) {
+      const { data: page } = await supabase
+        .from("containers")
+        .select("container_no, booking_id")
+        .eq("company_id", companyId)
+        .not("container_no", "is", null)
+        .order("id")
+        .range(from, from + 999);
+      for (const c of page ?? []) {
+        const no = bookingNoById.get(c.booking_id);
+        const cont = normalizeContainerNo(c.container_no);
+        if (!no || !cont) continue;
+        if (!bookingsByContainer.has(cont)) bookingsByContainer.set(cont, new Set());
+        bookingsByContainer.get(cont)!.add(no);
+      }
+      if (!page || page.length < 1000) break;
+    }
+    for (const g of groups) {
+      if (bookingIdByNumber.has(g.bookingNumber.toLowerCase())) continue;
+      const found = bookingsByContainer.get(normalizeContainerNo(g.header["container_number"]));
+      if (found && found.size === 1) {
+        g.bookingNumber = Array.from(found)[0];
+        matchedByContainer++;
+      }
+    }
+  }
+
   const groupsByBooking = new Map<string, Group[]>();
   for (const g of groups) {
     const key = g.bookingNumber.toLowerCase();
@@ -279,7 +318,7 @@ export async function POST(req: NextRequest) {
       currentSupplierName: c.currentSupplierName,
     }));
     const newBookingGroups = Array.from(unknownKeys).map(bookingSummary);
-    return NextResponse.json({ dryRun: true, duplicateGroups, newBookingGroups });
+    return NextResponse.json({ dryRun: true, duplicateGroups, newBookingGroups, matchedByContainer });
   }
 
   const reservedNos = await reserveBookingNos(supabase, groupsByBooking.size, companyId);
@@ -659,5 +698,5 @@ export async function POST(req: NextRequest) {
     await Promise.all(bookingList.slice(i, i + CONCURRENCY).map(processBooking));
   }
 
-  return NextResponse.json({ imported, total: groups.length, skipped, bookingsCreated, newBookingYear });
+  return NextResponse.json({ imported, total: groups.length, skipped, bookingsCreated, newBookingYear, matchedByContainer });
 }

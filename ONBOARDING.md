@@ -259,6 +259,14 @@ An invoice's **Month of Loading** on import follows the same rule
 (`monthOfLoadingFor`): the booking's ERD in Booking & Instructions wins;
 when that's blank the sheet's month fills both the ERD and the invoice;
 when both are blank, the container's ETA.
+Container numbers are compared without spaces/tabs, in capitals
+(`normalizeContainerColumn`, all four imports). Supplier import: when the
+sheet's Booking Number exists nowhere but its container is on exactly one
+booking, the invoice goes to that booking (a real Evadam statement had
+"container + B" in its Booking Number column). `parseDateish` rejects
+years outside 1990-2100 (a "08-05-20225" typo used to store year 20225).
+Supplier ledger now has a Totals row (frozen label) and Payments & History
+last/blue like Forwarders & Truckers.
 
 Repeat invoices on one booking+container: the commit route matches the
 existing invoice with the SAME invoice number first, then a pending (blank)
