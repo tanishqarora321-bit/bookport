@@ -58,7 +58,8 @@ export default function UploadBlCell({
         className={size === "lg" ? "btn" : "btn btn-xs"}
         style={
           blNumber
-            ? { borderColor: "var(--ok)", color: "var(--ok)", maxWidth: size === "lg" ? 220 : 140 }
+            ? // The header ("lg") shows the whole BL number - no cut-off.
+              { borderColor: "var(--ok)", color: "var(--ok)", ...(size === "lg" ? {} : { maxWidth: 140 }) }
             : size === "lg"
             ? undefined
             : { borderColor: "var(--accent)", color: "var(--accent)" }
