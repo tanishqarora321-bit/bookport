@@ -63,3 +63,16 @@ export async function fillBookingBlanks(
   }
   return fill;
 }
+
+// An invoice's Month of Loading on import (owner rule, 2026-11, all four
+// imports): Booking & Instructions wins - the booking's ERD when it has one
+// (after fillBookingBlanks above has filled a blank ERD from the sheet),
+// otherwise the sheet's own month. Null when neither has one (the import
+// then falls back to the container's ETA).
+export async function monthOfLoadingFor(supabase: any, bookingId: string | null | undefined, sheetMonth: string | null): Promise<string | null> {
+  if (bookingId) {
+    const { data } = await supabase.from("bookings").select("erd").eq("id", bookingId).maybeSingle();
+    if (data?.erd) return String(data.erd).slice(0, 10);
+  }
+  return sheetMonth;
+}

@@ -1,5 +1,5 @@
 import { fillTrackingBlanks } from "@/lib/tracking-master";
-import { fillBookingBlanks } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
@@ -499,7 +499,6 @@ export async function POST(req: NextRequest) {
       if (parsed) updates[dateKey] = parsed.toISOString().slice(0, 10);
     }
     if (header["paid_status"]) updates.paid_status = header["paid_status"].trim().toUpperCase() === "PAID" ? "PAID" : "UNPAID";
-    if (rowErd) updates.month_of_loading = rowErd;
     if (header["invoice_number"]) latestInvoiceNumber.set(targetId!, header["invoice_number"]);
 
     // Booking-level values (Month of Loading / ERD, Shipping Line, POL, POD,
@@ -517,6 +516,10 @@ export async function POST(req: NextRequest) {
         });
         if (filled.erd) bookingErdByNumber.set(key, filled.erd);
       }
+      // Month of Loading: Booking & Instructions' ERD wins (now filled
+      // from the sheet when it was blank), else the sheet's own month.
+      const mol = await monthOfLoadingFor(supabase, bookingId, rowErd);
+      if (mol) updates.month_of_loading = mol;
     }
 
     const trackingUpdates: Record<string, any> = {};

@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { BUYER_INVOICE_CHARGE_LINES } from "@/lib/buyer-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { fillBookingBlanks } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
 import { fillTrackingBlanks } from "@/lib/tracking-master";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
@@ -357,7 +357,11 @@ export async function POST(req: NextRequest) {
 
     // ---- The invoice header ----
     const updates: Record<string, any> = {};
-    if (rowErd) updates.month_of_loading = rowErd;
+    // Month of Loading: Booking & Instructions' ERD wins, else the sheet's.
+    {
+      const mol = await monthOfLoadingFor(supabase, bookingId, rowErd);
+      if (mol) updates.month_of_loading = mol;
+    }
     if (get("location")) updates.location = get("location");
     if (rowInvoiceNumber) updates.invoice_number = rowInvoiceNumber;
     for (const k of ["invoice_date", "bl_date", "due_date"]) {

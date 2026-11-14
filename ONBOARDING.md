@@ -255,6 +255,10 @@ wins (`fillBookingBlanks` in `lib/import-booking-fields.ts`, which also
 copies a filled Shipping Line/POL/POD onto that booking's forwarder
 invoices where blank). After that they change only in Booking &
 Instructions. ETA/Status stay fill-only on Shipment Tracking.
+An invoice's **Month of Loading** on import follows the same rule
+(`monthOfLoadingFor`): the booking's ERD in Booking & Instructions wins;
+when that's blank the sheet's month fills both the ERD and the invoice;
+when both are blank, the container's ETA.
 
 Repeat invoices on one booking+container: the commit route matches the
 existing invoice with the SAME invoice number first, then a pending (blank)
