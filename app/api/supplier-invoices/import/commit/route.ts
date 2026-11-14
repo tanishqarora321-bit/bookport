@@ -300,15 +300,24 @@ export async function POST(req: NextRequest) {
     const gs = groupsByBooking.get(key) ?? [];
     const containers = new Set<string>();
     let month: number | null = null;
+    // The year the sheet's own full dates (Invoice Date / Month of Loading)
+    // fall in - the New bookings step pre-selects it, so a 2025 statement
+    // isn't filed under 2026 just because that's the Working Year.
+    let dateYear: number | null = null;
     for (const g of gs) {
       if (g.header["container_number"]) containers.add(g.header["container_number"].toUpperCase());
       if (month === null) month = groupMonthDay(g)?.month ?? null;
+      for (const k of ["invoice_date", "erd"]) {
+        const fullDate: Date | null = dateYear === null && g.header[k] ? parseDateish(g.header[k]) : null;
+        if (fullDate) dateYear = fullDate.getUTCFullYear();
+      }
     }
     return {
       carrierBookingNo: gs[0].bookingNumber,
       sheetRows: gs.map((g) => g.startRow),
       containers: Array.from(containers),
       month,
+      dateYear,
     };
   }
 

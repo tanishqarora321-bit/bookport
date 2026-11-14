@@ -13,7 +13,7 @@ type CommitResult = { imported: number; total: number; skipped: { row: number; r
 // distinct Container Numbers the sheet lists for it (>1 -> it lands on
 // Multiple Bookings & Instructions); `month` (0-11) is the Month of Loading
 // it'll be filed under, or null when the sheet gives none (-> January).
-type NewBookingGroup = { carrierBookingNo: string; sheetRows: number[]; containers: string[]; month: number | null };
+type NewBookingGroup = { carrierBookingNo: string; sheetRows: number[]; containers: string[]; month: number | null; dateYear?: number | null };
 type DuplicateGroup = NewBookingGroup & { currentBuyerName: string | null };
 type Resolution = "add" | "ignore";
 
@@ -139,7 +139,14 @@ export default function BuyerInvoiceImportClient({ buyerId, buyerName }: { buyer
       const fresh: NewBookingGroup[] = json.newBookingGroups ?? [];
       setDuplicateGroups(dups);
       setNewBookingGroups(fresh);
-      setNewBookingYear(workingYear);
+      // Pre-select the year the sheet's own dates fall in (most common), so
+      // e.g. a 2025 statement isn't filed under the 2026 Working Year.
+      {
+        const counts = new Map<number, number>();
+        for (const g of [...fresh, ...dups]) if (g.dateYear) counts.set(g.dateYear, (counts.get(g.dateYear) ?? 0) + 1);
+        const best = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
+        setNewBookingYear(best ? best[0] : workingYear);
+      }
       if (dups.length > 0) {
         setResolutions(Object.fromEntries(dups.map((g) => [g.carrierBookingNo.toLowerCase(), "ignore"])));
         setStep("duplicates");
