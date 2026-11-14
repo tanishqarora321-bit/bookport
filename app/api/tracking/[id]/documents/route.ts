@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
-import { invoiceIdFromPdfName, listForwarderInvoicePdfs } from "@/lib/forwarder-invoice-pdf";
+import { INVOICE_KIND_LABEL, INVOICE_PARTY_COLUMN, INVOICE_TABLE, listInvoicePdfs, parseInvoicePdfName, type InvoiceKind } from "@/lib/party-invoice-pdf";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 
@@ -29,20 +29,30 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Forwarder invoice PDFs uploaded in the Forwarder ledger for this
-  // container (lib/forwarder-invoice-pdf.ts), with their invoice number.
-  const files = await listForwarderInvoicePdfs(supabase, me.company_id, params.id);
-  const ids = files.map((f) => invoiceIdFromPdfName(f.name)).filter((x): x is string => Boolean(x));
-  const { data: invoices } = ids.length
-    ? await supabase.from("forwarder_invoices").select("id, invoice_number, forwarder:forwarder_id (legal_name)").in("id", ids)
-    : { data: [] as any[] };
-  const uploaded = files
-    .map((f) => {
-      const inv = (invoices ?? []).find((i: any) => i.id === invoiceIdFromPdfName(f.name));
-      // A file whose invoice no longer exists is never listed.
-      return inv ? { name: f.name, invoice_number: inv.invoice_number, forwarder: inv.forwarder?.legal_name ?? null, uploaded_at: f.updated_at || f.created_at || null } : null;
-    })
-    .filter(Boolean);
+  // Forwarder / Trucker / Supplier invoice PDFs uploaded in those ledgers
+  // for this container (lib/party-invoice-pdf.ts), with invoice number and
+  // party. A file whose invoice no longer exists is never listed.
+  const files = await listInvoicePdfs(supabase, me.company_id, params.id);
+  const uploaded: { name: string; label: string; invoice_number: string | null; forwarder: string | null; uploaded_at: string | null }[] = [];
+  const byKind = new Map<InvoiceKind, string[]>();
+  for (const f of files) {
+    const p = parseInvoicePdfName(f.name);
+    if (p) byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p.id]);
+  }
+  const invoiceInfo = new Map<string, { invoice_number: string | null; party: string | null }>();
+  for (const [kind, ids] of byKind) {
+    const { data: rows } = await supabase
+      .from(INVOICE_TABLE[kind])
+      .select(`id, invoice_number, party:${INVOICE_PARTY_COLUMN[kind]} (legal_name)`)
+      .in("id", ids);
+    for (const r of (rows ?? []) as any[]) invoiceInfo.set(`${kind}:${r.id}`, { invoice_number: r.invoice_number, party: r.party?.legal_name ?? null });
+  }
+  for (const f of files) {
+    const p = parseInvoicePdfName(f.name)!;
+    const info = invoiceInfo.get(`${p.kind}:${p.id}`);
+    if (!info) continue;
+    uploaded.push({ name: f.name, label: INVOICE_KIND_LABEL[p.kind], invoice_number: info.invoice_number, forwarder: info.party, uploaded_at: f.updated_at || f.created_at || null });
+  }
 
   return NextResponse.json({ documents: data ?? [], uploaded });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { removeInvoicePdfs } from "@/lib/party-invoice-pdf";
 import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
 
 // Deliberately excludes: id, company_id, supplier_id, tracking_id, total,
@@ -145,6 +146,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   const { error } = await supabase.from("supplier_invoices").delete().eq("id", params.id).eq("company_id", me.company_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Its uploaded invoice PDF (if any) goes with it.
+  if (invoice) await removeInvoicePdfs(supabase, me.company_id, "supplier", [{ id: params.id, tracking_id: invoice.tracking_id }]);
 
   if (invoice) {
     await unassignPartyIfNoInvoicesRemain(supabase, {

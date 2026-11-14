@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Search } from "lucide-react";
+import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Search, Wallet } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
 import { useYear } from "@/lib/year-context";
 import { invoiceInWorkingYear } from "@/lib/year-scope";
 import BackButton from "@/components/ui/BackButton";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
+import { PAYMENTS_LAYOUT } from "@/lib/ui-flags";
+import { uploadInvoicePdf } from "@/lib/upload-invoice-pdf";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import StatusPill from "@/components/ui/StatusPill";
@@ -164,6 +166,8 @@ export default function SupplierInvoiceLedgerClient({
   // Pagination matches the Forwarders/Truckers ledgers.
   const [pageSize, setPageSize] = useState(25);
   const [page, setPage] = useState(0);
+  // Payments & History side panel (lib/ui-flags.ts PAYMENTS_LAYOUT).
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
   useEffect(() => {
     setPage(0);
   }, [statusFilter, paidFilter, monthFilter, search, pageSize]);
@@ -236,11 +240,21 @@ export default function SupplierInvoiceLedgerClient({
           <BackButton href="/suppliers" label="Back to Suppliers" />
           <h1 className="text-xl font-semibold text-ink">{supplierName} — Invoices</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
+        {/* Equal columns sized to the widest label - all buttons the same size. */}
+        <div className="grid grid-flow-col auto-cols-fr gap-2">
+          <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
             Import Excel
           </Link>
-          <button onClick={() => setAdding(true)} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium">
+          {PAYMENTS_LAYOUT === "drawer" && (
+            <button
+              onClick={() => setPaymentsOpen(true)}
+              aria-haspopup="dialog"
+              className="text-sm border border-accent text-accent bg-surface hover:bg-accent-soft rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5"
+            >
+              <Wallet className="w-4 h-4" size={16} /> Payments &amp; History
+            </button>
+          )}
+          <button onClick={() => setAdding(true)} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium flex items-center justify-center">
             + Add Invoice
           </button>
         </div>
@@ -257,9 +271,23 @@ export default function SupplierInvoiceLedgerClient({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-      <div className="mt-4 mb-4 shrink-0">
-      <PartyPaymentHistory partyId={supplierId} totalInvoicedUsd={totalUsd} />
-      </div>
+      {PAYMENTS_LAYOUT === "card" ? (
+        <div className="mt-4 mb-4 shrink-0">
+          <PartyPaymentHistory partyId={supplierId} totalInvoicedUsd={totalUsd} />
+        </div>
+      ) : (
+        <>
+          <PartyPaymentHistory
+            partyId={supplierId}
+            partyName={supplierName}
+            totalInvoicedUsd={totalUsd}
+            variant="drawer"
+            open={paymentsOpen}
+            onClose={() => setPaymentsOpen(false)}
+          />
+          <div className="mt-4 shrink-0" />
+        </>
+      )}
 
       {adding && (
         <AddInvoicePanel
@@ -323,9 +351,12 @@ export default function SupplierInvoiceLedgerClient({
               setMonthFilter("all");
               setSearch("");
             }}
-            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", color: "var(--accent)", fontSize: 13 }}
+            aria-label="Clear filters"
+            title="Clear filters"
+            className="chip"
+            style={{ height: 36, width: 36, padding: 0, justifyContent: "center", color: "var(--accent)", borderColor: "var(--accent)" }}
           >
-            Clear filters
+            ✕
           </button>
         )}
         <div style={{ flex: "1 1 0" }} />
@@ -512,6 +543,9 @@ function AddInvoicePanel({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  // The PDF the fields were read from - stored with the new invoice
+  // (lib/party-invoice-pdf.ts).
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -524,6 +558,7 @@ function AddInvoicePanel({
       const res = await fetch("/api/supplier-invoices/extract", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Extraction failed");
+      setPdfFile(file);
       const ex = json.extracted ?? {};
       setForm((f) => ({
         invoice_number: ex.invoice_number ?? f.invoice_number,
@@ -611,6 +646,13 @@ function AddInvoicePanel({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to save invoice");
+      if (pdfFile && json.invoice?.tracking_id) {
+        try {
+          await uploadInvoicePdf("supplier", json.invoice.id, pdfFile);
+        } catch (err: any) {
+          alert(`The invoice was saved, but its PDF couldn't be stored: ${err.message}`);
+        }
+      }
       onCreated(json.invoice);
     } catch (err: any) {
       setSaveError(err.message);
@@ -622,7 +664,12 @@ function AddInvoicePanel({
   return (
     <div className="border border-accent/30 bg-accent/5 rounded-lg p-4 mb-4">
       <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface hover:border-accent text-center cursor-pointer mb-3">
-        <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills invoice number/date/currency and cost lines below)"}</div>
+        <div className="text-sm font-medium">{uploading ? "Extracting…" : pdfFile ? `📎 ${pdfFile.name} - read into the fields below` : "Upload invoice PDF (optional — auto-fills invoice number/date/currency and cost lines below)"}</div>
+        {pdfFile && !uploading && (
+            <div className="text-xs text-muted mt-1">
+              {lookupResult?.tracking_id ? "Saved with this invoice - you'll find it under Docs in Shipment Tracking." : "Not linked to a container in Shipment Tracking, so the PDF itself won't be kept."}
+            </div>
+          )}
         <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfUpload} disabled={uploading} />
       </label>
 
@@ -908,6 +955,9 @@ function EnterInvoiceModal({
       : [blankItem()]
   );
   const [uploading, setUploading] = useState(false);
+  // The PDF the fields were read from - stored with the invoice on Save
+  // (lib/party-invoice-pdf.ts).
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -922,6 +972,7 @@ function EnterInvoiceModal({
       const res = await fetch("/api/supplier-invoices/extract", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Extraction failed");
+      setPdfFile(file);
       const ex = json.extracted ?? {};
       setForm((f) => ({
         invoice_number: ex.invoice_number ?? f.invoice_number,
@@ -971,6 +1022,8 @@ function EnterInvoiceModal({
     setSaving(true);
     setError(null);
     try {
+      // File the uploaded PDF first, so a failure stops before anything is saved.
+      if (pdfFile && inv.tracking_id) await uploadInvoicePdf("supplier", inv.id, pdfFile);
       const res = await fetch(`/api/supplier-invoices/${inv.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1003,7 +1056,12 @@ function EnterInvoiceModal({
         </div>
 
         <label className="block border-2 border-dashed border-line rounded-lg p-4 bg-surface-2 hover:border-accent text-center cursor-pointer mb-4">
-          <div className="text-sm font-medium">{uploading ? "Extracting…" : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          <div className="text-sm font-medium">{uploading ? "Extracting…" : pdfFile ? `📎 ${pdfFile.name} - read into the fields below` : "Upload invoice PDF (optional — auto-fills the fields below)"}</div>
+          {pdfFile && !uploading && (
+            <div className="text-xs text-muted mt-1">
+              {inv.tracking_id ? "Saved with this invoice - you'll find it under Docs in Shipment Tracking." : "Not linked to a container in Shipment Tracking, so the PDF itself won't be kept."}
+            </div>
+          )}
           <input type="file" accept="application/pdf" className="hidden" onChange={handleUpload} disabled={uploading} />
         </label>
 

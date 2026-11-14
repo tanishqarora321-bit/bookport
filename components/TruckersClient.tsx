@@ -156,15 +156,18 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
         </div>
         <div className="flex items-center gap-3">
           <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
-          <Link href="/truckers/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
-            Import Excel
-          </Link>
-          <button
-            onClick={() => setAdding(!adding)}
-            className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
-          >
-            + New Trucker
-          </button>
+          {/* Equal columns sized to the wider label - both buttons the same size. */}
+          <div className="grid grid-flow-col auto-cols-fr gap-3">
+            <Link href="/truckers/import" className="text-sm text-center border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
+              Import Excel
+            </Link>
+            <button
+              onClick={() => setAdding(!adding)}
+              className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
+            >
+              + New Trucker
+            </button>
+          </div>
         </div>
       </div>
 
@@ -235,9 +238,10 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
           />
         )}
 
-        <div className="overflow-x-auto">
+        {/* The table scrolls inside this box; its header row stays fixed on top. */}
+        <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-sm border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface shadow-[0_1px_0_var(--line)]">
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
                 <th className="px-3 py-2 w-8">

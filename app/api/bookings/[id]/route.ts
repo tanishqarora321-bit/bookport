@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
-import { removeForwarderInvoicePdfsForTracking } from "@/lib/forwarder-invoice-pdf";
+import { removeInvoicePdfsForTracking } from "@/lib/party-invoice-pdf";
 
 // Every column EditableCell.tsx is allowed to PATCH from the Booking &
 // Instructions grid (components/BookingsClient.tsx) - kept as an
@@ -157,8 +157,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     // so a booking with a buyer invoice failed on the tracking delete with
     // a foreign-key error AFTER the other invoices were already gone).
     // Each step is checked, so a failure stops here instead of carrying on.
-    // Uploaded forwarder invoice PDFs stored for these containers go too.
-    await removeForwarderInvoicePdfsForTracking(supabase, me.company_id, trackingIds);
+    // Uploaded forwarder / trucker / supplier invoice PDFs stored for these containers go too.
+    await removeInvoicePdfsForTracking(supabase, me.company_id, trackingIds);
     for (const table of ["generated_documents", "forwarder_invoices", "supplier_invoices", "trucker_invoices", "buyer_invoices"]) {
       const { error: childError } = await supabase.from(table).delete().in("tracking_id", trackingIds);
       if (childError) return NextResponse.json({ error: `Couldn't remove this booking's ${table.replace(/_/g, " ")}: ${childError.message}` }, { status: 500 });

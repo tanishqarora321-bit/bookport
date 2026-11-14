@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
-import { removeForwarderInvoicePdfs } from "@/lib/forwarder-invoice-pdf";
+import { removeInvoicePdfs } from "@/lib/party-invoice-pdf";
 
 const VALID_ROLES = ["forwarder", "trucker", "supplier", "buyer"];
 
@@ -96,13 +96,14 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const trackingIds = (ownTracking ?? []).map((t: { id: string }) => t.id);
     if (trackingIds.length > 0) {
       const { table, partyCol } = INVOICE_TABLE_BY_ROLE[role];
-      // A forwarder's uploaded invoice PDFs go with their invoices.
-      const { data: removing } =
-        role === "forwarder"
-          ? await supabase.from(table).select("id, tracking_id").eq(partyCol, previousPartyId).in("tracking_id", trackingIds)
-          : { data: null };
+      // A forwarder's / trucker's / supplier's uploaded invoice PDFs go with
+      // their invoices.
+      const pdfKind = role === "forwarder" || role === "trucker" || role === "supplier" ? role : null;
+      const { data: removing } = pdfKind
+        ? await supabase.from(table).select("id, tracking_id").eq(partyCol, previousPartyId).in("tracking_id", trackingIds)
+        : { data: null };
       await supabase.from(table).delete().eq(partyCol, previousPartyId).in("tracking_id", trackingIds);
-      if (removing?.length) await removeForwarderInvoicePdfs(supabase, me.company_id, removing);
+      if (pdfKind && removing?.length) await removeInvoicePdfs(supabase, me.company_id, pdfKind, removing);
     }
   }
 
