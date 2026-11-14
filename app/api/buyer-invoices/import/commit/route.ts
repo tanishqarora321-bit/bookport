@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { BUYER_INVOICE_CHARGE_LINES } from "@/lib/buyer-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor, normalizeContainerColumn } from "@/lib/import-booking-fields";
 import { fillTrackingBlanks } from "@/lib/tracking-master";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
     const idx = headers.indexOf(headerName);
     if (idx !== -1) colIndex[key] = idx;
   }
+  // "FFAU 1761558" / "\tGESU6385326" -> FFAU1761558 / GESU6385326.
+  normalizeContainerColumn(rows, colIndex);
   if (colIndex["booking_number"] === undefined && colIndex["container_number"] === undefined) {
     return NextResponse.json({ error: "Map Booking Number (or at least Container Number) before importing." }, { status: 400 });
   }

@@ -9,7 +9,7 @@ import {
   FORWARDER_INVOICE_TRACKING_KEYS
 } from "@/lib/forwarder-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor, normalizeContainerColumn } from "@/lib/import-booking-fields";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
     const idx = headers.indexOf(headerName);
     if (idx !== -1) colIndex[key] = idx;
   }
+  // "FFAU 1761558" / "\tGESU6385326" -> FFAU1761558 / GESU6385326.
+  normalizeContainerColumn(rows, colIndex);
 
   if (colIndex["booking_number"] === undefined) {
     return NextResponse.json({ error: "Booking Number must be mapped to a column before importing." }, { status: 400 });

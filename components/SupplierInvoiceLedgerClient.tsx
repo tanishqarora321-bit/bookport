@@ -246,18 +246,19 @@ export default function SupplierInvoiceLedgerClient({
           <Link href={`/suppliers/${supplierId}/invoices/import`} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
             Import Excel
           </Link>
+          <button onClick={() => setAdding(true)} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center">
+            + Add Invoice
+          </button>
+          {/* Last and blue, the same place as on Forwarders / Truckers. */}
           {PAYMENTS_LAYOUT === "drawer" && (
             <button
               onClick={() => setPaymentsOpen(true)}
               aria-haspopup="dialog"
-              className="text-sm border border-accent text-accent bg-surface hover:bg-accent-soft rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5"
+              className="text-sm bg-accent hover:bg-accent-hover text-white rounded-lg px-3 py-1.5 font-medium flex items-center justify-center gap-1.5"
             >
               <Wallet className="w-4 h-4" size={16} /> Payments &amp; History
             </button>
           )}
-          <button onClick={() => setAdding(true)} className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium flex items-center justify-center">
-            + Add Invoice
-          </button>
         </div>
       </div>
 
@@ -439,6 +440,28 @@ export default function SupplierInvoiceLedgerClient({
               </tr>
             )}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr className="font-medium bg-surface-2 border-t border-line">
+                {/* Same as the Forwarders / Truckers ledgers: the label stays in
+                    the frozen Booking / Container columns while the totals
+                    scroll with their own columns. */}
+                {isAdmin && <td className="sticky left-0 z-10 bg-surface-2" />}
+                <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface-2 text-ink ${isAdmin ? "left-10" : "left-0"}`}>Totals</td>
+                <td className={`sticky z-10 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`} />
+                <td colSpan={5} />
+                {/* Total: in the invoices' own currency when they share one
+                    (negative lines already netted into each invoice). */}
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {Object.keys(totalsByCurrency).length === 1
+                    ? fmtMoney(Object.values(totalsByCurrency)[0], Object.keys(totalsByCurrency)[0])
+                    : <span className="text-muted" title="Invoices in more than one currency - see Total (USD)">—</span>}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(totalUsd, "USD")}</td>
+                <td colSpan={5} />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

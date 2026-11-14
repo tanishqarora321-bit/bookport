@@ -21,8 +21,13 @@ export function parseDateish(v: string): Date | null {
     }
   }
 
+  // A typo like "08-05-20225" (five-digit year) must not become the year
+  // 20225 - native parsing accepts it - so anything outside a sane range
+  // counts as no date at all (the row is still imported, just undated).
   const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  if (isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  return y >= 1990 && y <= 2100 ? d : null;
 }
 
 const MONTH_NAMES = [
