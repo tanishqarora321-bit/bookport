@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PARTY_PAYMENT_IMPORT_FIELDS } from "@/lib/party-payment-import-fields";
+import { PARTY_PAYMENT_IMPORT_CURRENCIES, PARTY_PAYMENT_IMPORT_FIELDS } from "@/lib/party-payment-import-fields";
 import { resolveSuggestedHeader } from "@/lib/match-header";
 
 type ParseResult = { headers: string[]; rows: string[][]; suggestedMapping: Record<string, string | null>; suggestionFailed?: boolean };
@@ -26,6 +26,9 @@ export default function PartyPaymentImportModal({
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<CommitResult | null>(null);
+  // Applied to every imported row (not read from the sheet).
+  const [currency, setCurrency] = useState<string>("USD");
+  const [fxRate, setFxRate] = useState("");
 
   const mappedHeaders = new Set(Object.values(mapping).filter(Boolean));
   const unmappedHeaders = parsed ? parsed.headers.filter((h) => !mappedHeaders.has(h)) : [];
@@ -62,13 +65,18 @@ export default function PartyPaymentImportModal({
       setError("Amount must be mapped to a column before importing.");
       return;
     }
+    const fx = currency === "USD" ? 1 : parseFloat(fxRate);
+    if (!isFinite(fx) || fx <= 0) {
+      setError(`Enter the FX rate - how many US dollars 1 ${currency} is worth (e.g. 0.012).`);
+      return;
+    }
     setImporting(true);
     setError(null);
     try {
       const res = await fetch("/api/party-payments/import/commit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partyId, headers: parsed.headers, rows: parsed.rows, mapping }),
+        body: JSON.stringify({ partyId, headers: parsed.headers, rows: parsed.rows, mapping, currency, fx_rate: fx }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Import failed");
@@ -117,7 +125,7 @@ export default function PartyPaymentImportModal({
         ) : !parsed ? (
           <label className="border-2 border-dashed border-line rounded-xl p-8 flex flex-col items-center gap-2 text-center cursor-pointer hover:bg-surface-2">
             <span className="font-semibold text-ink">{uploading ? "Reading file…" : "Click to choose a file"}</span>
-            <span className="text-xs text-muted">.xlsx with Amount, Date, Currency, etc.</span>
+            <span className="text-xs text-muted">.xlsx with Amount, Date, Year, Note - the currency and FX rate are chosen in the next step</span>
             <input type="file" accept=".xlsx" className="sr-only" onChange={handleUpload} disabled={uploading} />
           </label>
         ) : (
@@ -153,6 +161,37 @@ export default function PartyPaymentImportModal({
                 ))}
               </tbody>
             </table>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="ppi-currency" className="text-xs font-medium text-ink">Currency of these payments</label>
+                <select
+                  id="ppi-currency"
+                  className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                >
+                  {PARTY_PAYMENT_IMPORT_CURRENCIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="ppi-fx" className="text-xs font-medium text-ink">FX rate to USD {currency !== "USD" && <span className="text-critical">*</span>}</label>
+                <input
+                  id="ppi-fx"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min="0"
+                  placeholder={currency === "USD" ? "1" : `USD per 1 ${currency}, e.g. 0.012`}
+                  className="border border-line rounded-lg px-2 py-1.5 text-sm bg-surface tabular-nums disabled:bg-surface-2 disabled:text-muted"
+                  value={currency === "USD" ? "1" : fxRate}
+                  onChange={(e) => setFxRate(e.target.value)}
+                  disabled={currency === "USD"}
+                />
+              </div>
+            </div>
 
             {unmappedHeaders.length > 0 && (
               <div className="bg-warning-soft border border-ai-border rounded-lg p-3 max-h-32 overflow-y-auto">
