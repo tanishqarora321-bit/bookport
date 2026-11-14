@@ -9,7 +9,7 @@ import {
   FORWARDER_INVOICE_TRACKING_KEYS
 } from "@/lib/forwarder-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { fillBookingBlanks } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
@@ -524,7 +524,6 @@ export async function POST(req: NextRequest) {
     // Loading, even though every row plainly had the value (found live: a
     // real statement where only the first of 2 containers under one
     // booking number ended up with a Month of Loading on its invoice).
-    if (rowErd) updates.month_of_loading = rowErd;
 
     // Booking-level values from the sheet (Month of Loading / ERD, Shipping
     // Line, POL, POD, Port of Delivery): a booking this import created
@@ -543,6 +542,10 @@ export async function POST(req: NextRequest) {
           final_destination: get("final_destination"),
         });
       }
+      // Month of Loading: Booking & Instructions' ERD wins (now filled
+      // from the sheet when it was blank), else the sheet's own month.
+      const mol = await monthOfLoadingFor(supabase, bookingId, rowErd);
+      if (mol) updates.month_of_loading = mol;
     }
 
     // ETA and Status (live) don't live on forwarder_invoices - they're on

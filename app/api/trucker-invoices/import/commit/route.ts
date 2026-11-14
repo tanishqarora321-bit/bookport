@@ -9,7 +9,7 @@ import {
   TRUCKER_INVOICE_TRACKING_KEYS
 } from "@/lib/trucker-invoice-import-fields";
 import { reserveBookingNos } from "@/lib/booking-number";
-import { fillBookingBlanks } from "@/lib/import-booking-fields";
+import { fillBookingBlanks, monthOfLoadingFor } from "@/lib/import-booking-fields";
 import { parseDateish, parseMonthish } from "@/lib/parse-date";
 
 export const maxDuration = 300;
@@ -566,7 +566,6 @@ export async function POST(req: NextRequest) {
     // or an extra container on a booking that already existed before this
     // row ran), since sync_container_to_tracking() never copies erd into
     // tracking.eta, so the backfill below never fires for any of them.
-    if (rowErd) updates.month_of_loading = rowErd;
 
     // Booking-level values (Month of Loading / ERD, Shipping Line, POL, POD,
     // Port of Delivery): fill only what's still blank in Booking &
@@ -582,6 +581,10 @@ export async function POST(req: NextRequest) {
           final_destination: get("final_destination"),
         });
       }
+      // Month of Loading: Booking & Instructions' ERD wins (now filled
+      // from the sheet when it was blank), else the sheet's own month.
+      const mol = await monthOfLoadingFor(supabase, bookingId, rowErd);
+      if (mol) updates.month_of_loading = mol;
     }
 
     // ETA and Status (live) live on the invoice's `tracking` row, not on
