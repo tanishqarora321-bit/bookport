@@ -217,15 +217,17 @@ denied` lines on git commands are harmless noise — ignore them.
   that opens Payment History in a right-side drawer (`PartyPaymentHistory`
   `variant="drawer"`). REVERSIBLE: set `PAYMENTS_LAYOUT = "card"` in
   `lib/ui-flags.ts` to get the old inline card back (owner asked to be able
-  to undo it). Truckers/Suppliers still use the card.
-- **Forwarder invoice PDFs (2026-11):** an invoice entered by uploading its
-  PDF (Enter Invoice) keeps the PDF in the `documents` bucket at
-  `{company}/{tracking}/forwarder-invoice-{invoiceId}.pdf`
-  (`lib/forwarder-invoice-pdf.ts`, no migration) and shows it in Shipment
-  Tracking's Docs dialog (view only, never emailed). Manual / Excel-import
-  invoices store nothing. The PDF is deleted with its invoice: invoice
-  delete, clearing the forwarder on the booking, container or booking
-  delete.
+  to undo it). Truckers and Suppliers got the same (2026-11): equal header
+  buttons, sticky list header, ✕ clear, Payments drawer (same flag).
+- **Uploaded invoice PDFs (2026-11, Forwarder / Trucker / Supplier):** an
+  invoice entered by uploading its PDF (Enter Invoice, or Supplier's Add
+  Invoice) keeps the PDF in the `documents` bucket at
+  `{company}/{tracking}/{kind}-invoice-{invoiceId}.pdf`
+  (`lib/party-invoice-pdf.ts`, no migration; `/api/{kind}-invoices/[id]/pdf`)
+  and shows it in Shipment Tracking's Docs dialog (view only, never
+  emailed). Manual / Excel-import invoices store nothing. The PDF is
+  deleted with its invoice: invoice delete, clearing that party on the
+  booking, container or booking delete.
 - **Shared UI:** `components/ui/` — `BackButton`, `ToggleSwitch`, `StatCard`,
   `StatusMenuButton`, `StatusPill`, `AddColumnPanel`, `BulkActionBar`.
 

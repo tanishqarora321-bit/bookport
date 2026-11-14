@@ -519,9 +519,9 @@ const DOC_TYPES: { type: string; label: string }[] = [
 
 function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => void; onSent: (patch: Partial<TrackingRow>) => void }) {
   const [docs, setDocs] = useState<Doc[] | null>(null);
-  // Forwarder invoice PDFs uploaded in the Forwarder ledger (view only -
-  // they're cost invoices, never emailed to the buyer).
-  const [uploaded, setUploaded] = useState<{ name: string; invoice_number: string | null; forwarder: string | null; uploaded_at: string | null }[]>([]);
+  // Forwarder / Trucker / Supplier invoice PDFs uploaded in those ledgers
+  // (view only - they're cost invoices, never emailed to the buyer).
+  const [uploaded, setUploaded] = useState<{ name: string; label: string; invoice_number: string | null; forwarder: string | null; uploaded_at: string | null }[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [compose, setCompose] = useState<"invoice" | "documents" | null>(null);
@@ -640,13 +640,13 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
 
               {uploaded.length > 0 && (
                 <div>
-                  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>Forwarder invoices (uploaded)</div>
+                  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>Uploaded invoices</div>
                   <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
                     {uploaded.map((u, i) => (
                       <div key={u.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderTop: i === 0 ? 0 : "1px solid var(--line)" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontWeight: 600, fontSize: 14 }}>
-                            Forwarder Invoice{u.invoice_number ? <span className="meta" style={{ fontWeight: 400 }}> · {u.invoice_number}</span> : null}
+                            {u.label}{u.invoice_number ? <span className="meta" style={{ fontWeight: 400 }}> · {u.invoice_number}</span> : null}
                           </div>
                           <div className="meta" style={{ marginTop: 2 }}>
                             {[u.forwarder, u.uploaded_at ? `Uploaded ${fmtDateTime(u.uploaded_at)}` : null].filter(Boolean).join(" · ")}

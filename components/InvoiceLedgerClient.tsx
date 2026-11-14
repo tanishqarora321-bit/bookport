@@ -8,6 +8,7 @@ import { useYear } from "@/lib/year-context";
 import { invoiceInWorkingYear } from "@/lib/year-scope";
 import StatusPill from "@/components/ui/StatusPill";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
+import { uploadInvoicePdf } from "@/lib/upload-invoice-pdf";
 import { PAYMENTS_LAYOUT } from "@/lib/ui-flags";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
@@ -840,7 +841,7 @@ function EnterInvoiceModal({
   const [suggestedCharges, setSuggestedCharges] = useState<{ name: string; amount: number }[]>([]);
   const [uploading, setUploading] = useState(false);
   // The PDF the fields were read from - stored with the invoice on Save, in
-  // the container's Shipment Tracking documents (lib/forwarder-invoice-pdf.ts).
+  // the container's Shipment Tracking documents (lib/party-invoice-pdf.ts).
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [fetchingRate, setFetchingRate] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -944,13 +945,7 @@ function EnterInvoiceModal({
       }
       // File the uploaded PDF first, so a failure stops before anything is
       // saved (re-saving simply replaces it).
-      if (pdfFile && inv.tracking_id) {
-        const body = new FormData();
-        body.append("file", pdfFile);
-        const res = await fetch(`/api/forwarder-invoices/${inv.id}/pdf`, { method: "POST", body });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json.error || "Couldn't store the invoice PDF");
-      }
+      if (pdfFile && inv.tracking_id) await uploadInvoicePdf("forwarder", inv.id, pdfFile);
       const result = await patchInvoice(inv.id, updates);
       onSaved(result.invoice);
     } catch (err: any) {
