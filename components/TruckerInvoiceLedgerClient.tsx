@@ -83,10 +83,14 @@ const MAX_CUSTOM_COLUMNS = 10;
 // Number, Invoice Date, Due Date, Trucking, Fuel Surcharge, Chassis Rental,
 // Stop Off, Chassis Split, Misc Charges, [...custom], Total, Total (USD),
 // ETA (live), Status (live), Paid, Delete.
-const LEDGER_COLUMN_WIDTHS = [160, 180, 165, 160, 150, 120, 110, 110, 120, 120, 100, 110, 110];
+// Wide enough for each header in full ("Fuel Surcharge", "Chassis Rental",
+// "Misc Charges" were being cut to "Fuel Surchar…").
+const LEDGER_COLUMN_WIDTHS = [160, 180, 165, 160, 150, 120, 110, 110, 150, 150, 100, 130, 140];
 const LEDGER_TRAILING_COLUMN_WIDTHS = [110, 130, 120, 150, 100, 70];
 const CHECKBOX_COLUMN_WIDTH = 40;
-const CUSTOM_COLUMN_WIDTH = 130;
+// A custom column is as wide as its own name needs (plus its ✕), so a long
+// one like "DRIVER DETENTION" isn't cut off.
+const customColumnWidth = (label: string) => Math.max(130, Math.ceil(label.length * 9.5) + 56);
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -280,7 +284,7 @@ export default function TruckerInvoiceLedgerClient({
   const tableWidth =
     (isAdmin ? CHECKBOX_COLUMN_WIDTH : 0) +
     LEDGER_COLUMN_WIDTHS.reduce((s, w) => s + w, 0) +
-    customColumns.length * CUSTOM_COLUMN_WIDTH +
+    customColumns.reduce((s, c) => s + customColumnWidth(c.label), 0) +
     LEDGER_TRAILING_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
 
   return (
@@ -443,7 +447,7 @@ export default function TruckerInvoiceLedgerClient({
               <col key={i} style={{ width: w }} />
             ))}
             {customColumns.map((col) => (
-              <col key={col.key} style={{ width: CUSTOM_COLUMN_WIDTH }} />
+              <col key={col.key} style={{ width: customColumnWidth(col.label) }} />
             ))}
             {LEDGER_TRAILING_COLUMN_WIDTHS.map((w, i) => (
               <col key={i} style={{ width: w }} />
@@ -520,7 +524,13 @@ export default function TruckerInvoiceLedgerClient({
           {filtered.length > 0 && (
             <tfoot>
               <tr className="font-medium bg-surface-2 border-t border-line">
-                <td colSpan={isAdmin ? 8 : 7} className="px-3 py-2 text-right text-text-2">Totals (converted to USD):</td>
+                {/* The label sits in the frozen Booking / Container columns, so
+                    it stays put (and nothing scrolls underneath it) while the
+                    amounts scroll with their own columns, like every row. */}
+                {isAdmin && <td className="sticky left-0 z-10 bg-surface-2" />}
+                <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface-2 text-ink ${isAdmin ? "left-10" : "left-0"}`}>Totals in USD</td>
+                <td className={`sticky z-10 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`} />
+                <td colSpan={5} />
                 {CHARGE_KEYS.map((key) => (
                   <td key={key} className="px-3 py-2 whitespace-nowrap">{fmtMoney(chargeTotalsUsd[key], "USD")}</td>
                 ))}
@@ -613,7 +623,7 @@ export default function TruckerInvoiceLedgerClient({
 }
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
+  return <th title={typeof children === "string" ? children : undefined} className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
