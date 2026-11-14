@@ -172,3 +172,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 @media (max-width:620px){.dates-grid{grid-template-columns:minmax(0,1fr)}}
 /* Booking details header: Upload BL + Send Instructions side by side. */
 .booking-actions td{padding:0;border:0;vertical-align:middle;background:transparent}
+/* Booking details header: Upload BL / BL number and Send / Resend
+   Instructions are two equal columns, as wide as the wider of the two and
+   never narrower than a full "BL: <number>", so they keep one size before
+   and after the BL is uploaded. */
+.booking-actions tr{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(206px,1fr);gap:10px;align-items:center}
+.booking-actions td{display:block}
+.booking-actions td>.btn{width:100%;justify-content:center;white-space:nowrap}
+@media (max-width:600px){.booking-actions tr{grid-auto-flow:row}}

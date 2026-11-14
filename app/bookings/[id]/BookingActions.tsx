@@ -28,11 +28,11 @@ export default function BookingActions({
   return (
     <table className="booking-actions" style={{ maxWidth: "100%" }}>
       <tbody>
-        {/* Wraps onto a second line on narrow screens instead of running off
-            the edge; .booking-actions strips the cells' own grid padding
-            (the two cells had different padding, so the buttons sat at
-            different heights) and centres them on one line. */}
-        <tr style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        {/* Two equal columns sized to the wider button (globals.css
+            .booking-actions), so Upload BL / the full "BL: <number>" and
+            Send / Resend Instructions are always the same size; the cells'
+            own grid padding is stripped there too. Stacks on phones. */}
+        <tr>
           <UploadBlCell bookingId={bookingId} blNumber={blNumber} containerNos={containerNos} onApplied={() => router.refresh()} size="lg" />
           <SendInstructionsCell
             bookingId={bookingId}
