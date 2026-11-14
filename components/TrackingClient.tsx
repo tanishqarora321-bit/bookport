@@ -519,6 +519,9 @@ const DOC_TYPES: { type: string; label: string }[] = [
 
 function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => void; onSent: (patch: Partial<TrackingRow>) => void }) {
   const [docs, setDocs] = useState<Doc[] | null>(null);
+  // Forwarder invoice PDFs uploaded in the Forwarder ledger (view only -
+  // they're cost invoices, never emailed to the buyer).
+  const [uploaded, setUploaded] = useState<{ name: string; invoice_number: string | null; forwarder: string | null; uploaded_at: string | null }[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [compose, setCompose] = useState<"invoice" | "documents" | null>(null);
@@ -529,7 +532,10 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
       .then(async (res) => {
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || "Couldn't load the documents");
-        if (alive) setDocs(json.documents ?? []);
+        if (alive) {
+          setDocs(json.documents ?? []);
+          setUploaded(json.uploaded ?? []);
+        }
       })
       .catch((err) => alive && setLoadError(err.message));
     return () => {
@@ -546,11 +552,14 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
   }, [onClose]);
 
   async function openDoc(doc: Doc) {
-    setOpening(doc.id);
+    return openUrl(doc.id, `/api/documents/${doc.id}/signed-url`);
+  }
+  async function openUrl(key: string, endpoint: string) {
+    setOpening(key);
     // Open the tab synchronously so the browser doesn't block it as a popup.
     const tab = window.open("", "_blank");
     try {
-      const res = await fetch(`/api/documents/${doc.id}/signed-url`);
+      const res = await fetch(endpoint);
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.url) throw new Error(json.error || "Couldn't open the PDF");
       if (tab) tab.location.href = json.url;
@@ -626,6 +635,29 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {uploaded.length > 0 && (
+                <div>
+                  <div className="meta" style={{ fontWeight: 600, marginBottom: 6 }}>Forwarder invoices (uploaded)</div>
+                  <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+                    {uploaded.map((u, i) => (
+                      <div key={u.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", borderTop: i === 0 ? 0 : "1px solid var(--line)" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>
+                            Forwarder Invoice{u.invoice_number ? <span className="meta" style={{ fontWeight: 400 }}> · {u.invoice_number}</span> : null}
+                          </div>
+                          <div className="meta" style={{ marginTop: 2 }}>
+                            {[u.forwarder, u.uploaded_at ? `Uploaded ${fmtDateTime(u.uploaded_at)}` : null].filter(Boolean).join(" · ")}
+                          </div>
+                        </div>
+                        <button type="button" className="btn btn-s" onClick={() => openUrl(u.name, `/api/tracking/${row.id}/uploaded/${u.name}`)} disabled={opening === u.name}>
+                          {opening === u.name ? "Opening…" : "View PDF"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

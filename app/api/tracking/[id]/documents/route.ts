@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { invoiceIdFromPdfName, listForwarderInvoicePdfs } from "@/lib/forwarder-invoice-pdf";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 
@@ -27,7 +28,23 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     .order("version", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ documents: data ?? [] });
+
+  // Forwarder invoice PDFs uploaded in the Forwarder ledger for this
+  // container (lib/forwarder-invoice-pdf.ts), with their invoice number.
+  const files = await listForwarderInvoicePdfs(supabase, me.company_id, params.id);
+  const ids = files.map((f) => invoiceIdFromPdfName(f.name)).filter((x): x is string => Boolean(x));
+  const { data: invoices } = ids.length
+    ? await supabase.from("forwarder_invoices").select("id, invoice_number, forwarder:forwarder_id (legal_name)").in("id", ids)
+    : { data: [] as any[] };
+  const uploaded = files
+    .map((f) => {
+      const inv = (invoices ?? []).find((i: any) => i.id === invoiceIdFromPdfName(f.name));
+      // A file whose invoice no longer exists is never listed.
+      return inv ? { name: f.name, invoice_number: inv.invoice_number, forwarder: inv.forwarder?.legal_name ?? null, uploaded_at: f.updated_at || f.created_at || null } : null;
+    })
+    .filter(Boolean);
+
+  return NextResponse.json({ documents: data ?? [], uploaded });
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { removeForwarderInvoicePdfsForTracking } from "@/lib/forwarder-invoice-pdf";
 
 const EDITABLE_COLUMNS = ["container_no", "seal_no", "size_type"];
 
@@ -91,6 +92,8 @@ export async function DELETE(
       .eq("container_number", target.container_no);
     const trackingIds = (trackingRows ?? []).map((t: { id: string }) => t.id);
     if (trackingIds.length > 0) {
+      // Uploaded forwarder invoice PDFs stored for this container go too.
+      await removeForwarderInvoicePdfsForTracking(supabase, me.company_id, trackingIds);
       for (const table of ["generated_documents", "forwarder_invoices", "supplier_invoices", "trucker_invoices", "buyer_invoices"]) {
         const { error: childError } = await supabase.from(table).delete().in("tracking_id", trackingIds);
         if (childError) return NextResponse.json({ error: `Couldn't remove this container's ${table.replace(/_/g, " ")}: ${childError.message}` }, { status: 500 });
