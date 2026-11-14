@@ -1,3 +1,5 @@
+import { IMPORT_BOOKING_ERD_LABEL, IMPORT_BOOKING_FIELDS } from "./import-booking-fields";
+
 // Target fields for importing a supplier statement (e.g. RECUTEX). Unlike
 // the forwarder invoice import, one invoice here spans SEVERAL rows - a
 // row with a Booking Number starts a new invoice, and the Description/
@@ -13,7 +15,11 @@ export const SUPPLIER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requi
   // Becomes the booking's ERD when the import has to create the booking
   // (Booking & Instructions hides any booking without one), and the
   // invoice's own Month of Loading either way. Same as Forwarders/Truckers.
-  { key: "erd", label: "Month of Loading / ERD" },
+  { key: "erd", label: IMPORT_BOOKING_ERD_LABEL },
+  // Booking columns (lib/import-booking-fields.ts): a new booking takes
+  // them from the sheet; an existing one only where Booking & Instructions
+  // is still blank.
+  ...IMPORT_BOOKING_FIELDS,
   // eta and release_status live on the `tracking` row this invoice points
   // at (the ledger's ETA / Status (live) columns), not on supplier_invoices -
   // the commit route writes them onto that row. Same as Forwarders/Truckers.
@@ -38,6 +44,10 @@ export const SUPPLIER_INVOICE_NUMERIC_KEYS = new Set(["weight_kg", "unit_price",
 // whichever row in the group first has a value), never per cost line.
 export const SUPPLIER_INVOICE_HEADER_KEYS = new Set([
   "container_number",
+  "carrier",
+  "pol",
+  "pod",
+  "final_destination",
   "forwarder_name",
   "consignee_name",
   "erd",

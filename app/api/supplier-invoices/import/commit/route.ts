@@ -1,4 +1,5 @@
 import { fillTrackingBlanks } from "@/lib/tracking-master";
+import { fillBookingBlanks } from "@/lib/import-booking-fields";
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
@@ -454,6 +455,9 @@ export async function POST(req: NextRequest) {
         status: "confirmed",
       };
       if (rowErd) bookingFields.erd = rowErd;
+      for (const k of ["carrier", "pol", "pod", "final_destination"]) {
+        if (header[k]) bookingFields[k] = header[k];
+      }
       const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert(bookingFields).select("id").single();
       if (bookingError || !newBooking) {
         skipped.push({ row: g.startRow, reason: `Couldn't create booking "${bookingNumber}": ${bookingError?.message ?? "insert failed"}` });
@@ -498,16 +502,20 @@ export async function POST(req: NextRequest) {
     if (rowErd) updates.month_of_loading = rowErd;
     if (header["invoice_number"]) latestInvoiceNumber.set(targetId!, header["invoice_number"]);
 
-    // The booking's own erd must carry the month too - Booking &
-    // Instructions hides bookings with none. Backfilled only when null.
-    if (rowErd) {
+    // Booking-level values (Month of Loading / ERD, Shipping Line, POL, POD,
+    // Port of Delivery): fill only what's still blank in Booking &
+    // Instructions - same rule in all four imports (lib/import-booking-fields.ts).
+    {
       const bookingId = bookingIdByNumber.get(key);
       if (bookingId) {
-        const { data: bk } = await supabase.from("bookings").select("erd").eq("id", bookingId).single();
-        if (bk && !bk.erd) {
-          await supabase.from("bookings").update({ erd: rowErd }).eq("id", bookingId);
-          bookingErdByNumber.set(key, rowErd);
-        }
+        const filled = await fillBookingBlanks(supabase, bookingId, {
+          erd: rowErd,
+          carrier: header["carrier"],
+          pol: header["pol"],
+          pod: header["pod"],
+          final_destination: header["final_destination"],
+        });
+        if (filled.erd) bookingErdByNumber.set(key, filled.erd);
       }
     }
 

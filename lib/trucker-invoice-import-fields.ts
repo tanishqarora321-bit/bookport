@@ -1,3 +1,5 @@
+import { IMPORT_BOOKING_ERD_LABEL, IMPORT_BOOKING_FIELDS, IMPORT_BOOKING_FIELD_KEYS } from "./import-booking-fields";
+
 // Target fields for importing invoice CHARGE data onto trucker invoices.
 // Mostly fills in already-existing pending invoices (auto-created from
 // Booking & Instructions - see migration 0022), but if a row's Booking
@@ -9,13 +11,17 @@
 export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   { key: "booking_number", label: "Booking Number", required: true },
   { key: "container_number", label: "Container Number" },
-  { key: "location", label: "Location (new bookings only)" },
+  { key: "location", label: "Location" },
+  // Booking columns (lib/import-booking-fields.ts): a new booking takes
+  // them from the sheet; an existing one only where Booking & Instructions
+  // is still blank.
+  ...IMPORT_BOOKING_FIELDS,
   // A booking created here with no ERD is invisible on Booking &
   // Instructions forever - that page filters out anything with no
   // Month of Loading/ERD under every year, with no other way to set one
   // short of opening the booking there and editing it by hand. Mapping
   // this lets the sheet's own date (if it has one) carry straight over.
-  { key: "erd", label: "Month of Loading / ERD (new bookings only)" },
+  { key: "erd", label: IMPORT_BOOKING_ERD_LABEL },
   // eta and release_status live on the `tracking` row this invoice points
   // at (read live into the ledger's ETA / Status columns), not on
   // trucker_invoices - the commit route writes these onto that tracking row
@@ -39,7 +45,7 @@ export const TRUCKER_INVOICE_IMPORT_FIELDS: { key: string; label: string; requir
 // brand-new booking - "location" becomes the invoice's own field (not a
 // booking column), so it's intentionally excluded here unlike
 // forwarder's pol/pod/carrier.
-export const TRUCKER_INVOICE_BOOKING_CREATE_KEYS = new Set<string>(["erd"]);
+export const TRUCKER_INVOICE_BOOKING_CREATE_KEYS = new Set<string>(IMPORT_BOOKING_FIELD_KEYS);
 
 // Written onto the invoice's `tracking` row, not trucker_invoices itself.
 export const TRUCKER_INVOICE_TRACKING_KEYS = new Set(["eta", "release_status"]);

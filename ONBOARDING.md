@@ -239,8 +239,20 @@ On import, match each row by **Booking Number + Container Number**:
 - Only create a genuinely separate entry when the SAME booking+container combo
   is deliberately reused with a different invoice number.
 Verified live for **Forwarder + Trucker** (assign-not-duplicate, idempotent on
-re-import). **Supplier** now follows it too (2026-10-30, see below). **Buyer
-import does NOT yet** (older structure, no link-existing branch).
+re-import). **Supplier** follows it (2026-10-30) and so does **Buyer** since
+2026-11 (Duplicates + New bookings steps; a row with no Booking Number finds
+the booking by its Container Number; Invoice Value / Freight / Trucking /
+Commission become Cost section lines, replaced on re-import).
+
+**Booking-level values in party imports (owner rule, 2026-11, all four):**
+Month of Loading / ERD, Shipping Line, POL, Port of Discharge, Port of
+Delivery are mappable everywhere. A booking the import creates takes them
+from the sheet; an existing booking (matched by Booking + Container) only
+takes the ones still BLANK in Booking & Instructions - what's set there
+wins (`fillBookingBlanks` in `lib/import-booking-fields.ts`, which also
+copies a filled Shipping Line/POL/POD onto that booking's forwarder
+invoices where blank). After that they change only in Booking &
+Instructions. ETA/Status stay fill-only on Shipment Tracking.
 
 Repeat invoices on one booking+container: the commit route matches the
 existing invoice with the SAME invoice number first, then a pending (blank)
@@ -251,10 +263,6 @@ the same way). A bare month name ("MARCH") on an existing booking takes the
 booking's own ERD year (Trucker + Supplier).
 
 ## Likely next work
-- Bring **Buyers** to the same parity: list redesign, ledger (sticky blue
-  Booking/Container columns, merged filters, pagination, StatusMenuButton),
-  import (all columns mappable + ETA/Status, the booking+container
-  match-or-create rule, the no-drop fallback, the New bookings year step).
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
 
