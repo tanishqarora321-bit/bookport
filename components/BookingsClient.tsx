@@ -609,50 +609,51 @@ export default function BookingsClient({
 
   return (
     <div className="flex flex-col h-full" style={{ gap: 20 }}>
-      {/* Title + description on the left, actions (Export CSV / New Booking)
-          always on the right: a long description wraps instead of pushing
-          the buttons onto their own line below it. */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-          <h1 className="h1">{STAGE_LABEL[stage]}</h1>
-          <p className="sub">
-            {stage === "closed"
-              ? "Bookings with every field filled in move here on their own - or select rows and move them by hand. Still editable. Highlighted rows share a booking number with more than one container."
-              : stage === "cancelled"
-              ? "Bookings moved here by hand. Select rows to restore them to Booking & Instructions. Highlighted rows share a booking number with more than one container."
-              : "Source of truth — click the pencil icon on any cell to edit. Highlighted rows share a booking number with more than one container."}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-          {stage === "open" && (
-            <button
-              onClick={() => setOpenOnly(!openOnly)}
-              aria-pressed={openOnly}
-              className="btn"
-              style={openOnly ? { background: "var(--accentS)", borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 } : undefined}
-              title="Bookings that don't have a container number yet"
-            >
+      {/* Title on the left with the actions (Open Bookings / Export CSV /
+          New Booking) on the SAME line, all three the same width (a grid of
+          equal columns sized to the widest); the description gets the full
+          width on the line below, so it never wraps under the buttons. */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <h1 className="h1" style={{ minWidth: 0 }}>{STAGE_LABEL[stage]}</h1>
+          <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "1fr", gap: 10, flexShrink: 0 }}>
+            {stage === "open" && (
+              <button
+                onClick={() => setOpenOnly(!openOnly)}
+                aria-pressed={openOnly}
+                className="btn"
+                style={{ justifyContent: "center", ...(openOnly ? { background: "var(--accentS)", borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 } : {}) }}
+                title="Bookings that don't have a container number yet"
+              >
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7h18v12H3zM3 7l3-3h12l3 3M10 12h4" />
+                </svg>
+                Open Bookings ({openCount})
+              </button>
+            )}
+            <button onClick={exportCsv} className="btn" style={{ justifyContent: "center" }}>
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7h18v12H3zM3 7l3-3h12l3 3M10 12h4" />
+                <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
               </svg>
-              Open Bookings ({openCount})
+              Export CSV
             </button>
-          )}
-          <button onClick={exportCsv} className="btn">
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
-            </svg>
-            Export CSV
-          </button>
-          {stage === "open" && (
-            <Link href="/bookings/new" className="btn btn-p">
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              New Booking
-            </Link>
-          )}
+            {stage === "open" && (
+              <Link href="/bookings/new" className="btn btn-p" style={{ justifyContent: "center" }}>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                New Booking
+              </Link>
+            )}
+          </div>
         </div>
+        <p className="sub" style={{ marginTop: 4 }}>
+          {stage === "closed"
+            ? "Bookings with every field filled in move here on their own - or select rows and move them by hand. Still editable. Highlighted rows share a booking number with more than one container."
+            : stage === "cancelled"
+            ? "Bookings moved here by hand. Select rows to restore them to Booking & Instructions. Highlighted rows share a booking number with more than one container."
+            : "Source of truth — click the pencil icon on any cell to edit. Highlighted rows share a booking number with more than one container."}
+        </p>
       </div>
 
       {stage === "open" && (
