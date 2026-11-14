@@ -58,7 +58,8 @@ const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
 // Booking Number, Container Number, Date, Month of Loading, Invoice,
 // Forwarder, Consignee, Total, Total (USD), ETA (live), Status (live),
 // Paid, Cost section, Delete.
-const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 170, 170, 130, 130, 120, 150, 110, 150, 80];
+// Wide enough for each header in full ("Month of Loading" was tight).
+const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 165, 160, 170, 170, 130, 130, 120, 150, 110, 150, 80];
 const CHECKBOX_COLUMN_WIDTH = 40;
 const LEDGER_COLUMN_COUNT = LEDGER_COLUMN_WIDTHS.length;
 
@@ -505,7 +506,7 @@ export default function SupplierInvoiceLedgerClient({
 }
 
 function Th({ children }: { children?: React.ReactNode }) {
-  return <th className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
+  return <th title={typeof children === "string" ? children : undefined} className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis font-medium sticky top-0 z-10 bg-surface-2">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
