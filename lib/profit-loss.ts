@@ -164,7 +164,10 @@ export async function computeProfitLoss(supabase: any, companyId: string, year: 
   const buyerTotals = new Map<string, number>();
   for (const r of buyerRows) buyerTotals.set(r.party_id, (buyerTotals.get(r.party_id) ?? 0) + r.usd);
   const buyerPartyPL: PartyPL[] = Array.from(buyerTotals.entries()).map(([party_id, invoiced_usd]) => {
-    const paid_usd = buyerPaidUsd.get(party_id) ?? 0;
+    // Buyers' "Payments Received" (2026-11, party_payments, same as the
+    // other ledgers' Payment History) count once any are recorded for this
+    // buyer in the year; until then the per-invoice PAID toggle is used.
+    const paid_usd = paidByParty.has(party_id) ? paidByParty.get(party_id)! : buyerPaidUsd.get(party_id) ?? 0;
     return {
       party_id,
       legal_name: partyById.get(party_id)?.legal_name ?? "Unknown",

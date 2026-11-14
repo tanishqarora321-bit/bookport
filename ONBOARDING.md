@@ -276,6 +276,14 @@ re-importing a sheet with repeat invoices there can duplicate them (fix it
 the same way). A bare month name ("MARCH") on an existing booking takes the
 booking's own ERD year (Trucker + Supplier).
 
+## Buyers / Customers module (2026-11)
+- Buyers list: header Import Excel + "+ New Buyer" (equal size); the table header stays fixed while the list scrolls.
+- Buyer ledger header: Pending Invoices (N) toggle · Import Excel · Payments Received (blue) - equal size. No "+ Add Invoice" and no "Enter Invoice": a buyer invoice number comes from the import or from Generate Invoice (which also dates a blank invoice today). The Invoice cell is still click-to-correct.
+- ✕ clears filters; "Totals in USD" row sits in the frozen Booking/Container columns.
+- Payments Received = the same party_payments Payment History (PartyPaymentHistory `received` prop - labels only). P&L uses a buyer's received payments once any exist for the year, else the per-invoice PAID toggle.
+- Month of Loading on ALL four ledgers is read live from the booking's ERD (lib/live-month-of-loading.ts); the invoice's stored month is only the fallback when the booking has no ERD.
+- Final Invoice PDF: with Cost section lines, each line's amount is printed in the Amount column on its own row (right-aligned); Cost of Goods / Balance Due = their sum. The "By:" signatory comes from Settings > letterhead (`signed_by`, default "NITIN SINGLA"), never the logged-in user; footer company name in capitals.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

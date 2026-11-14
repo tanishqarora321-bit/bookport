@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
 import TruckerInvoiceLedgerClient from "@/components/TruckerInvoiceLedgerClient";
+import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
     <TruckerInvoiceLedgerClient
       truckerId={params.id}
       truckerName={trucker.legal_name}
-      initialInvoices={invoices ?? []}
+      initialInvoices={await applyLiveMonthOfLoading(supabase, (invoices ?? []) as any[])}
       initialCustomColumns={customColumns ?? []}
       isAdmin={me.role === "admin"}
     />

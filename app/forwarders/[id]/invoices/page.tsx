@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
 import InvoiceLedgerClient from "@/components/InvoiceLedgerClient";
+import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
     <InvoiceLedgerClient
       forwarderId={params.id}
       forwarderName={forwarder.legal_name}
-      initialInvoices={invoices ?? []}
+      initialInvoices={await applyLiveMonthOfLoading(supabase, (invoices ?? []) as any[])}
       initialCustomColumns={customColumns ?? []}
       isAdmin={me.role === "admin"}
     />

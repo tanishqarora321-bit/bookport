@@ -155,7 +155,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     rate: "",
     amount: buyerInvoice?.total != null ? String(buyerInvoice.total) : "",
     currency: buyerInvoice?.currency || "USD",
-    signed_by: me.full_name || me.email || "",
+    // The signatory under the certification ("By: NITIN SINGLA" on the
+    // owner's invoice) - Settings > letterhead, never whoever is logged in.
+    signed_by: (templateRow.template_config as any)?.signed_by || "NITIN SINGLA",
     items,
   };
   const overrides: Record<string, any> = {};

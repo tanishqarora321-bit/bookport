@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
 import SupplierInvoiceLedgerClient from "@/components/SupplierInvoiceLedgerClient";
+import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export default async function SupplierInvoicesPage({ params }: { params: { id: s
     <SupplierInvoiceLedgerClient
       supplierId={params.id}
       supplierName={supplier.legal_name}
-      initialInvoices={sorted}
+      initialInvoices={await applyLiveMonthOfLoading(supabase, sorted)}
       isAdmin={me.role === "admin"}
     />
   );

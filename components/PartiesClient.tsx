@@ -54,31 +54,34 @@ export default function PartiesClient({
   const [parties, setParties] = useState(initialParties);
   const [items, setItems] = useState(initialItems);
   const [showInactive, setShowInactive] = useState(false);
-  // Lifted up so "+ New Account" can sit in the page header (same place as
+  // Lifted up so "+ New Buyer" can sit in the page header (same place as
   // Forwarders' buttons) while the form itself stays in the Accounts tab.
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
           <h1 className="text-xl font-semibold text-ink">Buyers / Customers</h1>
           <p className="text-sm text-muted mt-0.5">Buyers and consignees — invoices, shipping details and items</p>
         </div>
         <div className="flex items-center gap-3">
           <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
-          <Link href="/parties/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
-            Import Excel
-          </Link>
-          <button
-            onClick={() => {
-              setTab("parties");
-              setAdding((a) => (tab === "parties" ? !a : true));
-            }}
-            className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
-          >
-            + New Account
-          </button>
+          {/* Equal columns sized to the wider label - both buttons the same size. */}
+          <div className="grid grid-flow-col auto-cols-fr gap-3">
+            <Link href="/parties/import" className="text-sm text-center border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
+              Import Excel
+            </Link>
+            <button
+              onClick={() => {
+                setTab("parties");
+                setAdding((a) => (tab === "parties" ? !a : true));
+              }}
+              className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
+            >
+              + New Buyer
+            </button>
+          </div>
         </div>
       </div>
 
@@ -89,7 +92,7 @@ export default function PartiesClient({
         <StatCard icon={Package} label="Items" value={items.length} />
       </div>
 
-      <div className="flex gap-1 border-b border-line mb-4">
+      <div className="flex gap-1 border-b border-line mb-4 shrink-0">
         <button
           onClick={() => setTab("parties")}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
@@ -264,9 +267,9 @@ function PartiesTab({
   }
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 min-h-0 flex flex-col">
       {adding && (
-        <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-2 gap-3">
+        <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-2 gap-3 shrink-0">
           <input
             placeholder="Account / party name *"
             className="border border-line bg-surface rounded-lg px-2 py-1.5 text-sm col-span-2"
@@ -318,8 +321,8 @@ function PartiesTab({
         />
       )}
 
-      <div className="bg-surface border border-line rounded-xl overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line">
+      <div className="flex-1 min-h-0 flex flex-col bg-surface border border-line rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 p-3 border-b border-line shrink-0">
           <div className="relative flex-1 min-w-[220px] max-w-xs">
             <Search className="w-4 h-4 text-muted absolute left-2.5 top-1/2 -translate-y-1/2" size={16} />
             <input
@@ -330,8 +333,10 @@ function PartiesTab({
             />
           </div>
         </div>
+        {/* The table scrolls inside this box; its header row stays fixed on top. */}
+        <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="sticky top-0 bg-surface-2 z-10">
+          <thead className="sticky top-0 bg-surface-2 z-10 shadow-[0_1px_0_var(--line)]">
             <tr className="text-left text-muted border-b border-line">
               {isAdmin && (
                 <th className="px-3 py-2 w-8">
@@ -438,9 +443,10 @@ function PartiesTab({
           <EmptyState
             icon={Users}
             title={parties.length === 0 ? "No accounts yet" : "No accounts match"}
-            hint={parties.length === 0 ? 'Click "+ New Account" above to add your first buyer or customer.' : undefined}
+            hint={parties.length === 0 ? 'Click "+ New Buyer" above to add your first buyer or customer.' : undefined}
           />
         )}
+        </div>
       </div>
 
       {editing && (
@@ -878,7 +884,7 @@ function ItemsTab({
   const visible = items.filter((i) => showInactive || i.is_active);
 
   return (
-    <div className="flex-1 overflow-auto max-w-lg">
+    <div className="flex-1 min-h-0 overflow-auto max-w-lg">
       <div className="flex gap-2 mb-4">
         <input
           placeholder="New item name, e.g. Mixed Rags"

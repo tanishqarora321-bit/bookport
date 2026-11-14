@@ -18,6 +18,7 @@ export async function PATCH(req: NextRequest) {
     phone: (body.phone ?? "").trim() || undefined,
     fax: (body.fax ?? "").trim() || undefined,
     email: (body.email ?? "").trim() || undefined,
+    signed_by: (body.signed_by ?? "").trim() || undefined,
     accent_color: (body.accent_color ?? "").trim() || undefined,
     shipper_declaration: (body.shipper_declaration ?? "").trim() || undefined,
   };

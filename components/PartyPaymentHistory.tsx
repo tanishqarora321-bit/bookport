@@ -41,6 +41,7 @@ export default function PartyPaymentHistory({
   open = false,
   onClose,
   partyName,
+  received = false,
 }: {
   partyId: string;
   totalInvoicedUsd: number;
@@ -48,7 +49,13 @@ export default function PartyPaymentHistory({
   open?: boolean;
   onClose?: () => void;
   partyName?: string;
+  // Buyers (2026-11): the same Payment History, but money comes IN from the
+  // party - labels read "Received" / "Still Receivable". Same storage.
+  received?: boolean;
 }) {
+  const L = received
+    ? { title: "Payments Received", paid: "Total Received", owed: "Still Receivable", history: "Received payments", add: "+ Add Received Payment", sub: "payments received from this buyer" }
+    : { title: "Payments & History", paid: "Total Paid", owed: "Net Still Owed", history: "Payment history", add: "+ Add Payment", sub: "payments" };
   const isDrawer = variant === "drawer";
   const { year } = useYear();
   const [expanded, setExpanded] = useState(false);
@@ -166,7 +173,7 @@ export default function PartyPaymentHistory({
         onClick={() => setAdding(true)}
         className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium"
       >
-        + Add Payment
+        {L.add}
       </button>
       <button
         onClick={() => setImporting(true)}
@@ -191,9 +198,9 @@ export default function PartyPaymentHistory({
         >
           <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-line">
             <div>
-              <h2 id="payments-drawer-title" className="text-lg font-semibold text-ink">Payments &amp; History</h2>
+              <h2 id="payments-drawer-title" className="text-lg font-semibold text-ink">{L.title}</h2>
               <p className="text-xs text-muted mt-0.5">
-                {partyName ? `${partyName} · ` : ""}payments for {year}, counted against {year}&apos;s invoiced total
+                {partyName ? `${partyName} · ` : ""}{L.sub} for {year}, counted against {year}&apos;s invoiced total
               </p>
             </div>
             <button
@@ -212,17 +219,17 @@ export default function PartyPaymentHistory({
               <div className="text-lg font-semibold text-ink mt-1 tabular-nums">{fmtMoney(totalInvoicedUsd, "USD")}</div>
             </div>
             <div className="bg-surface-2 border border-line rounded-lg p-3.5">
-              <div className="text-xs text-muted">Total Paid {year} (USD)</div>
+              <div className="text-xs text-muted">{L.paid} {year} (USD)</div>
               <div className="text-lg font-semibold text-success mt-1 tabular-nums">{fmtMoney(totalPaidUsd, "USD")}</div>
             </div>
             <div className={`col-span-2 rounded-lg p-3.5 border ${netOwedUsd > 0 ? "bg-warning-soft border-ai-border" : "bg-success-soft border-success"}`}>
-              <div className="text-xs text-muted">Net Still Owed {year} (USD)</div>
+              <div className="text-xs text-muted">{L.owed} {year} (USD)</div>
               <div className={`text-lg font-semibold mt-1 tabular-nums ${netOwedUsd > 0 ? "text-warning" : "text-success"}`}>{fmtMoney(netOwedUsd, "USD")}</div>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-ink">Payment history</h3>
+            <h3 className="text-sm font-semibold text-ink">{L.history}</h3>
             <div className="flex items-center gap-2">{actionButtons}</div>
           </div>
           {payments === null ? (
@@ -258,7 +265,7 @@ export default function PartyPaymentHistory({
                   </tr>
                 ))}
                 {payments.length === 0 && (
-                  <tr><td colSpan={5} className="py-3 text-muted text-xs">No payments recorded yet.</td></tr>
+                  <tr><td colSpan={5} className="py-3 text-muted text-xs">No {received ? "received payments" : "payments"} recorded yet.</td></tr>
                 )}
               </tbody>
             </table>
@@ -282,7 +289,7 @@ export default function PartyPaymentHistory({
 
           {adding && (
             <div className="border border-accent rounded-lg p-4 flex flex-col gap-3">
-              <span className="text-sm font-semibold text-ink">+ Add Payment</span>
+              <span className="text-sm font-semibold text-ink">{L.add}</span>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="pp-amount" className="text-xs font-medium text-ink">Amount</label>
@@ -409,11 +416,11 @@ export default function PartyPaymentHistory({
               <div className="text-lg font-semibold text-ink mt-1 tabular-nums">{fmtMoney(totalInvoicedUsd, "USD")}</div>
             </div>
             <div className="bg-surface-2 border border-line rounded-lg p-3.5">
-              <div className="text-xs text-muted">Total Paid {year} (USD)</div>
+              <div className="text-xs text-muted">{L.paid} {year} (USD)</div>
               <div className="text-lg font-semibold text-success mt-1 tabular-nums">{fmtMoney(totalPaidUsd, "USD")}</div>
             </div>
             <div className={`rounded-lg p-3.5 border ${netOwedUsd > 0 ? "bg-warning-soft border-ai-border" : "bg-success-soft border-success"}`}>
-              <div className="text-xs text-muted">Net Still Owed {year} (USD)</div>
+              <div className="text-xs text-muted">{L.owed} {year} (USD)</div>
               <div className={`text-lg font-semibold mt-1 tabular-nums ${netOwedUsd > 0 ? "text-warning" : "text-success"}`}>{fmtMoney(netOwedUsd, "USD")}</div>
             </div>
           </div>
@@ -451,7 +458,7 @@ export default function PartyPaymentHistory({
                   </tr>
                 ))}
                 {payments.length === 0 && (
-                  <tr><td colSpan={5} className="py-3 text-muted text-xs">No payments recorded yet.</td></tr>
+                  <tr><td colSpan={5} className="py-3 text-muted text-xs">No {received ? "received payments" : "payments"} recorded yet.</td></tr>
                 )}
               </tbody>
             </table>
@@ -475,7 +482,7 @@ export default function PartyPaymentHistory({
 
           {adding && (
             <div className="border border-accent rounded-lg p-4 flex flex-col gap-3">
-              <span className="text-sm font-semibold text-ink">+ Add Payment</span>
+              <span className="text-sm font-semibold text-ink">{L.add}</span>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="pp-amount" className="text-xs font-medium text-ink">Amount</label>
