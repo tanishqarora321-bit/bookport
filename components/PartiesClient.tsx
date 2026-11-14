@@ -54,6 +54,9 @@ export default function PartiesClient({
   const [parties, setParties] = useState(initialParties);
   const [items, setItems] = useState(initialItems);
   const [showInactive, setShowInactive] = useState(false);
+  // Lifted up so "+ New Account" can sit in the page header (same place as
+  // Forwarders' buttons) while the form itself stays in the Accounts tab.
+  const [adding, setAdding] = useState(false);
 
   return (
     <div className="h-full flex flex-col">
@@ -62,7 +65,21 @@ export default function PartiesClient({
           <h1 className="text-xl font-semibold text-ink">Buyers / Customers</h1>
           <p className="text-sm text-muted mt-0.5">Buyers and consignees — invoices, shipping details and items</p>
         </div>
-        <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
+        <div className="flex items-center gap-3">
+          <ToggleSwitch checked={showInactive} onChange={setShowInactive} label="Show removed" />
+          <Link href="/parties/import" className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium">
+            Import Excel
+          </Link>
+          <button
+            onClick={() => {
+              setTab("parties");
+              setAdding((a) => (tab === "parties" ? !a : true));
+            }}
+            className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium"
+          >
+            + New Account
+          </button>
+        </div>
       </div>
 
       {/* Same card size as the Forwarders/Truckers/Suppliers lists (240px each). */}
@@ -92,7 +109,7 @@ export default function PartiesClient({
       </div>
 
       {tab === "parties" ? (
-        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} />
+        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} adding={adding} setAdding={setAdding} />
       ) : (
         <ItemsTab items={items} setItems={setItems} showInactive={showInactive} />
       )}
@@ -107,13 +124,16 @@ function PartiesTab({
   setParties,
   showInactive,
   isAdmin,
+  adding,
+  setAdding,
 }: {
   parties: Party[];
   setParties: (p: Party[]) => void;
   showInactive: boolean;
   isAdmin: boolean;
+  adding: boolean;
+  setAdding: (v: boolean) => void;
 }) {
-  const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,18 +265,6 @@ function PartiesTab({
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="flex justify-end gap-2 mb-3">
-        <Link href="/parties/import" className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 text-sm font-medium">
-          Import Excel
-        </Link>
-        <button
-          onClick={() => setAdding(!adding)}
-          className="bg-accent text-white hover:bg-accent-hover rounded-lg px-3 py-1.5 text-sm font-medium"
-        >
-          + New Account
-        </button>
-      </div>
-
       {adding && (
         <div className="border border-accent/30 bg-accent-soft rounded-xl p-4 mb-4 grid grid-cols-2 gap-3">
           <input
