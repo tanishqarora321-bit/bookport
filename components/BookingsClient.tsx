@@ -230,6 +230,14 @@ export default function BookingsClient({
     () => new Set(rows.filter((r) => !r.erd && inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
     [rows, year, monthFilter]
   );
+  // "Open Bookings" (Booking & Instructions only): bookings that don't have
+  // a container number yet - not a single one of their rows has one.
+  const [openOnly, setOpenOnly] = useState(false);
+  const bookingsWithContainer = useMemo(() => new Set(rows.filter((r) => (r.container_no ?? "").trim()).map((r) => r.booking_id)), [rows]);
+  const openCount = useMemo(
+    () => new Set(rows.filter((r) => !bookingsWithContainer.has(r.booking_id) && inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
+    [rows, bookingsWithContainer, year, monthFilter]
+  );
   const multipleCount = useMemo(
     () => new Set(rows.filter((r) => r.is_multiple && inYearScope(r, year, monthFilter)).map((r) => (r.carrier_booking_no ?? "").trim().toLowerCase())).size,
     [rows, year, monthFilter]
@@ -270,6 +278,7 @@ export default function BookingsClient({
       if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
       if (multipleOnly && !r.is_multiple) return false;
       if (noErdOnly && r.erd) return false;
+      if (openOnly && bookingsWithContainer.has(r.booking_id)) return false;
       // The working year (sidebar) always filters this grid - a booking
       // with no Month of Loading/ERD yet can't belong to any year, so it
       // drops out until it has one. The Month filter then narrows further
@@ -293,13 +302,13 @@ export default function BookingsClient({
       }
       return true;
     });
-  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
+  }, [rows, line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, openOnly, bookingsWithContainer, year, monthFilter, cutoffSoonOnly, overdueOnly, search]);
 
   // Any filter change jumps back to page 1 - staying on, say, page 4 after
   // narrowing the result set down to one page would just show an empty grid.
   useEffect(() => {
     setPage(0);
-  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
+  }, [line, destination, status, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, multipleOnly, noErdOnly, openOnly, year, monthFilter, cutoffSoonOnly, overdueOnly, search, pageSize]);
 
   // Each booking's container numbers, for the Upload BL dialog's manual
   // entry (pre-fills its container table).
@@ -570,6 +579,7 @@ export default function BookingsClient({
     setOverdueOnly(false);
     setMultipleOnly(false);
     setNoErdOnly(false);
+    setOpenOnly(false);
     setSearch("");
   }
 
@@ -583,6 +593,7 @@ export default function BookingsClient({
     buyerFilter !== "all" ? { label: `Buyer: ${buyerFilter}`, clear: () => setBuyerFilter("all") } : null,
     multipleOnly ? { label: "Multiple only", clear: () => setMultipleOnly(false) } : null,
     noErdOnly ? { label: "No ERD", clear: () => setNoErdOnly(false) } : null,
+    openOnly ? { label: "Open Bookings", clear: () => setOpenOnly(false) } : null,
   ].filter((c): c is { label: string; clear: () => void } => c !== null);
 
   function exportCsv() {
@@ -613,6 +624,20 @@ export default function BookingsClient({
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          {stage === "open" && (
+            <button
+              onClick={() => setOpenOnly(!openOnly)}
+              aria-pressed={openOnly}
+              className="btn"
+              style={openOnly ? { background: "var(--accentS)", borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 600 } : undefined}
+              title="Bookings that don't have a container number yet"
+            >
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7h18v12H3zM3 7l3-3h12l3 3M10 12h4" />
+              </svg>
+              Open Bookings ({openCount})
+            </button>
+          )}
           <button onClick={exportCsv} className="btn">
             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
