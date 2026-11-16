@@ -45,9 +45,17 @@ export async function buildFinalInvoiceDefaults(supabase: any, trackingId: strin
       .maybeSingle(),
     tracking.booking_id ? supabase.from("bookings").select("carrier").eq("id", tracking.booking_id).maybeSingle() : Promise.resolve({ data: null }),
     tracking.booking_id
-      ? supabase.from("booking_parties").select("parties (legal_name)").eq("booking_id", tracking.booking_id).eq("role", "supplier").limit(1).maybeSingle()
+      ? supabase.from("booking_parties").select("role, parties (legal_name)").eq("booking_id", tracking.booking_id)
       : Promise.resolve({ data: null }),
   ]);
+  // Supplier = the booking's Supplier on Booking & Instructions; failing
+  // that, the supplier invoice on this container.
+  let supplierName =
+    ((supplierRow as any[] | null) ?? []).find((r) => String(r.role).toLowerCase() === "supplier" && r.parties?.legal_name)?.parties?.legal_name ?? "";
+  if (!supplierName) {
+    const { data: si } = await supabase.from("supplier_invoices").select("supplier:supplier_id (legal_name)").eq("tracking_id", trackingId).limit(1).maybeSingle();
+    supplierName = (si as any)?.supplier?.legal_name ?? "";
+  }
 
   const packing = ctx?.packingItem ?? null;
   const allItems: InvoiceLineItem[] = ((buyerInvoice as any)?.items ?? [])
@@ -75,8 +83,10 @@ export async function buildFinalInvoiceDefaults(supabase: any, trackingId: strin
     weight_unit: /^KG/i.test(weightUnit || "") ? "KG" : "LBS",
     qty_bales: packing?.bales != null ? String(packing.bales) : "",
     description: item?.name || "",
-    goods_description: item?.name || ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || "",
-    supplier_name: ((supplierRow as any)?.parties?.legal_name as string | undefined) ?? "",
+    // The heading line: the buyer's own "Description of Goods" (Shipping
+    // Details) when filled, else the booking's commodity, else the item.
+    goods_description: ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || item?.name || "",
+    supplier_name: supplierName,
     rate: "",
     amount: "",
     currency: buyerInvoice?.currency || "USD",

@@ -172,6 +172,10 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
   v.cost_of_goods = v.balance_due = totalText;
 
   const slots: TemplateSlots = { ...INVOICE_SLOTS };
+  // Date / Invoice # shrink to fit their cells (x 562-643 / 643-733 px),
+  // so a long invoice number like "2026-TEX IMP/01" stays inside the box.
+  slots.date = [{ ...INVOICE_SLOTS.date[0], left: 562, right: 643, maxWidth: 75 }];
+  slots.inv = [{ ...INVOICE_SLOTS.inv[0], left: 643, right: 733, maxWidth: 84 }];
   lines.forEach((l, i) => {
     const lineSlot = INVOICE_SLOTS[`line${i + 1}`][0];
     // Rate centred in the Rate box (x 562-643 px); amounts right-aligned in

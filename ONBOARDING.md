@@ -288,6 +288,9 @@ booking's own ERD year (Trucker + Supplier).
 - Generate Invoice (Buyers ledger) assigns the invoice number if needed and opens the Final Invoice page (/tracking/[id]/documents, BackButton back to the ledger); no "Invoice →" column. The page is pre-filled from lib/final-invoice-defaults.ts (Ship Via = booking carrier first) and everything is editable; on Generate, Date / weight / goods lines / charges are saved to the buyer invoice (save_to_ledger), the rest is print-only on the version.
 - Final Invoice PDF: goods line "36 Bales Mixed Rags 18056 KG" (no "=$"), rate in the Rate column, amount in the Amount column; then Trucking / Commission / Ocean Freight (zero = not printed); Supplier just below the last line; Cost of Goods = sum.
 
+- Goods descriptions = Items assigned to buyers (migration 0039 buyer_items - MUST be run once in Supabase SQL Editor; code tolerates it missing). lib/buyer-items.ts; /api/parties/[id]/items; Items tab chips + "+ Buyer"; buyer Shipping Details "Goods descriptions". Final Invoice goods-line description is a required dropdown (buyer's items, other items, + Add new); on generate each becomes/finds an Item, is assigned to the buyer, and the first is stored on tracking.item_id (for P&L by goods/buyer - not built yet).
+- Final Invoice heading = buyer's Description of Goods, else booking commodity, else item; Supplier = booking's supplier (booking_parties), else the container's supplier invoice. Slot.maxWidth shrinks text to fit (Date / Invoice # cells).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

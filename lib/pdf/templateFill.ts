@@ -26,6 +26,9 @@ export type Slot = {
   right: number;
   y: number; // baseline
   align: "left" | "center" | "right";
+  // When set, text wider than this (px) is printed smaller so it fits its
+  // box (e.g. a long invoice number in the Invoice # cell).
+  maxWidth?: number;
 };
 export type TemplateSlots = Record<string, Slot[]>;
 
@@ -75,12 +78,17 @@ export async function fillTemplate(templateFile: string, slots: TemplateSlots, v
     if (!text) continue;
     for (const s of list) {
       const f = await font(s.font);
-      const width = f.widthOfTextAtSize(text, s.size);
+      let size = s.size;
+      let width = f.widthOfTextAtSize(text, size);
+      if (s.maxWidth && width > s.maxWidth) {
+        size = (size * s.maxWidth) / width;
+        width = f.widthOfTextAtSize(text, size);
+      }
       const xPx = s.align === "center" ? (s.left + s.right) / 2 - width / 2 : s.align === "right" ? s.right - width : s.left;
       pages[s.page - 1].drawText(text, {
         x: xPx * PX,
         y: height - s.y * PX,
-        size: s.size * PX,
+        size: size * PX,
         font: f,
         color: rgb(0, 0, 0),
       });
