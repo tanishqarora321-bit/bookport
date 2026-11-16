@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { unassignPartyIfNoInvoicesRemain } from "@/lib/unassign-party-if-no-invoices";
+import { chargeKeyOf, setBuyerCharges } from "@/lib/buyer-charges";
 
 // Deliberately excludes: id, company_id, buyer_id, tracking_id, total,
 // total_usd (both totals are Postgres-maintained - total via the live
@@ -31,13 +32,13 @@ function numOrNull(v: any) {
   return Number.isFinite(n) ? n : null;
 }
 
+// Weight x unit price when the line has both (the goods amount is always
+// calculated, owner 2026-11); otherwise the amount given.
 function defaultAmount(weight_kg: any, unit_price: any, amount: any) {
-  const explicit = numOrNull(amount);
-  if (explicit !== null) return explicit;
   const weight = numOrNull(weight_kg);
   const price = numOrNull(unit_price);
-  if (weight === null || price === null) return 0;
-  return Math.round(weight * price * 100) / 100;
+  if (weight !== null && price !== null) return Math.round(weight * price * 100) / 100;
+  return numOrNull(amount) ?? 0;
 }
 
 // Mirrors app/api/supplier-invoices/[id]/route.ts exactly. `items` in the
@@ -71,7 +72,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
-  if (Object.keys(updates).length === 0 && !Array.isArray(body.items)) {
+  const hasCharges = body.charges && typeof body.charges === "object";
+  if (Object.keys(updates).length === 0 && !Array.isArray(body.items) && !Array.isArray(body.goods_items) && !hasCharges) {
     return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
   }
 
@@ -91,6 +93,45 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         }))
       );
       if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+  }
+
+  // goods_items (the Final Invoice page's Save): replaces only the goods
+  // lines (weight x rate), keeping Ocean Freight / Commission / Trucking.
+  if (Array.isArray(body.goods_items)) {
+    const { data: current, error: curErr } = await supabase
+      .from("buyer_invoice_items")
+      .select("id, description, weight_kg, unit_price, amount, sort_order")
+      .eq("buyer_invoice_id", params.id);
+    if (curErr) return NextResponse.json({ error: curErr.message }, { status: 500 });
+    const goodsIds = (current ?? []).filter((it: any) => !chargeKeyOf(it)).map((it: any) => it.id);
+    if (goodsIds.length) {
+      const { error: delErr } = await supabase.from("buyer_invoice_items").delete().in("id", goodsIds);
+      if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+    }
+    const rows = body.goods_items.filter((it: any) => (it.description ?? "").toString().trim() || numOrNull(it.weight_kg) !== null || numOrNull(it.unit_price) !== null || numOrNull(it.amount) !== null);
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase.from("buyer_invoice_items").insert(
+        rows.map((it: any, i: number) => ({
+          buyer_invoice_id: params.id,
+          description: it.description?.toString().trim() || null,
+          weight_kg: numOrNull(it.weight_kg),
+          unit_price: numOrNull(it.unit_price),
+          amount: defaultAmount(it.weight_kg, it.unit_price, it.amount),
+          sort_order: i,
+        }))
+      );
+      if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+  }
+
+  // charges: { ocean_freight, commission, trucking } - the ledger columns /
+  // Final Invoice inputs (lib/buyer-charges.ts). 0 or blank removes one.
+  if (hasCharges) {
+    try {
+      await setBuyerCharges(supabase, params.id, body.charges);
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
     }
   }
 

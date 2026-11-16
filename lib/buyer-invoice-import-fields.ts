@@ -6,7 +6,7 @@ import { IMPORT_BOOKING_ERD_LABEL, IMPORT_BOOKING_FIELDS, IMPORT_BOOKING_FIELD_K
 // in any year and fills that container's buyer invoice (assigning this buyer
 // to the booking when it isn't yet); a booking number found nowhere is
 // created, in the year picked on the "New bookings" step. Invoice Value /
-// Freight / Trucking / Commission become the invoice's Cost section lines
+// Ocean Freight / Trucking / Commission become the invoice's charge lines (their own ledger columns)
 // (re-importing replaces those lines, never doubles them).
 export const BUYER_INVOICE_IMPORT_FIELDS: { key: string; label: string; required?: boolean }[] = [
   // A buyer statement without Booking Numbers still works: the Container
@@ -29,7 +29,7 @@ export const BUYER_INVOICE_IMPORT_FIELDS: { key: string; label: string; required
   { key: "due_date", label: "Due Date" },
   { key: "weight", label: "Weight (LBS, or KG when the cell says KG)" },
   { key: "invoice_value", label: "Invoice Value" },
-  { key: "freight", label: "Freight" },
+  { key: "freight", label: "Ocean Freight" },
   { key: "trucking", label: "Trucking" },
   { key: "commission", label: "Commission" },
   { key: "currency", label: "Currency" },
@@ -42,7 +42,7 @@ export const BUYER_INVOICE_DATE_KEYS = new Set(["invoice_date", "bl_date", "due_
 // Mapped charge column -> the Cost section line it becomes.
 export const BUYER_INVOICE_CHARGE_LINES: { key: string; description: string }[] = [
   { key: "invoice_value", description: "Invoice Value" },
-  { key: "freight", description: "Freight" },
+  { key: "freight", description: "Ocean Freight" },
   { key: "trucking", description: "Trucking" },
   { key: "commission", description: "Commission" },
 ];

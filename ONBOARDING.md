@@ -284,6 +284,10 @@ booking's own ERD year (Trucker + Supplier).
 - Month of Loading on ALL four ledgers is read live from the booking's ERD (lib/live-month-of-loading.ts); the invoice's stored month is only the fallback when the booking has no ERD.
 - Final Invoice PDF: with Cost section lines, each line's amount is printed in the Amount column on its own row (right-aligned); Cost of Goods / Balance Due = their sum. The "By:" signatory comes from Settings > letterhead (`signed_by`, default "NITIN SINGLA"), never the logged-in user; footer company name in capitals.
 
+- Buyer charges (lib/buyer-charges.ts): Ocean Freight / Commission / Trucking are Cost section lines with no weight/rate and that exact description (old "Freight" = Ocean Freight) - no migration; the DB trigger keeps total = goods + charges. Ledger columns: Goods Value, Ocean Freight, Commission, Trucking (click to edit; 0 removes), Total, Total (USD). The Cost section shows goods lines only; a goods line with weight + unit price always has amount = weight x price (item routes enforce it).
+- Generate Invoice (Buyers ledger) assigns the invoice number if needed and opens the Final Invoice page (/tracking/[id]/documents, BackButton back to the ledger); no "Invoice →" column. The page is pre-filled from lib/final-invoice-defaults.ts (Ship Via = booking carrier first) and everything is editable; on Generate, Date / weight / goods lines / charges are saved to the buyer invoice (save_to_ledger), the rest is print-only on the version.
+- Final Invoice PDF: goods line "36 Bales Mixed Rags 18056 KG" (no "=$"), rate in the Rate column, amount in the Amount column; then Trucking / Commission / Ocean Freight (zero = not printed); Supplier just below the last line; Cost of Goods = sum.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

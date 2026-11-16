@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
     // ---- Cost section lines from the charge columns (replaced, not doubled) ----
     const lines = BUYER_INVOICE_CHARGE_LINES.map((c) => ({ ...c, amount: parseNumeric(get(c.key)) })).filter((c) => c.amount !== null && c.amount !== 0);
     if (lines.length > 0) {
-      const { error: delErr } = await supabase.from("buyer_invoice_items").delete().eq("buyer_invoice_id", targetId).in("description", lines.map((l) => l.description));
+      const { error: delErr } = await supabase.from("buyer_invoice_items").delete().eq("buyer_invoice_id", targetId).in("description", lines.flatMap((l) => (l.description === "Ocean Freight" ? ["Ocean Freight", "Freight"] : [l.description])));
       const { data: existing } = await supabase.from("buyer_invoice_items").select("sort_order").eq("buyer_invoice_id", targetId);
       const start = Math.max(-1, ...(existing ?? []).map((e: any) => e.sort_order ?? 0)) + 1;
       const { error: insErr } = delErr
