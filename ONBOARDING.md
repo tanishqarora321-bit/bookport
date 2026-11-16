@@ -291,6 +291,8 @@ booking's own ERD year (Trucker + Supplier).
 - Goods descriptions = Items assigned to buyers (migration 0039 buyer_items - MUST be run once in Supabase SQL Editor; code tolerates it missing). lib/buyer-items.ts; /api/parties/[id]/items; Items tab chips + "+ Buyer"; buyer Shipping Details "Goods descriptions". Final Invoice goods-line description is a required dropdown (buyer's items, other items, + Add new); on generate each becomes/finds an Item, is assigned to the buyer, and the first is stored on tracking.item_id (for P&L by goods/buyer - not built yet).
 - Final Invoice heading = buyer's Description of Goods, else booking commodity, else item; Supplier = booking's supplier (booking_parties), else the container's supplier invoice. Slot.maxWidth shrinks text to fit (Date / Invoice # cells).
 
+- Buyer Shipping Details "Description of Goods" = the buyer's Items as chips (★ = default, kept in buyer_gst_entries.description_of_goods for COO / SOD / Instructions; an old typed value is auto-converted to an Item). Final Invoice heading = dropdown of those (default preselected, or type another); Supplier = dropdown of all active suppliers (default the booking's).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

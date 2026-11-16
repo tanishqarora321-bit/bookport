@@ -65,6 +65,7 @@ export default function DocumentsClient({
   letterhead,
   buyerItems = [],
   allItems = [],
+  suppliers = [],
   existingDocs,
   backHref,
   backLabel,
@@ -76,6 +77,7 @@ export default function DocumentsClient({
   // Goods descriptions (Items): this buyer's, and the company's whole list.
   buyerItems?: string[];
   allItems?: string[];
+  suppliers?: string[];
   existingDocs: Doc[];
   backHref: string;
   backLabel: string;
@@ -90,7 +92,8 @@ export default function DocumentsClient({
     reference_no: latest.reference_no || "",
     ship_via: defaults.ship_via,
     seal_number: defaults.seal_number,
-    goods_description: defaults.goods_description || "",
+    // The buyer's default Description of Goods, else their first one.
+    goods_description: defaults.goods_description || buyerItems[0] || "",
     qty_bales: defaults.qty_bales,
     weight_lbs: defaults.weight_lbs,
     weight_unit: defaults.weight_unit || "LBS",
@@ -220,26 +223,26 @@ export default function DocumentsClient({
             <h2 id="ed-h" className="h2">Editable</h2>
             <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
               <Field id="df-date" label="Invoice / Ship Date">
-                <input id="df-date" type="date" className="input" value={form.invoice_date} onChange={(e) => set({ invoice_date: e.target.value })} />
+                <input autoComplete="off" id="df-date" type="date" className="input" value={form.invoice_date} onChange={(e) => set({ invoice_date: e.target.value })} />
               </Field>
               <Field id="df-terms" label="Terms">
-                <input id="df-terms" className="input" value={form.terms} onChange={(e) => set({ terms: e.target.value })} />
+                <input autoComplete="off" id="df-terms" className="input" value={form.terms} onChange={(e) => set({ terms: e.target.value })} />
               </Field>
               <Field id="df-ref" label="Reference #">
-                <input id="df-ref" className="input" value={form.reference_no} onChange={(e) => set({ reference_no: e.target.value })} />
+                <input autoComplete="off" id="df-ref" className="input" value={form.reference_no} onChange={(e) => set({ reference_no: e.target.value })} />
               </Field>
               <Field id="df-via" label="Ship Via">
-                <input id="df-via" className="input" value={form.ship_via} onChange={(e) => set({ ship_via: e.target.value })} />
+                <input autoComplete="off" id="df-via" className="input" value={form.ship_via} onChange={(e) => set({ ship_via: e.target.value })} />
               </Field>
               <Field id="df-seal" label="Seal #">
-                <input id="df-seal" className="input mono" value={form.seal_number} onChange={(e) => set({ seal_number: e.target.value })} />
+                <input autoComplete="off" id="df-seal" className="input mono" value={form.seal_number} onChange={(e) => set({ seal_number: e.target.value })} />
               </Field>
               <Field id="df-qty" label="Qty (Bales)">
-                <input id="df-qty" className="input num" value={form.qty_bales} onChange={(e) => set({ qty_bales: e.target.value })} />
+                <input autoComplete="off" id="df-qty" className="input num" value={form.qty_bales} onChange={(e) => set({ qty_bales: e.target.value })} />
               </Field>
               <Field id="df-weight" label="Total Weight">
                 <div className="flex gap-2">
-                  <input id="df-weight" className="input num flex-1 min-w-0" value={form.weight_lbs} onChange={(e) => set({ weight_lbs: e.target.value })} />
+                  <input autoComplete="off" id="df-weight" className="input num flex-1 min-w-0" value={form.weight_lbs} onChange={(e) => set({ weight_lbs: e.target.value })} />
                   <select aria-label="Weight unit" className="select" style={{ width: 80 }} value={unit} onChange={(e) => set({ weight_unit: e.target.value })}>
                     <option value="LBS">LBS</option>
                     <option value="KG">KG</option>
@@ -247,8 +250,17 @@ export default function DocumentsClient({
                 </div>
               </Field>
               <div style={{ gridColumn: "1 / -1" }}>
-                <Field id="df-desc" label="Goods description (heading)">
-                  <input id="df-desc" className="input" value={form.goods_description} onChange={(e) => set({ goods_description: e.target.value })} />
+                <Field id="df-desc" label="Goods description (heading) - the buyer's Description of Goods">
+                  <DescriptionPicker
+                    id="df-desc"
+                    value={form.goods_description}
+                    buyerItems={buyerItems}
+                    allItems={allItems}
+                    invalid={false}
+                    placeholder="Select description of goods…"
+                    newLabel="+ Type a different heading…"
+                    onChange={(v) => set({ goods_description: v })}
+                  />
                 </Field>
               </div>
             </div>
@@ -279,13 +291,13 @@ export default function DocumentsClient({
                             onChange={(v) => setLine(i, { description: v })}
                           />
                         </td>
-                        <td className="pr-2 py-1"><input aria-label="Line weight" className="input num" value={l.weight_kg} onChange={(e) => setLine(i, { weight_kg: e.target.value })} /></td>
-                        <td className="pr-2 py-1"><input aria-label="Line rate" className="input num" placeholder="0.15" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} /></td>
+                        <td className="pr-2 py-1"><input autoComplete="off" aria-label="Line weight" className="input num" value={l.weight_kg} onChange={(e) => setLine(i, { weight_kg: e.target.value })} /></td>
+                        <td className="pr-2 py-1"><input autoComplete="off" aria-label="Line rate" className="input num" placeholder="0.15" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} /></td>
                         <td className="pr-2 py-1">
                           {computed ? (
                             <div className="h-10 px-3 flex items-center justify-end border border-line rounded-[9px] bg-surface-2 num" title="Weight × Rate">{plain(lineAmount(l))}</div>
                           ) : (
-                            <input aria-label="Line amount" className="input num text-right" value={l.amount} onChange={(e) => setLine(i, { amount: e.target.value })} />
+                            <input autoComplete="off" aria-label="Line amount" className="input num text-right" value={l.amount} onChange={(e) => setLine(i, { amount: e.target.value })} />
                           )}
                         </td>
                         <td className="py-1 text-center">
@@ -317,7 +329,12 @@ export default function DocumentsClient({
               ))}
               <div style={{ gridColumn: "1 / -1" }}>
                 <Field id="df-sup" label="Supplier (printed just below the lines)">
-                  <input id="df-sup" className="input" value={form.supplier_name} onChange={(e) => set({ supplier_name: e.target.value })} />
+                  <select id="df-sup" className="select" style={{ width: "100%" }} value={form.supplier_name} onChange={(e) => set({ supplier_name: e.target.value })}>
+                    <option value="">— None —</option>
+                    {(form.supplier_name && !suppliers.includes(form.supplier_name) ? [form.supplier_name, ...suppliers] : suppliers).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
                 </Field>
               </div>
             </div>
@@ -510,17 +527,23 @@ function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
 // company's other Items, or "+ Add new description" (saved as a new Item and
 // assigned to this buyer when the invoice is generated).
 function DescriptionPicker({
+  id,
   value,
   buyerItems,
   allItems,
   invalid,
   onChange,
+  placeholder = "Select description…",
+  newLabel = "+ Add new description…",
 }: {
+  id?: string;
   value: string;
   buyerItems: string[];
   allItems: string[];
   invalid: boolean;
   onChange: (v: string) => void;
+  placeholder?: string;
+  newLabel?: string;
 }) {
   const known = (v: string) => [...buyerItems, ...allItems].some((n) => n.toLowerCase() === v.trim().toLowerCase());
   const [adding, setAdding] = useState(!!value && !known(value));
@@ -530,7 +553,7 @@ function DescriptionPicker({
   if (adding) {
     return (
       <div className="flex gap-1">
-        <input autoFocus aria-label="New description" className={`${cls} flex-1 min-w-0`} placeholder="New description, e.g. Cream Rags" value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={id} autoFocus autoComplete="off" aria-label="New description" className={`${cls} flex-1 min-w-0`} placeholder="New description, e.g. Cream Rags" value={value} onChange={(e) => onChange(e.target.value)} />
         <button
           type="button"
           onClick={() => {
@@ -548,7 +571,8 @@ function DescriptionPicker({
   const selected = [...buyerItems, ...others].find((n) => n.toLowerCase() === value.trim().toLowerCase()) ?? "";
   return (
     <select
-      aria-label="Line description"
+      id={id}
+      aria-label={id ? undefined : "Line description"}
       className={`select ${invalid ? "border-critical" : ""}`}
       style={{ width: "100%" }}
       value={selected}
@@ -559,7 +583,7 @@ function DescriptionPicker({
         } else onChange(e.target.value);
       }}
     >
-      <option value="">Select description…</option>
+      <option value="">{placeholder}</option>
       {buyerItems.length > 0 && (
         <optgroup label="This buyer's goods">
           {buyerItems.map((n) => (
@@ -574,7 +598,7 @@ function DescriptionPicker({
           ))}
         </optgroup>
       )}
-      <option value="__new__">+ Add new description…</option>
+      <option value="__new__">{newLabel}</option>
     </select>
   );
 }
