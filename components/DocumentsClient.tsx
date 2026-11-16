@@ -63,6 +63,8 @@ export default function DocumentsClient({
   defaults,
   hasBuyerInvoice,
   letterhead,
+  buyerItems = [],
+  allItems = [],
   existingDocs,
   backHref,
   backLabel,
@@ -71,6 +73,9 @@ export default function DocumentsClient({
   defaults: InvoiceFieldData;
   hasBuyerInvoice: boolean;
   letterhead: TemplateConfig | null;
+  // Goods descriptions (Items): this buyer's, and the company's whole list.
+  buyerItems?: string[];
+  allItems?: string[];
   existingDocs: Doc[];
   backHref: string;
   backLabel: string;
@@ -117,6 +122,13 @@ export default function DocumentsClient({
   const grandTotal = round2(goodsTotal + chargesTotal);
 
   async function generate() {
+    // Every goods line needs its description (an Item) - it prints on the
+    // invoice and is what Profit & Loss groups goods by.
+    const used = form.items.filter((l) => l.description.trim() || num(l.weight_kg) !== null || num(l.unit_price) !== null || num(l.amount) !== null);
+    if (used.length === 0 || used.some((l) => !l.description.trim())) {
+      setError("Choose a description for each goods line (or add a new one) before generating.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     try {
@@ -242,7 +254,7 @@ export default function DocumentsClient({
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-medium text-ink">Goods (rate × weight = amount)</span>
+              <span className="text-[13px] font-medium text-ink">Goods (rate × weight = amount) · description required</span>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-muted text-xs">
@@ -258,7 +270,15 @@ export default function DocumentsClient({
                     const computed = num(l.weight_kg) !== null && num(l.unit_price) !== null;
                     return (
                       <tr key={i}>
-                        <td className="pr-2 py-1"><input aria-label="Line description" className="input" placeholder="Mixed Rags" value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} /></td>
+                        <td className="pr-2 py-1">
+                          <DescriptionPicker
+                            value={l.description}
+                            buyerItems={buyerItems}
+                            allItems={allItems}
+                            invalid={!!error && !l.description.trim()}
+                            onChange={(v) => setLine(i, { description: v })}
+                          />
+                        </td>
                         <td className="pr-2 py-1"><input aria-label="Line weight" className="input num" value={l.weight_kg} onChange={(e) => setLine(i, { weight_kg: e.target.value })} /></td>
                         <td className="pr-2 py-1"><input aria-label="Line rate" className="input num" placeholder="0.15" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} /></td>
                         <td className="pr-2 py-1">
@@ -483,5 +503,78 @@ function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
         </button>
       )}
     </div>
+  );
+}
+
+// The goods line's description: a dropdown of this buyer's Items, then the
+// company's other Items, or "+ Add new description" (saved as a new Item and
+// assigned to this buyer when the invoice is generated).
+function DescriptionPicker({
+  value,
+  buyerItems,
+  allItems,
+  invalid,
+  onChange,
+}: {
+  value: string;
+  buyerItems: string[];
+  allItems: string[];
+  invalid: boolean;
+  onChange: (v: string) => void;
+}) {
+  const known = (v: string) => [...buyerItems, ...allItems].some((n) => n.toLowerCase() === v.trim().toLowerCase());
+  const [adding, setAdding] = useState(!!value && !known(value));
+  const others = allItems.filter((n) => !buyerItems.some((b) => b.toLowerCase() === n.toLowerCase()));
+  const cls = `input ${invalid ? "border-critical" : ""}`;
+
+  if (adding) {
+    return (
+      <div className="flex gap-1">
+        <input autoFocus aria-label="New description" className={`${cls} flex-1 min-w-0`} placeholder="New description, e.g. Cream Rags" value={value} onChange={(e) => onChange(e.target.value)} />
+        <button
+          type="button"
+          onClick={() => {
+            setAdding(false);
+            onChange("");
+          }}
+          aria-label="Back to the list"
+          className="text-muted hover:text-ink px-1"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+  const selected = [...buyerItems, ...others].find((n) => n.toLowerCase() === value.trim().toLowerCase()) ?? "";
+  return (
+    <select
+      aria-label="Line description"
+      className={`select ${invalid ? "border-critical" : ""}`}
+      style={{ width: "100%" }}
+      value={selected}
+      onChange={(e) => {
+        if (e.target.value === "__new__") {
+          setAdding(true);
+          onChange("");
+        } else onChange(e.target.value);
+      }}
+    >
+      <option value="">Select description…</option>
+      {buyerItems.length > 0 && (
+        <optgroup label="This buyer's goods">
+          {buyerItems.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </optgroup>
+      )}
+      {others.length > 0 && (
+        <optgroup label="Other items">
+          {others.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </optgroup>
+      )}
+      <option value="__new__">+ Add new description…</option>
+    </select>
   );
 }
