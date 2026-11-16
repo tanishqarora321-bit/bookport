@@ -471,8 +471,7 @@ function PartiesTab({
                 {expanded[p.id] && (
                   <tr className="border-b border-line bg-surface-2">
                     <td colSpan={isAdmin ? 9 : 8} className="px-6 py-3">
-                      <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
-                      <BuyerGoodsSection buyerId={p.id} links={links} />
+                      <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} links={links} />
                     </td>
                   </tr>
                 )}
@@ -798,8 +797,8 @@ const SHIPPING_FIELDS: { key: keyof GstEntry; label: string; wide?: boolean; tit
 ];
 
 function ShippingDetailsSection({
-  buyerPartyId, entry, onChange,
-}: { buyerPartyId: string; entry: GstEntry | null; onChange: (entry: GstEntry) => void }) {
+  buyerPartyId, entry, onChange, links,
+}: { buyerPartyId: string; entry: GstEntry | null; onChange: (entry: GstEntry) => void; links: ItemLinks }) {
   const [error, setError] = useState<string | null>(null);
 
   async function saveField(field: keyof GstEntry, value: string) {
@@ -825,7 +824,16 @@ function ShippingDetailsSection({
         {SHIPPING_FIELDS.map((f) => (
           <div key={f.key} className={f.wide ? "col-span-3" : ""} title={f.title}>
             <div className="text-xs text-muted mb-0.5">{f.label}</div>
-            <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
+            {f.key === "description_of_goods" ? (
+              <DescriptionOfGoodsField
+                buyerId={buyerPartyId}
+                links={links}
+                current={entry?.description_of_goods ?? null}
+                setDefault={(v) => saveField("description_of_goods", v)}
+              />
+            ) : (
+              <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
+            )}
           </div>
         ))}
       </div>
@@ -1025,9 +1033,26 @@ function ItemsTab({
   );
 }
 
-// ---------------- A buyer's goods descriptions (Items assigned to it) ----------------
+// ---------------- Description of Goods: the buyer's descriptions (Items) ----------------
+//
+// A buyer can have several descriptions of goods. Each is an Item (Items
+// tab) assigned to this buyer (migration 0039); they're the dropdowns on the
+// Final Invoice. The starred one is the buyer's default - the single value
+// the Certificate of Origin, Set of Documents and Instructions email print
+// (buyer_gst_entries.description_of_goods, as before). A description typed
+// here before Items existed becomes an Item automatically.
 
-function BuyerGoodsSection({ buyerId, links }: { buyerId: string; links: ItemLinks }) {
+function DescriptionOfGoodsField({
+  buyerId,
+  links,
+  current,
+  setDefault,
+}: {
+  buyerId: string;
+  links: ItemLinks;
+  current: string | null;
+  setDefault: (v: string) => Promise<any>;
+}) {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const mine = links.assignments
@@ -1035,54 +1060,102 @@ function BuyerGoodsSection({ buyerId, links }: { buyerId: string; links: ItemLin
     .map((a) => links.items.find((i) => i.id === a.item_id))
     .filter((i): i is Item => !!i);
   const others = links.items.filter((i) => i.is_active && !mine.some((m) => m.id === i.id));
+  const isDefault = (name: string) => (current ?? "").trim().toLowerCase() === name.trim().toLowerCase();
 
-  async function run(p: Promise<void>) {
+  // The old single text value becomes one of the buyer's Items.
+  const legacy = (current ?? "").trim();
+  const [converted, setConverted] = useState(false);
+  useEffect(() => {
+    if (!links.assignReady || converted || !legacy) return;
+    if (mine.some((m) => isDefault(m.name))) return;
+    setConverted(true);
+    links.assign(buyerId, { name: legacy }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [links.assignReady, legacy, mine.length]);
+
+  async function run(fn: () => Promise<void>) {
     setError(null);
     try {
-      await p;
+      await fn();
     } catch (e: any) {
       setError(e.message);
     }
   }
+  async function add(target: { item_id?: string; name?: string }, name: string) {
+    await links.assign(buyerId, target);
+    if (!legacy) await setDefault(name);
+  }
+  async function remove(item: Item) {
+    await links.unassign(buyerId, item.id);
+    if (isDefault(item.name)) await setDefault(mine.find((m) => m.id !== item.id)?.name ?? "");
+  }
+
+  if (!links.assignReady) {
+    return (
+      <div>
+        <div className="text-sm text-ink py-1">{legacy || <span className="text-muted">—</span>}</div>
+        <div className="text-xs text-warning">Several descriptions per buyer need the one-time database update (migration 0039_buyer_items.sql).</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-3 pt-3 border-t border-line">
-      <div className="text-xs text-muted mb-1">Goods descriptions (Items) - offered in this buyer&apos;s Final Invoice dropdown</div>
-      {!links.assignReady ? (
-        <div className="text-xs text-warning">Needs the one-time database update (migration 0039_buyer_items.sql).</div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {mine.map((i) => (
-            <span key={i.id} className="inline-flex items-center gap-1 text-xs bg-accent-soft text-accent rounded-full pl-2 pr-1 py-0.5">
-              {i.name}
-              <button aria-label={`Remove ${i.name}`} onClick={() => run(links.unassign(buyerId, i.id))} className="w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-accent hover:text-white">
-                ✕
-              </button>
-            </span>
-          ))}
-          {others.length > 0 && (
-            <select
-              aria-label="Add an existing item"
-              className="text-xs border border-line rounded-lg px-1.5 py-0.5 bg-surface text-muted"
-              value=""
-              onChange={(e) => e.target.value && run(links.assign(buyerId, { item_id: e.target.value }))}
+    <div className="py-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {mine.map((i) => (
+          <span
+            key={i.id}
+            className={`inline-flex items-center gap-1 text-xs rounded-full pl-2 pr-1 py-0.5 ${isDefault(i.name) ? "bg-accent text-white" : "bg-accent-soft text-accent"}`}
+          >
+            <button
+              type="button"
+              onClick={() => !isDefault(i.name) && run(() => setDefault(i.name))}
+              title={isDefault(i.name) ? "Default - printed on the COO, Set of Documents and Instructions" : "Make this the default"}
             >
-              <option value="">+ Existing item</option>
-              {others.map((i) => (
-                <option key={i.id} value={i.id}>{i.name}</option>
-              ))}
-            </select>
-          )}
-          <input
-            placeholder="New description, e.g. Cream Rags"
-            className="text-xs border border-line rounded-lg px-2 py-0.5 bg-surface w-56"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && newName.trim()) run(links.assign(buyerId, { name: newName.trim() }).then(() => setNewName("")));
+              {isDefault(i.name) ? "★ " : ""}
+              {i.name}
+            </button>
+            <button
+              aria-label={`Remove ${i.name}`}
+              onClick={() => run(() => remove(i))}
+              className="w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-white/30"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        {others.length > 0 && (
+          <select
+            aria-label="Add an existing description"
+            className="text-xs border border-line rounded-lg px-1.5 py-0.5 bg-surface text-muted"
+            value=""
+            onChange={(e) => {
+              const item = others.find((i) => i.id === e.target.value);
+              if (item) run(() => add({ item_id: item.id }, item.name));
             }}
-          />
-        </div>
+          >
+            <option value="">+ Existing item</option>
+            {others.map((i) => (
+              <option key={i.id} value={i.id}>{i.name}</option>
+            ))}
+          </select>
+        )}
+        <input
+          placeholder="New description, e.g. Cream Rags"
+          autoComplete="off"
+          className="text-xs border border-line rounded-lg px-2 py-0.5 bg-surface w-56"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            const name = newName.trim();
+            if (e.key === "Enter" && name) run(() => add({ name }, name).then(() => setNewName("")));
+          }}
+        />
+      </div>
+      {mine.length > 0 && !mine.some((m) => isDefault(m.name)) ? (
+        <div className="text-xs text-muted mt-1">No default yet - click one to make it the default (printed on the COO, Set of Documents and Instructions).</div>
+      ) : (
+        mine.length > 1 && <div className="text-xs text-muted mt-1">★ = default (COO, Set of Documents, Instructions). Click another to change it.</div>
       )}
       {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
     </div>

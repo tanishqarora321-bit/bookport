@@ -34,6 +34,14 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
     ? await listItemsForBuyer(supabase, me.company_id, defaults.tracking.party_id)
     : { buyerItems: [], allItems: [], tableReady: false };
 
+  // Supplier dropdown: every active supplier.
+  const { data: suppliers } = await supabase
+    .from("parties")
+    .select("legal_name, is_active")
+    .eq("company_id", me.company_id)
+    .contains("roles", ["supplier"])
+    .order("legal_name");
+
   const { data: existingDocs } = await supabase
     .from("generated_documents")
     .select("id, doc_type, field_data, pdf_path, version, created_at")
@@ -51,6 +59,7 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
       letterhead={defaults.templateConfig}
       buyerItems={itemLists.buyerItems.map((i) => i.name)}
       allItems={itemLists.allItems.map((i) => i.name)}
+      suppliers={(suppliers ?? []).filter((x: any) => x.is_active !== false).map((x: any) => x.legal_name as string)}
       existingDocs={existingDocs ?? []}
       backHref={back ?? "/tracking"}
       backLabel={back ? "Back to Buyer ledger" : "Back to Shipment Tracking"}
