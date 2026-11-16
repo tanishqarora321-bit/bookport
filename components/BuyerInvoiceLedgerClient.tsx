@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { BUYER_CHARGES, splitBuyerItems, type BuyerChargeKey } from "@/lib/buyer-charges";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt, Search, Wallet } from "lucide-react";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
 import { PAYMENTS_LAYOUT } from "@/lib/ui-flags";
@@ -60,10 +62,14 @@ const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
 // Container Number columns' `left` offsets never drift - same approach as
 // the other ledgers. Order matches the <colgroup>/<thead>: Booking Number,
 // Container Number, Date, Month of Loading, Invoice, Forwarder, Location,
-// BL Date, Due Date, Weight, Total, Total (USD), ETA (live), Status (live),
-// Paid, Generate Invoice, Invoice → (the full invoice page), Fumigation
-// Cert., Certificate of Origin, Set of Documents, Cost section, Delete.
-const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 130, 130, 120, 150, 110, 160, 110, 150, 180, 160, 150, 80];
+// BL Date, Due Date, Weight, Goods Value, Ocean Freight, Commission,
+// Trucking, Total, Total (USD), ETA (live), Status (live), Paid, Generate
+// Invoice (opens the Final Invoice page), Fumigation Cert., Certificate of
+// Origin, Set of Documents, Cost section, Delete.
+const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 140, 140, 130, 120, 130, 130, 120, 150, 110, 160, 150, 180, 160, 150, 80];
+// Ledger column order of the three charges (lib/buyer-charges.ts).
+const LEDGER_CHARGES: BuyerChargeKey[] = ["ocean_freight", "commission", "trucking"];
+const chargeLabel = (k: BuyerChargeKey) => BUYER_CHARGES.find((c) => c.key === k)!.label;
 const CHECKBOX_COLUMN_WIDTH = 40;
 
 function fmtDate(d: string | null) {
@@ -236,6 +242,17 @@ export default function BuyerInvoiceLedgerClient({
   const filteredTotalUsd = filtered.reduce((s, i) => s + Number(i.total_usd || 0), 0);
   const filteredCurrencies = Array.from(new Set(filtered.map((i) => i.currency || "USD")));
   const filteredTotal = filtered.reduce((s, i) => s + Number(i.total || 0), 0);
+  // Goods Value / charges totals, in USD (each row's amount x its FX rate).
+  const filteredSplitUsd = filtered.reduce(
+    (acc, i) => {
+      const sp = splitBuyerItems(i.items);
+      const fx = Number(i.fx_rate) || 1;
+      acc.goods += sp.goodsTotal * fx;
+      for (const k of LEDGER_CHARGES) acc[k] += sp.charges[k] * fx;
+      return acc;
+    },
+    { goods: 0, ocean_freight: 0, commission: 0, trucking: 0 } as Record<"goods" | BuyerChargeKey, number>
+  );
 
   const COLSPAN = (isAdmin ? 1 : 0) + LEDGER_COLUMN_WIDTHS.length;
   const tableWidth = (isAdmin ? CHECKBOX_COLUMN_WIDTH : 0) + LEDGER_COLUMN_WIDTHS.reduce((s, w) => s + w, 0);
@@ -395,12 +412,15 @@ export default function BuyerInvoiceLedgerClient({
               <Th>BL Date</Th>
               <Th>Due Date</Th>
               <Th>Weight</Th>
+              <Th>Goods Value</Th>
+              {LEDGER_CHARGES.map((k) => (
+                <Th key={k}>{chargeLabel(k)}</Th>
+              ))}
               <Th>Total</Th>
               <Th>Total (USD)</Th>
               <Th>ETA (live)</Th>
               <Th>Status (live)</Th>
               <Th>Paid</Th>
-              <Th></Th>
               <Th></Th>
               <Th></Th>
               <Th></Th>
@@ -448,9 +468,13 @@ export default function BuyerInvoiceLedgerClient({
                 <td className={`px-3 py-2 whitespace-nowrap sticky z-10 bg-surface-2 text-ink ${isAdmin ? "left-10" : "left-0"}`}>Totals in USD</td>
                 <td className={`sticky z-10 bg-surface-2 shadow-[1px_0_0_var(--line)] ${isAdmin ? "left-[200px]" : "left-[160px]"}`} />
                 <td colSpan={8} />
+                <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(filteredSplitUsd.goods, "USD")}</td>
+                {LEDGER_CHARGES.map((k) => (
+                  <td key={k} className="px-3 py-2 whitespace-nowrap">{fmtMoney(filteredSplitUsd[k], "USD")}</td>
+                ))}
                 <td className="px-3 py-2 whitespace-nowrap">{filteredCurrencies.length === 1 ? fmtMoney(filteredTotal, filteredCurrencies[0]) : <span className="text-muted">—</span>}</td>
                 <td className="px-3 py-2 whitespace-nowrap">{fmtMoney(filteredTotalUsd, "USD")}</td>
-                <td colSpan={LEDGER_COLUMN_WIDTHS.length - 12} />
+                <td colSpan={LEDGER_COLUMN_WIDTHS.length - 16} />
               </tr>
             </tfoot>
           )}
@@ -581,8 +605,10 @@ function InvoiceRows({
   selected?: boolean;
   onToggleSelect?: () => void;
 }) {
+  const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const split = splitBuyerItems(inv.items);
   const [generatingDoc, setGeneratingDoc] = useState<"fumigation" | "coo" | "sod" | null>(null);
   const [docError, setDocError] = useState<{ kind: "fumigation" | "coo" | "sod"; message: string } | null>(null);
 
@@ -608,14 +634,6 @@ function InvoiceRows({
         await patchInvoice(inv.id, { invoice_number: invoiceNumber });
         onChange({ invoice_number: invoiceNumber });
       }
-      // The ledger's Date column is the invoice date - a generated invoice
-      // is dated today when it has none (the PDF prints the same date).
-      if (!inv.invoice_date) {
-        const today = new Date().toISOString().slice(0, 10);
-        await patchInvoice(inv.id, { invoice_date: today });
-        onChange({ invoice_date: today });
-      }
-
       // The documents route (below) reads invoice_no off the TRACKING
       // row, not off buyer_invoices.invoice_number - has to be pushed
       // there every time (not just when freshly generated), since an
@@ -632,20 +650,11 @@ function InvoiceRows({
         throw new Error(trackingJson.error || "Could not save the invoice number to this tracking entry");
       }
 
-      const res2 = await fetch(`/api/tracking/${inv.tracking_id}/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Everything (date, weight, bales, seal, location and the Cost
-        // section lines) is read server-side from this buyer invoice and
-        // the container's packing - nothing to pass from here.
-        body: JSON.stringify({ overrides: {} }),
-      });
-      const json2 = await res2.json();
-      if (!res2.ok) throw new Error(json2.error || "Failed to generate invoice");
-      if (json2.url) window.open(json2.url, "_blank");
+      // Opens the Final Invoice page: everything pre-filled (BL, packing,
+      // booking, this row), editable, then printed from there.
+      router.push(`/tracking/${inv.tracking_id}/documents?back=${encodeURIComponent(`/parties/${buyerId}/invoices`)}`);
     } catch (err: any) {
       setGenError(err.message);
-    } finally {
       setGenerating(false);
     }
   }
@@ -699,6 +708,19 @@ function InvoiceRows({
           onSave={(weight, unit) => patchInvoice(inv.id, { weight, weight_unit: unit }).then(() => onChange({ weight: weight === "" ? null : Number(weight), weight_unit: unit }))}
         />
         <Td>
+          <span className="text-text-2">{fmtMoney(split.goodsTotal, inv.currency)}</span>
+        </Td>
+        {LEDGER_CHARGES.map((k) => (
+          <EditableCell
+            key={k}
+            value={split.charges[k] ? String(split.charges[k]) : null}
+            display={split.charges[k] ? fmtMoney(split.charges[k], inv.currency) : undefined}
+            onSave={(v) =>
+              patchInvoice(inv.id, { charges: { [k]: v } }).then((json) => onChange({ items: json.invoice.items ?? inv.items, total: Number(json.invoice.total) || 0, total_usd: Number(json.invoice.total_usd) || 0 }))
+            }
+          />
+        ))}
+        <Td>
           <span className="font-medium text-ink">{fmtMoney(inv.total, inv.currency)}</span>
         </Td>
         <Td>
@@ -730,21 +752,6 @@ function InvoiceRows({
             {generating ? "Generating…" : "Generate Invoice"}
           </button>
           {genError && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{genError}</div>}
-        </td>
-        <td className="px-3 py-2 whitespace-nowrap">
-          {/* The full invoice page (review / edit the fields, version
-              history) - moved here from Shipment Tracking's Docs column. */}
-          {inv.tracking_id ? (
-            <Link
-              href={`/tracking/${inv.tracking_id}/documents?back=${encodeURIComponent(`/parties/${buyerId}/invoices`)}`}
-              className="text-xs font-medium"
-              title="Review and edit the invoice, see its versions"
-            >
-              Invoice →
-            </Link>
-          ) : (
-            <span className="text-muted">—</span>
-          )}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">
           <button
@@ -801,7 +808,15 @@ function InvoiceRows({
             {/* Pinned to the left edge so it stays in view however far the
                 wide ledger is scrolled sideways. */}
             <div className="sticky left-6" style={{ maxWidth: "min(1100px, calc(100vw - 340px))" }}>
-            <CostSection invoiceId={inv.id} items={inv.items} currency={inv.currency} onTotalChange={(total) => onChange({ total })} onItemsChange={(items) => onChange({ items })} />
+            {/* Goods lines only (weight x unit price = amount); Ocean Freight /
+                Commission / Trucking are their own columns on the row. */}
+            <CostSection
+              invoiceId={inv.id}
+              items={split.goods}
+              currency={inv.currency}
+              onTotalChange={(total) => onChange({ total, total_usd: total * (Number(inv.fx_rate) || 1) })}
+              onItemsChange={(goods) => onChange({ items: [...goods, ...inv.items.filter((it) => !split.goods.includes(it))] })}
+            />
             </div>
           </td>
         </tr>
@@ -884,7 +899,7 @@ function CostSection({
         <thead>
           <tr className="text-left text-muted">
             <th className="pb-1 pr-2 font-normal">Description</th>
-            <th className="pb-1 pr-2 font-normal w-32">Weight (KG)</th>
+            <th className="pb-1 pr-2 font-normal w-32">Weight</th>
             <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
             <th className="pb-1 pr-2 font-normal w-32">Amount ({currency})</th>
             <th className="pb-1 w-8"></th>
@@ -896,7 +911,11 @@ function CostSection({
               <ItemCell value={item.description} onSave={(v) => patchItem(item.id, "description", v)} />
               <ItemCell value={item.weight_kg?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "weight_kg", v)} />
               <ItemCell value={item.unit_price?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "unit_price", v)} />
-              <ItemCell value={item.amount?.toString() ?? "0"} isNumber onSave={(v) => patchItem(item.id, "amount", v)} />
+              {item.weight_kg != null && item.unit_price != null ? (
+                <td className="py-1 pr-2 tabular-nums text-text-2" title="Weight × Unit Price">{item.amount}</td>
+              ) : (
+                <ItemCell value={item.amount?.toString() ?? "0"} isNumber onSave={(v) => patchItem(item.id, "amount", v)} />
+              )}
               <td className="py-1 text-center">
                 <button onClick={() => deleteRow(item.id)} className="text-cutoff text-xs">
                   ✕
@@ -940,7 +959,7 @@ function CostSection({
           <input
             type="number"
             step="0.01"
-            placeholder="Amount (auto)"
+            placeholder="Amount (if no rate)"
             className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-28"
             value={draft.amount}
             onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
@@ -959,9 +978,12 @@ function CostSection({
           </button>
         </div>
       ) : (
-        <button onClick={() => setAddingRow(true)} className="text-xs text-accent hover:underline mt-2">
-          + Add Line
-        </button>
+        <div className="flex items-center gap-3 mt-2">
+          <button onClick={() => setAddingRow(true)} className="text-xs text-accent hover:underline">
+            + Add Line
+          </button>
+          <span className="text-xs text-muted">Goods: amount = weight × unit price. Ocean Freight, Commission and Trucking have their own columns on the row.</span>
+        </div>
       )}
       {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
     </div>
@@ -1036,10 +1058,12 @@ function EditableCell({
   value,
   onSave,
   isDate = false,
+  display: displayOverride,
 }: {
   value: string | null;
   onSave: (v: string) => Promise<any>;
   isDate?: boolean;
+  display?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
@@ -1059,7 +1083,7 @@ function EditableCell({
     }
   }
 
-  const display = value ? (isDate ? fmtDate(value) : value) : "—";
+  const display = displayOverride ?? (value ? (isDate ? fmtDate(value) : value) : "—");
 
   if (!editing) {
     return (

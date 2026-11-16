@@ -20,9 +20,10 @@ function numOrNull(v: any) {
 }
 
 // Mirrors app/api/supplier-invoices/[id]/items/[itemId]/route.ts exactly.
-// Note: unlike the invoice header PATCH routes, this one does NOT
-// auto-recompute `amount` when weight_kg or unit_price change -- an
-// editable cell edits exactly the field the person clicked on.
+// Cost section = goods lines (owner, 2026-11): when a line has both a
+// weight and a unit price, its amount is always weight x unit price -
+// changing either recomputes it. A line without both keeps the amount
+// typed in (e.g. an imported "Invoice Value").
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; itemId: string } }
@@ -48,6 +49,18 @@ export async function PATCH(
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
+  }
+
+  if ("weight_kg" in updates || "unit_price" in updates) {
+    const { data: cur } = await supabase
+      .from("buyer_invoice_items")
+      .select("weight_kg, unit_price")
+      .eq("id", params.itemId)
+      .eq("buyer_invoice_id", params.id)
+      .maybeSingle();
+    const w = "weight_kg" in updates ? updates.weight_kg : cur?.weight_kg;
+    const p = "unit_price" in updates ? updates.unit_price : cur?.unit_price;
+    if (w != null && p != null) updates.amount = Math.round(Number(w) * Number(p) * 100) / 100;
   }
 
   const { data, error } = await supabase

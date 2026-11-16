@@ -3,7 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { INVOICE_KIND_LABEL, INVOICE_PARTY_COLUMN, INVOICE_TABLE, listInvoicePdfs, parseInvoicePdfName, type InvoiceKind } from "@/lib/party-invoice-pdf";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
-import { getTrackingDocContext } from "@/lib/tracking-doc-context";
+import { buildFinalInvoiceDefaults } from "@/lib/final-invoice-defaults";
+import { chargeKeyOf, setBuyerCharges } from "@/lib/buyer-charges";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
@@ -63,110 +64,83 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const body = await req.json();
   const supabase = createServiceClient();
+  const overridesIn: Record<string, any> = body.overrides ?? {};
 
-  // 1. Pull tracking row + linked party/item -- this is what auto-fills
-  // most fields per the spec (consignee = party, address = party's address,
-  // booking/container/ship-via = already on the tracking row).
-  const { data: tracking, error: trackingError } = await supabase
-    .from("tracking")
-    .select(
-      "id, company_id, booking_number, container_number, shipping_line, seal_number, party_id, item_id, invoice_no"
-    )
-    .eq("id", params.id)
-    .eq("company_id", me.company_id)
-    .single();
-
-  if (trackingError || !tracking) {
-    return NextResponse.json({ error: "Tracking entry not found" }, { status: 404 });
+  // 1. The Final Invoice page's edits that belong to the Buyers ledger row
+  // are saved there first (owner, 2026-11), so the ledger and the printed
+  // invoice never disagree: Date, Weight, the goods lines (weight x rate)
+  // and Ocean Freight / Commission / Trucking. Everything else edited on
+  // the page (terms, reference, seal, ship via, bales, supplier line...)
+  // is for this print only and kept on the version.
+  if (body.save_to_ledger) {
+    const { data: bi } = await supabase
+      .from("buyer_invoices")
+      .select("id")
+      .eq("tracking_id", params.id)
+      .eq("company_id", me.company_id)
+      .maybeSingle();
+    if (bi) {
+      const updates: Record<string, any> = {};
+      if (overridesIn.invoice_date) updates.invoice_date = overridesIn.invoice_date;
+      if (overridesIn.weight_lbs !== undefined) {
+        const w = parseFloat(String(overridesIn.weight_lbs).replace(/[^0-9.]/g, ""));
+        updates.weight = Number.isFinite(w) ? w : null;
+      }
+      if (overridesIn.weight_unit) updates.weight_unit = /^KG/i.test(overridesIn.weight_unit) ? "KG" : "LBS";
+      if (Object.keys(updates).length) {
+        updates.updated_at = new Date().toISOString();
+        await supabase.from("buyer_invoices").update(updates).eq("id", bi.id);
+      }
+      if (Array.isArray(overridesIn.items)) {
+        const { data: current } = await supabase.from("buyer_invoice_items").select("id, description, weight_kg, unit_price, amount").eq("buyer_invoice_id", bi.id);
+        const goodsIds = (current ?? []).filter((it: any) => !chargeKeyOf(it)).map((it: any) => it.id);
+        if (goodsIds.length) await supabase.from("buyer_invoice_items").delete().in("id", goodsIds);
+        const num = (v: any) => {
+          const n = parseFloat(String(v ?? "").replace(/[^0-9.-]/g, ""));
+          return Number.isFinite(n) ? n : null;
+        };
+        const rows = overridesIn.items
+          .map((it: any, i: number) => {
+            const w = num(it.weight_kg);
+            const r = num(it.unit_price);
+            const amount = w !== null && r !== null ? Math.round(w * r * 100) / 100 : num(it.amount) ?? 0;
+            return { buyer_invoice_id: bi.id, description: (it.description ?? "").toString().trim() || null, weight_kg: w, unit_price: r, amount, sort_order: i };
+          })
+          .filter((it: any) => it.description || it.weight_kg !== null || it.unit_price !== null || it.amount);
+        if (rows.length) await supabase.from("buyer_invoice_items").insert(rows);
+      }
+      if (overridesIn.charges && typeof overridesIn.charges === "object") {
+        await setBuyerCharges(supabase, bi.id, overridesIn.charges);
+      }
+    }
   }
 
-  const [{ data: party }, { data: item }, { data: templateRow }] = await Promise.all([
-    tracking.party_id
-      ? supabase.from("parties").select("legal_name, address, country").eq("id", tracking.party_id).single()
-      : Promise.resolve({ data: null }),
-    tracking.item_id ? supabase.from("items").select("name").eq("id", tracking.item_id).single() : Promise.resolve({ data: null }),
-    supabase
-      .from("document_templates")
-      .select("template_config")
-      .eq("company_id", me.company_id)
-      .eq("doc_type", "final_invoice")
-      .eq("is_default", true)
-      .single(),
-  ]);
-
-  if (!templateRow?.template_config) {
+  // 2. Defaults from the data the app already has (lib/final-invoice-
+  // defaults.ts) - re-read after the save above. Anything edited on the
+  // page wins, but a blank/null override never wipes a default (that's how
+  // a missing invoice date used to print as 01/01/1970).
+  const defaults = await buildFinalInvoiceDefaults(supabase, params.id, me.company_id);
+  if (!defaults) return NextResponse.json({ error: "Tracking entry not found" }, { status: 404 });
+  if (!defaults.templateConfig) {
     return NextResponse.json(
-      { error: "No document template set up for this company yet -- run migration 0005 or add one in Settings." },
+      { error: "No document template set up for this company yet -- add your letterhead in Settings." },
       { status: 400 }
     );
   }
-
-  // 2. Defaults come from the data the app already has - the Buyers ledger
-  // row (invoice no., date, weight, Cost section lines), the booking's
-  // Supplier (printed under the charges, e.g. "GOODWILL Nashville"), the
-  // container's packing (bales, seal, weight) and the buyer's shipping
-  // details - so the invoice is complete from either "Generate Invoice" or
-  // the Invoice page. Anything the user edited on the Invoice page
-  // (body.overrides) wins, but a blank/null override never wipes a default
-  // (that's how a missing invoice date used to print as 01/01/1970).
-  const [ctx, { data: buyerInvoice }] = await Promise.all([
-    getTrackingDocContext(supabase, params.id, me.company_id),
-    supabase
-      .from("buyer_invoices")
-      .select("invoice_number, invoice_date, weight, weight_unit, total, currency, items:buyer_invoice_items (description, weight_kg, unit_price, amount, sort_order)")
-      .eq("tracking_id", params.id)
-      .maybeSingle(),
-  ]);
-  const packing = ctx?.packingItem ?? null;
-  const { data: supplierRow } = ctx?.tracking.booking_id
-    ? await supabase
-        .from("booking_parties")
-        .select("parties (legal_name)")
-        .eq("booking_id", ctx.tracking.booking_id)
-        .eq("role", "supplier")
-        .limit(1)
-        .maybeSingle()
-    : { data: null };
-  const supplierName = ((supplierRow as any)?.parties?.legal_name as string | undefined) ?? "";
-  const items = ((buyerInvoice as any)?.items ?? [])
-    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((it: any) => ({ description: it.description, weight_kg: it.weight_kg, unit_price: it.unit_price, amount: Number(it.amount) || 0 }));
-  const useInvoiceWeight = buyerInvoice?.weight != null;
-  const weight = useInvoiceWeight ? buyerInvoice!.weight : packing?.weight ?? null;
-  const weightUnit = useInvoiceWeight ? buyerInvoice!.weight_unit : packing?.weight_unit;
-
-  const autoFilled: InvoiceFieldData = {
-    invoice_no: buyerInvoice?.invoice_number || tracking.invoice_no || "",
-    invoice_date: buyerInvoice?.invoice_date || new Date().toISOString().slice(0, 10),
-    consignee_name: party?.legal_name || "",
-    consignee_address: ctx?.gstEntry?.address || party?.address || "",
-    booking_number: tracking.booking_number || "",
-    container_number: tracking.container_number || "",
-    seal_number: tracking.seal_number || packing?.seal_no || "",
-    ship_via: tracking.shipping_line || "",
-    terms: "Advance",
-    reference_no: "",
-    weight_lbs: weight != null ? String(weight) : "",
-    weight_unit: /^KG/i.test(weightUnit || "") ? "KG" : "LBS",
-    qty_bales: packing?.bales != null ? String(packing.bales) : "",
-    description: item?.name || "",
-    goods_description: item?.name || ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || "",
-    supplier_name: supplierName,
-    rate: "",
-    amount: buyerInvoice?.total != null ? String(buyerInvoice.total) : "",
-    currency: buyerInvoice?.currency || "USD",
-    // The signatory under the certification ("By: NITIN SINGLA" on the
-    // owner's invoice) - Settings > letterhead, never whoever is logged in.
-    signed_by: (templateRow.template_config as any)?.signed_by || "NITIN SINGLA",
-    items,
-  };
   const overrides: Record<string, any> = {};
-  for (const [k, val] of Object.entries(body.overrides ?? {})) {
+  for (const [k, val] of Object.entries(overridesIn)) {
+    if (k === "items" || k === "charges") continue; // read back from the ledger (saved above)
     if (val == null || val === "") continue;
     if (Array.isArray(val) && val.length === 0) continue;
     overrides[k] = val;
   }
-  const finalData: InvoiceFieldData = { ...autoFilled, ...overrides };
+  // Without the ledger save (no buyer invoice), the page's lines/charges
+  // still print.
+  if (!body.save_to_ledger || !defaults.buyerInvoiceId) {
+    if (Array.isArray(overridesIn.items)) overrides.items = overridesIn.items;
+    if (overridesIn.charges) overrides.charges = overridesIn.charges;
+  }
+  const finalData: InvoiceFieldData = { ...defaults.data, ...overrides };
 
   if (!finalData.consignee_name) {
     return NextResponse.json({ error: "This tracking entry has no party assigned yet -- can't generate a consignee." }, { status: 400 });
@@ -174,6 +148,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!finalData.invoice_no) {
     return NextResponse.json({ error: "Generate an invoice number on this row first." }, { status: 400 });
   }
+  const templateRow = { template_config: defaults.templateConfig };
 
   // 3. Render the PDF.
   const pdfBytes = await generateFinalInvoicePdf(templateRow.template_config as TemplateConfig, finalData);

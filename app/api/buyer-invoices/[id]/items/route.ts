@@ -8,13 +8,13 @@ function numOrNull(v: any) {
   return Number.isFinite(n) ? n : null;
 }
 
+// Weight x unit price when the line has both (the goods amount is always
+// calculated, owner 2026-11); otherwise the amount given.
 function defaultAmount(weight_kg: any, unit_price: any, amount: any) {
-  const explicit = numOrNull(amount);
-  if (explicit !== null) return explicit;
   const weight = numOrNull(weight_kg);
   const price = numOrNull(unit_price);
-  if (weight === null || price === null) return 0;
-  return Math.round(weight * price * 100) / 100;
+  if (weight !== null && price !== null) return Math.round(weight * price * 100) / 100;
+  return numOrNull(amount) ?? 0;
 }
 
 // Add one more cost-section row to an existing invoice (the "+ Add Line"
