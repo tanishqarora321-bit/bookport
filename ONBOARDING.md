@@ -300,6 +300,8 @@ booking's own ERD year (Trucker + Supplier).
 
 - Items tab is a table: Item (click to rename) / Used on (count of tracking.item_id) / Status / Remove-Restore + admin-only permanent Delete (/api/items/[id] DELETE unlinks tracking.item_id first).
 
+- Shipment Tracking Last Checked: shows date + "N days ago" (amber "check again" at 4+ days for unreleased), a "Check" button that asks to confirm before stamping; chips "Not checked" and "Checked 4+ days ago" (both exclude Released containers).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Search, Ship, CheckCircle2, FileText, Files, Anchor, MapPin } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
@@ -76,7 +77,7 @@ const COLUMNS: { label: string; width: number }[] = [
   { label: "Docs Sent", width: 130 },
   { label: "ETA", width: 150 },
   { label: "Release Status", width: 140 },
-  { label: "Last Checked", width: 200 },
+  { label: "Last Checked", width: 270 },
   { label: "Remarks", width: 240 },
   { label: "Docs", width: 90 },
 ];
@@ -94,6 +95,25 @@ function fmtDateTime(d: string | null) {
   if (isNaN(x.getTime())) return null;
   return x.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+// Last Checked (owner, 2026-11-19): a container still to be released whose
+// tracking hasn't been checked for this many days is "overdue".
+const CHECK_OVERDUE_DAYS = 4;
+const DAY_MS = 86400000;
+function checkAgeDays(d: string | null): number | null {
+  if (!d) return null;
+  const t = new Date(d).getTime();
+  return isNaN(t) ? null : Math.floor((Date.now() - t) / DAY_MS);
+}
+// Only containers not yet released need checking.
+function needsChecking(r: { release_status: string | null }) {
+  return r.release_status !== "Released";
+}
+function relativeAge(days: number) {
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days} days ago`;
+}
+
 function monthKey(d: string | null) {
   if (!d) return null;
   const x = new Date(d.length <= 10 ? `${d}T00:00:00` : d);
@@ -116,6 +136,8 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const [invoicePending, setInvoicePending] = useState(false);
   const [docsPending, setDocsPending] = useState(false);
   const [blPending, setBlPending] = useState(false);
+  const [notChecked, setNotChecked] = useState(false);
+  const [checkOverdue, setCheckOverdue] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [docsFor, setDocsFor] = useState<TrackingRow | null>(null);
@@ -144,6 +166,8 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
       if (invoicePending && r.invoice_sent) return false;
       if (docsPending && r.documents_sent) return false;
       if (blPending && r.bl_status === "Y") return false;
+      if (notChecked && !(needsChecking(r) && !r.last_tracking_check_at)) return false;
+      if (checkOverdue && !(needsChecking(r) && (checkAgeDays(r.last_tracking_check_at) ?? -1) >= CHECK_OVERDUE_DAYS)) return false;
       if (!q) return true;
       return [r.booking_number, r.container_number, r.shipping_line, r.forwarder, r.trucker, r.supplier, r.buyer, r.bl_number, r.invoice_no, r.remarks]
         .filter(Boolean)
@@ -151,9 +175,9 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
         .toLowerCase()
         .includes(q);
     });
-  }, [yearRows, search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending]);
+  }, [yearRows, search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue]);
 
-  useEffect(() => setPage(0), [search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending, pageSize, year]);
+  useEffect(() => setPage(0), [search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue, pageSize, year]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = Math.min(page, pageCount - 1) * pageSize;
   const paginated = filtered.slice(pageStart, pageStart + pageSize);
@@ -163,9 +187,11 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const invoicePendingCount = yearRows.filter((r) => !r.invoice_sent).length;
   const docsPendingCount = yearRows.filter((r) => !r.documents_sent).length;
   const blPendingCount = yearRows.filter((r) => r.bl_status !== "Y").length;
+  const notCheckedCount = yearRows.filter((r) => needsChecking(r) && !r.last_tracking_check_at).length;
+  const checkOverdueCount = yearRows.filter((r) => needsChecking(r) && (checkAgeDays(r.last_tracking_check_at) ?? -1) >= CHECK_OVERDUE_DAYS).length;
 
   const anyFilter =
-    search || monthFilter !== "all" || statusFilter !== "all" || lineFilter !== "all" || invoicePending || docsPending || blPending;
+    search || monthFilter !== "all" || statusFilter !== "all" || lineFilter !== "all" || invoicePending || docsPending || blPending || notChecked || checkOverdue;
   function clearFilters() {
     setSearch("");
     setMonthFilter("all");
@@ -174,6 +200,8 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
     setInvoicePending(false);
     setDocsPending(false);
     setBlPending(false);
+    setNotChecked(false);
+    setCheckOverdue(false);
   }
 
   return (
@@ -236,6 +264,24 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
           </button>
           <button type="button" className={`chip ${blPending ? "on" : ""}`} aria-pressed={blPending} onClick={() => setBlPending((v) => !v)}>
             BL pending <span className="num" style={{ color: "var(--tx2)" }}>{blPendingCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`chip ${notChecked ? "on" : ""}`}
+            aria-pressed={notChecked}
+            onClick={() => setNotChecked((v) => !v)}
+            title="Not released yet, and Last Checked is empty"
+          >
+            Not checked <span className="num" style={{ color: "var(--tx2)" }}>{notCheckedCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`chip ${checkOverdue ? "on" : ""}`}
+            aria-pressed={checkOverdue}
+            onClick={() => setCheckOverdue((v) => !v)}
+            title={`Not released yet, and last checked ${CHECK_OVERDUE_DAYS} or more days ago`}
+          >
+            Checked {CHECK_OVERDUE_DAYS}+ days ago <span className="num" style={{ color: "var(--tx2)" }}>{checkOverdueCount}</span>
           </button>
           {anyFilter && (
             <button type="button" onClick={clearFilters} className="chip" aria-label="Clear filters" title="Clear filters">
@@ -327,6 +373,8 @@ function Text({ value, mono = false }: { value: string | null; mono?: boolean })
 function Row({ row, onChange, onOpenDocs }: { row: TrackingRow; onChange: (patch: Partial<TrackingRow>) => void; onOpenDocs: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  // Marking checked asks first, so a stray click can't stamp it.
+  const [confirmCheck, setConfirmCheck] = useState(false);
 
   function save(updates: Record<string, any>, local: Partial<TrackingRow>) {
     setError(null);
@@ -396,29 +444,56 @@ function Row({ row, onChange, onOpenDocs }: { row: TrackingRow; onChange: (patch
         />
       </td>
       <td className={CTRL}>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span className="tabular-nums" style={{ color: row.last_tracking_check_at ? "var(--tx2)" : "var(--mut)" }}>
-            {fmtDateTime(row.last_tracking_check_at) ?? "Not checked yet"}
-          </span>
-          <button
-            type="button"
-            className="ib"
-            style={{ width: 24, height: 24 }}
-            disabled={checking}
-            title="Mark checked now"
-            aria-label={`Mark ${row.container_number ?? row.booking_number ?? "this shipment"} checked now`}
-            onClick={() => {
-              setChecking(true);
-              save({ last_tracking_check_at: new Date().toISOString() }, {})
-                .catch(() => {})
-                .finally(() => setChecking(false));
-            }}
-          >
-            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-          </button>
-        </span>
+        {(() => {
+          const age = checkAgeDays(row.last_tracking_check_at);
+          const overdue = needsChecking(row) && age !== null && age >= CHECK_OVERDUE_DAYS;
+          return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1.25 }}>
+                {row.last_tracking_check_at ? (
+                  <>
+                    <span className="tabular-nums" style={{ color: "var(--tx)" }}>{fmtDateTime(row.last_tracking_check_at)}</span>
+                    <span className="meta" style={{ color: overdue ? "var(--warn)" : "var(--mut)", fontWeight: overdue ? 600 : 400 }}>
+                      {relativeAge(age ?? 0)}
+                      {overdue ? " - check again" : ""}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ color: needsChecking(row) ? "var(--warn)" : "var(--mut)" }}>Not checked yet</span>
+                )}
+              </span>
+              <button
+                type="button"
+                className="btn btn-xs"
+                disabled={checking}
+                title="Mark this container's tracking as checked now"
+                aria-label={`Mark ${row.container_number ?? row.booking_number ?? "this shipment"} checked now`}
+                onClick={() => setConfirmCheck(true)}
+              >
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                {checking ? "Saving…" : "Check"}
+              </button>
+              {confirmCheck &&
+                createPortal(
+                  <ConfirmCheckDialog
+                    label={row.container_number || row.booking_number || "this shipment"}
+                    last={row.last_tracking_check_at}
+                    onCancel={() => setConfirmCheck(false)}
+                    onConfirm={() => {
+                      setConfirmCheck(false);
+                      setChecking(true);
+                      save({ last_tracking_check_at: new Date().toISOString() }, {})
+                        .catch(() => {})
+                        .finally(() => setChecking(false));
+                    }}
+                  />,
+                  document.body
+                )}
+            </span>
+          );
+        })()}
       </td>
       <InlineEdit value={row.remarks} type="text" display={row.remarks} wide onSave={(v) => save({ remarks: v || null }, { remarks: v || null })} />
       <td className={CTRL}>
@@ -856,5 +931,40 @@ function ComposeView({
         )}
       </div>
     </>
+  );
+}
+
+// "Mark checked?" - Last Checked is only stamped after this is confirmed.
+function ConfirmCheckDialog({ label, last, onCancel, onConfirm }: { label: string; last: string | null; onCancel: () => void; onConfirm: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: "var(--scrim)" }} onClick={onCancel}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chk-title"
+        className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-sm"
+        style={{ whiteSpace: "normal" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="chk-title" className="text-lg font-semibold text-ink mb-1">Mark as checked?</h2>
+        <p className="text-sm text-muted">
+          Confirm you&apos;ve just checked the tracking for <b className="text-ink">{label}</b>. Last Checked will be set to now
+          {last ? <> (it was {fmtDateTime(last)})</> : null}.
+        </p>
+        <div className="flex gap-2 mt-5 justify-end">
+          <button onClick={onCancel} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button autoFocus onClick={onConfirm} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium">
+            Yes, mark checked
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
