@@ -302,6 +302,9 @@ booking's own ERD year (Trucker + Supplier).
 
 - Shipment Tracking Last Checked: shows date + "N days ago" (amber "check again" at 4+ days for unreleased), a "Check" button that asks to confirm before stamping; chips "Not checked" and "Checked 4+ days ago" (both exclude Released containers).
 
+- Commission Bookings (Operations, /commission-bookings; migration 0040 - must be run once): manual-only list (Booking, Container, Commission Party, Commission Amount, Month of Loading), Working Year by Month of Loading, inline edit, delete.
+- P&L rebuilt (/profit-loss, lib/pnl-report.ts, components/PnlClient.tsx; old ProfitLossClient / api/profit-loss / lib/profit-loss removed): one row per container (cancelled bookings excluded). Sell = Buyer + Discount from Supplier + Commission; Cost = Supplier + Forwarder + Trucking (+ custom number columns) + Discount to Customer + Pier Pass. Commission from commission_bookings matched by container (else booking); unmatched ones are rows of their own. Pier Pass / discounts typed on the page -> pnl_adjustments (/api/pnl-adjustments/[trackingId]). Elaborate + Consolidated tabs, filters (month, buyer, supplier, forwarder, trucker, item, search), totals, CSV export. Freight = buyer invoice's Ocean Freight. Month of Loading = booking ERD (else cut-offs).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

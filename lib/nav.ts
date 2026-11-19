@@ -7,6 +7,7 @@ export type NavKey =
   | "bookings"
   | "closed"
   | "cancelled"
+  | "commission"
   | "tracking"
   | "buyers"
   | "forwarders"
@@ -21,6 +22,7 @@ export type NavKey =
 export const NAV_ICON_PATHS: Record<NavKey, string> = {
   bookings: "M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M8 11h8M8 15h5",
   closed: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
+  commission: "M19 5L5 19M7 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM17 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   cancelled: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM5.6 5.6l12.8 12.8",
   tracking: "M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zM12 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
   buyers: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM20 20v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6",
@@ -46,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // Multiple-container booking numbers no longer have their own page -
       // they're highlighted in Booking & Instructions ("Multiple only" filter).
       { key: "closed", label: "Closed Bookings", href: "/bookings/closed" },
+      { key: "commission", label: "Commission Bookings", href: "/commission-bookings" },
       { key: "cancelled", label: "Cancelled Bookings", href: "/bookings/cancelled" },
       { key: "tracking", label: "Shipment Tracking", href: "/tracking" },
     ],
@@ -93,6 +96,7 @@ export function navKeyForPathname(pathname: string | null): NavKey | null {
   if (pathname.startsWith("/bookings/closed")) return "closed";
   if (pathname.startsWith("/bookings/cancelled")) return "cancelled";
   if (pathname.startsWith("/bookings")) return "bookings";
+  if (pathname.startsWith("/commission-bookings")) return "commission";
   if (pathname.startsWith("/tracking")) return "tracking";
   if (pathname.startsWith("/parties")) return "buyers";
   if (pathname.startsWith("/forwarders")) return "forwarders";
