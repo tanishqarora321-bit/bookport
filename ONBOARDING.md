@@ -295,6 +295,9 @@ booking's own ERD year (Trucker + Supplier).
 
 - REVERSED (owner, 2026-11-19): one Description of Goods per buyer again (plain text in Shipping Details), Items tab back to a plain list; buyer_items table (0039) stays but is unused. The buyer ledger has no Cost section - only Goods Value + the three charges. Final Invoice page: Description of Goods (first line, from the buyer), Item (required dropdown of the Items tab, or add new) + Rate; goods line = "<Qty> Bales <Item> <Total Weight> <unit>", amount = total weight x rate (typed only without a rate); Supplier back at the template's own slot.
 
+- Final Invoice versions (2026-11-19): page lists final_invoice versions only; version = max final_invoice version + 1 (was a count of ALL doc types -> duplicate numbers). Delete / Lock per version (/api/documents/[id] DELETE, PATCH {locked}); lock = field_data.locked, one per container+doc type, re-applies that version's figures to the buyer ledger (lib/final-invoice-ledger.ts), blocks generating until unlocked; Shipment Tracking / send-docs use the locked version else the newest (lib/doc-version.ts).
+- Fumigation / COO / Set of Documents date = 3 days BEFORE the BL date (lib/doc-print-date.ts); the Buyers ledger asks first (keep that date or enter another; required when there's no BL date) and sends body.date. Fumigation: the original's tail (year underline + " the CONTAINER NO") is copied from the template and slid so the month-year gap matches the original for any month.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

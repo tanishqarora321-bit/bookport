@@ -6,6 +6,7 @@ import { Search, Ship, CheckCircle2, FileText, Files, Anchor, MapPin } from "luc
 import StatCard from "@/components/ui/StatCard";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 import { useYear } from "@/lib/year-context";
+import { isLocked, pickDoc } from "@/lib/doc-version";
 import { dateInWorkingYear } from "@/lib/year-scope";
 
 // One row per container (app/tracking/page.tsx builds it). Shipping Line,
@@ -509,7 +510,7 @@ function InlineEdit({
 
 // ---------------- Docs dialog ----------------
 
-type Doc = { id: string; doc_type: string; version: number; created_at: string };
+type Doc = { id: string; doc_type: string; version: number; created_at: string; field_data?: any };
 const DOC_TYPES: { type: string; label: string }[] = [
   { type: "final_invoice", label: "Invoice" },
   { type: "fumigation_certificate", label: "Fumigation Certificate" },
@@ -572,7 +573,8 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
     }
   }
 
-  const latest = (type: string) => (docs ?? []).filter((d) => d.doc_type === type).sort((a, b) => b.version - a.version)[0] ?? null;
+  // The locked version (Final Invoice page), else the newest.
+  const latest = (type: string) => pickDoc(docs, type);
   const hasInvoice = Boolean(latest("final_invoice"));
   const hasAnyDoc = DOC_TYPES.slice(1).some((d) => latest(d.type));
   const ref = [row.booking_number, row.container_number].filter(Boolean).join(" / ");
@@ -622,7 +624,7 @@ function DocsModal({ row, onClose, onSent }: { row: TrackingRow; onClose: () => 
                             {d.type === "final_invoice" && row.invoice_no ? <span className="meta" style={{ fontWeight: 400 }}> · {row.invoice_no}</span> : null}
                           </div>
                           <div className="meta" style={{ marginTop: 2 }}>
-                            {doc ? `Generated ${fmtDateTime(doc.created_at)} · v${doc.version}` : "Not generated yet - generate it in the Buyers / Consignee ledger"}
+                            {doc ? `Generated ${fmtDateTime(doc.created_at)} · v${doc.version}${isLocked(doc) ? " · locked" : ""}` : "Not generated yet - generate it in the Buyers / Consignee ledger"}
                           </div>
                         </div>
                         {doc ? (

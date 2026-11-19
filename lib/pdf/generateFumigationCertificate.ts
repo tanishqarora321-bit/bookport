@@ -11,6 +11,7 @@ import {
   endText,
   popGraphicsState,
   pushGraphicsState,
+  rgb,
   setFillingRgbColor,
   setFontAndSize,
   setTextMatrix,
@@ -25,7 +26,7 @@ export type FumigationTemplateConfig = {
 };
 
 export type FumigationFieldData = {
-  date: string; // ISO date - the fumigation date (BL date + 3 days)
+  date: string; // ISO date - the fumigation date (3 days before the BL date, or the date chosen when printing)
   container_no: string;
 };
 
@@ -55,6 +56,12 @@ const BASELINE_PX = 481.6; // the date line's baseline
 const DATE_X = 259.9; // where "10 SEPTEMBER" was
 const YEAR_X = 373.677; // the bold, underlined year (after its cell's leading space)
 const CONTAINER_X = 540.583; // after "the CONTAINER NO "
+// The original's own text after the date - the year's underline and
+// " the CONTAINER NO" (px box). It was laid out after "10 SEPTEMBER"; for a
+// shorter (or longer) date it's slid along so the gap between the month and
+// the year stays exactly as on the original (owner, 2026-11-19).
+const TAIL_BOX = { left: 368, right: 537, top: 462, bottom: 486 };
+const ORIGINAL_DATE_TEXT = "10 SEPTEMBER";
 
 // Cambria advance widths (units per em 2048), read from the original's
 // embedded fonts. Digits are tabular. Letters the original doesn't contain
@@ -141,9 +148,24 @@ export async function generateFumigationCertificatePdf(
   doc.setCreator("Ship-Sphere");
 
   const page = doc.getPage(0);
+  // Width (px) of a date as drawn - Cambria's advance per letter.
+  const widthPx = (text: string) =>
+    [...text].reduce((w, ch) => w + (CAMBRIA_REGULAR[ch] != null ? (CAMBRIA_REGULAR[ch] / 2048) * FONT_PX : regular.widthOfTextAtSize(ch, FONT_PX * PX) / PX), 0);
+  const shift = widthPx(dayMonth) - widthPx(ORIGINAL_DATE_TEXT);
+
+  if (Math.abs(shift) > 0.01) {
+    // Copy the original's tail (underline + " the CONTAINER NO") from an
+    // untouched copy of the template, blank it out, and draw it shifted.
+    const source = await PDFDocument.load(templateBytes);
+    const box = { left: toPt(TAIL_BOX.left), right: toPt(TAIL_BOX.right), bottom: toPtY(TAIL_BOX.bottom), top: toPtY(TAIL_BOX.top) };
+    const tail = await doc.embedPage(source.getPage(0), box);
+    page.drawRectangle({ x: box.left, y: box.bottom, width: box.right - box.left, height: box.top - box.bottom, color: rgb(1, 1, 1) });
+    page.drawPage(tail, { x: box.left + toPt(shift), y: box.bottom });
+  }
+
   drawSpaced(page, regular, dayMonth, DATE_X, (ch) => CAMBRIA_REGULAR[ch] ?? null);
-  drawSpaced(page, bold, year, YEAR_X, (ch) => (/\d/.test(ch) ? CAMBRIA_BOLD_DIGIT : null));
-  drawSpaced(page, regular, container, CONTAINER_X, (ch) => CAMBRIA_REGULAR[ch] ?? null);
+  drawSpaced(page, bold, year, YEAR_X + shift, (ch) => (/\d/.test(ch) ? CAMBRIA_BOLD_DIGIT : null));
+  drawSpaced(page, regular, container, CONTAINER_X + shift, (ch) => CAMBRIA_REGULAR[ch] ?? null);
 
   return doc.save();
 }

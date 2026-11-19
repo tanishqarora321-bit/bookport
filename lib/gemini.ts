@@ -97,7 +97,7 @@ match the meaning, not the literal words):
 /**
  * Extracts Bill of Lading fields from an uploaded BL PDF (Booking &
  * Instructions' "Upload BL") - booking_no/BL number, the BL's own issue
- * date (feeds "3 days after BL issued date" used by Fumigation
+ * date (feeds "3 days before the BL issued date" used by Fumigation
  * Certificate / Certificate of Origin / Commercial Invoice generation),
  * routing, and one container/seal/weight/bales line per container shown
  * on the BL. Same never-auto-saved contract as extractBookingFromPdf -
