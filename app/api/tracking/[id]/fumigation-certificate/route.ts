@@ -4,15 +4,15 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateFumigationCertificatePdf, FumigationTemplateConfig } from "@/lib/pdf/generateFumigationCertificate";
-import { addDaysIso } from "@/lib/pdf/pdfHelpers";
+import { resolveDocDate } from "@/lib/doc-print-date";
 
 // No override form by design: the certificate is the owner's real
 // International Fumigators certificate with only TWO values changed - the
 // container number and the date (lib/pdf/generateFumigationCertificate.ts).
 // Both are read from the booking rather than re-typed here. bl_date comes from the booking's own
 // uploaded BL (Upload BL on Booking & Instructions, migration 0033) -
-// the fumigation date is always 3 days after it.
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+// the printed date is 3 days before it, or the date chosen when printing (lib/doc-print-date.ts).
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
@@ -20,12 +20,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const ctx = await getTrackingDocContext(supabase, params.id, me.company_id);
   if (!ctx) return NextResponse.json({ error: "Tracking entry not found" }, { status: 404 });
 
-  if (!ctx.booking?.bl_date) {
-    return NextResponse.json(
-      { error: "This booking has no BL Issued Date yet -- upload the BL (or set it manually) on Booking & Instructions first." },
-      { status: 400 }
-    );
-  }
+  // The printed date: 3 days before the BL date, or the date the user
+  // chose when printing (lib/doc-print-date.ts).
+  const printDate = await resolveDocDate(req, ctx.booking?.bl_date);
+  if ("error" in printDate) return NextResponse.json({ error: printDate.error }, { status: 400 });
   if (!ctx.tracking.container_number) {
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
@@ -37,7 +35,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   const fieldData = {
-    date: addDaysIso(ctx.booking.bl_date, 3),
+    date: printDate.date,
     container_no: ctx.tracking.container_number,
   };
 

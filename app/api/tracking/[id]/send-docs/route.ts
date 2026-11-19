@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { pickDoc } from "@/lib/doc-version";
 import { sendEmail } from "@/lib/send-email";
 
 export const maxDuration = 60;
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase.from("buyer_invoices").select("invoice_number").eq("tracking_id", params.id).maybeSingle(),
     supabase
       .from("generated_documents")
-      .select("id, doc_type, pdf_path, version, created_at")
+      .select("id, doc_type, pdf_path, version, created_at, field_data")
       .eq("tracking_id", params.id)
       .order("version", { ascending: false }),
     supabase
@@ -72,12 +73,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  // Latest version of each wanted document type.
+  // Each wanted document type: its locked version, else the latest
+  // (lib/doc-version.ts).
   const wanted = KIND_DOCS[kind];
   const found: { type: string; label: string; doc: any }[] = [];
   const missing: string[] = [];
   for (const w of wanted) {
-    const doc = (docs ?? []).filter((d: any) => d.doc_type === w.type && d.pdf_path).sort((a: any, b: any) => b.version - a.version)[0];
+    const doc = pickDoc((docs ?? []).filter((d: any) => d.pdf_path), w.type);
     if (doc) found.push({ ...w, doc });
     else missing.push(w.label);
   }

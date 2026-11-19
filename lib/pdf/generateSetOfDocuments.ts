@@ -14,7 +14,7 @@ export type SODTemplateConfig = {
 
 export type SODFieldData = {
   invoice_no: string;
-  date: string; // ISO date - BL date + 3 days, shown on every page
+  date: string; // ISO date - 3 days before the BL date, or the date chosen when printing, shown on every page
   consignee_name: string;
   consignee_address: string; // multi-line, \n separated
   description_of_goods: string;
@@ -33,7 +33,7 @@ export type SODFieldData = {
 // SEAPORT" and the company stamp stay exactly as on their sample. Filled in
 // per shipment, on every page where the sample shows it:
 //  - letterhead + Exporter block: the company letterhead from Settings;
-//  - Date (BL date + 3 days, "22-08-2026") and Invoice No.;
+//  - Date (3 days before the BL date, or the date chosen when printing, "22-08-2026") and Invoice No.;
 //  - Consignee: the buyer's name + address (4 lines);
 //  - description, container number, container size ("1X 40 FCL" - the 40
 //    follows the booking's Container Size), quantity / KGS / LBS, bales,

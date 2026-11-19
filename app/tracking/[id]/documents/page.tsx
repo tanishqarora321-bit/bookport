@@ -43,6 +43,7 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
     .from("generated_documents")
     .select("id, doc_type, field_data, pdf_path, version, created_at")
     .eq("tracking_id", params.id)
+    .eq("doc_type", "final_invoice")
     .order("version", { ascending: false });
 
   // Only an in-app Buyers ledger path is accepted as the way back.

@@ -20,7 +20,7 @@ export type COOFieldData = {
   bales: string;
   weight: number | null; // the container's packing weight...
   weight_unit: string | null; // ...in this unit (KG / LBS)
-  date: string; // ISO date (BL date + 3 days)
+  date: string; // ISO date (3 days before the BL date, or the date chosen when printing)
 };
 
 // Exact copy of the owner's real Certificate of Origin
@@ -32,7 +32,7 @@ export type COOFieldData = {
 //    "TEL ..." (5 lines);
 //  - Consignee block (right): the buyer's name + address (5 lines);
 //  - description, container, seal, bales, quantity and gross weight (KGS),
-//    the grand total row, and the date (BL date + 3 days, "22-Aug-26").
+//    the grand total row, and the date (3 days before the BL date, or the date chosen when printing, "22-Aug-26").
 // The "#" after SEAL is removed from the template on the owner's earlier
 // instruction.
 export async function generateCertificateOfOriginPdf(template: COOTemplateConfig, data: COOFieldData): Promise<Uint8Array> {

@@ -86,6 +86,46 @@ export default function DocumentsClient({
 }) {
   const latest = existingDocs[0]?.field_data ?? {};
   const [docs, setDocs] = useState(existingDocs);
+  // The locked version (owner, 2026-11-19) is the one in use - Shipment
+  // Tracking shows and emails it, and its figures are on the Buyers ledger.
+  // While one is locked, no new version can be generated.
+  const lockedDoc = docs.find((d) => d.field_data?.locked) ?? null;
+
+  async function setLock(doc: Doc, locked: boolean) {
+    setError(null);
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locked }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(json.error || "Couldn't change the lock");
+      return;
+    }
+    setDocs((prev) =>
+      prev.map((d) => {
+        if (d.id === doc.id) return json.document;
+        if (locked && d.field_data?.locked) {
+          const { locked: _l, ...rest } = d.field_data;
+          return { ...d, field_data: rest };
+        }
+        return d;
+      })
+    );
+  }
+
+  async function deleteDoc(doc: Doc) {
+    if (!confirm(`Delete version v${doc.version}? Its PDF is removed too. This can't be undone.`)) return;
+    setError(null);
+    const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(json.error || "Couldn't delete");
+      return;
+    }
+    setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+  }
   const [form, setForm] = useState<FormState>(() => ({
     invoice_date: defaults.invoice_date,
     terms: latest.terms || defaults.terms,
@@ -186,7 +226,11 @@ export default function DocumentsClient({
       <div className="flex items-center gap-3 flex-wrap">
         <BackButton href={backHref} label={backLabel} />
         <h1 className="text-xl font-semibold text-ink">Final Invoice</h1>
-        {currentVersion != null && <span className="badge b-acc">v{currentVersion} current</span>}
+        {lockedDoc ? (
+          <span className="badge b-ok">🔒 v{lockedDoc.version} locked</span>
+        ) : (
+          currentVersion != null && <span className="badge b-acc">v{currentVersion} current</span>
+        )}
       </div>
       <p className="sub -mt-3 max-w-[900px]">
         Everything is pre-filled from the booking, the BL, the container&apos;s packing and the Buyers ledger - change
@@ -306,18 +350,33 @@ export default function DocumentsClient({
               ) : (
                 <span />
               )}
-              <button onClick={generate} disabled={generating || missingParty} className="btn btn-p">
-                {generating ? "Generating…" : docs.length > 0 ? "Regenerate (new version)" : "Generate Invoice PDF"}
-              </button>
+              {lockedDoc ? (
+                <span className="text-sm text-muted">v{lockedDoc.version} is locked - unlock it in Version history to make a new version.</span>
+              ) : (
+                <button onClick={generate} disabled={generating || missingParty} className="btn btn-p">
+                  {generating ? "Generating…" : docs.length > 0 ? "Regenerate (new version)" : "Generate Invoice PDF"}
+                </button>
+              )}
             </div>
           </section>
 
           <section className="card" style={{ padding: "18px 20px" }} aria-labelledby="vh-h">
-            <h2 id="vh-h" className="h2" style={{ marginBottom: 8 }}>Version history</h2>
+            <h2 id="vh-h" className="h2" style={{ marginBottom: 4 }}>Version history</h2>
+            <p className="help" style={{ marginBottom: 8 }}>
+              Lock the final version: it&apos;s the one Shipment Tracking shows and emails, and its figures are used on the Buyers ledger. Delete the ones you don&apos;t need.
+            </p>
             {docs.length === 0 ? (
               <p className="lbl" style={{ padding: "24px 0", textAlign: "center" }}>No versions generated yet.</p>
             ) : (
-              docs.map((d, i) => <VersionRow key={d.id} doc={d} isCurrent={i === 0} />)
+              docs.map((d, i) => (
+                <VersionRow
+                  key={d.id}
+                  doc={d}
+                  isCurrent={lockedDoc ? d.id === lockedDoc.id : i === 0}
+                  onLock={(locked) => setLock(d, locked)}
+                  onDelete={() => deleteDoc(d)}
+                />
+              ))
             )}
           </section>
 
@@ -441,7 +500,17 @@ const th: CSSProperties = { border: "1px solid #000", padding: "3px 4px", fontWe
 const td: CSSProperties = { border: "1px solid #000", padding: "3px 4px", fontSize: 9 };
 const tdC: CSSProperties = { ...td, textAlign: "center" };
 
-function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
+function VersionRow({ doc, isCurrent, onLock, onDelete }: { doc: Doc; isCurrent: boolean; onLock: (locked: boolean) => Promise<void>; onDelete: () => Promise<void> }) {
+  const locked = !!doc.field_data?.locked;
+  const [busy, setBusy] = useState(false);
+  async function run(fn: () => Promise<void>) {
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  }
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -458,7 +527,7 @@ function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-line" style={{ padding: "11px 0" }}>
-      <span className={`badge ${isCurrent ? "b-acc" : "b-neu"}`} style={{ minWidth: 40 }}>v{doc.version}</span>
+      <span className={`badge ${locked ? "b-ok" : isCurrent ? "b-acc" : "b-neu"}`} style={{ minWidth: 40 }}>{locked ? "🔒 " : ""}v{doc.version}</span>
       <span className="num" style={{ flex: "1 1 200px" }}>
         {new Date(doc.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
       </span>
@@ -467,6 +536,14 @@ function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
       ) : (
         <button onClick={getSignedUrl} disabled={loading} className="btn btn-xs">
           {loading ? "Loading…" : "Get link"}
+        </button>
+      )}
+      <button onClick={() => run(() => onLock(!locked))} disabled={busy} className="btn btn-xs" title={locked ? "Unlock - allows new versions again" : "Use this version: Shipment Tracking, emails and the Buyers ledger"}>
+        {locked ? "Unlock" : "Lock"}
+      </button>
+      {!locked && (
+        <button onClick={() => run(onDelete)} disabled={busy} className="btn btn-xs" style={{ color: "var(--crit)" }} aria-label={`Delete version v${doc.version}`}>
+          Delete
         </button>
       )}
     </div>

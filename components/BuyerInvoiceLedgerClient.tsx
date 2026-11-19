@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { BUYER_CHARGES, splitBuyerItems, type BuyerChargeKey } from "@/lib/buyer-charges";
 import { Clock, DollarSign, Ship, CheckCircle2, XCircle, Receipt, Search, Wallet } from "lucide-react";
 import PartyPaymentHistory from "@/components/PartyPaymentHistory";
@@ -630,13 +631,27 @@ function InvoiceRows({
   // Customers first, then generate. Both routes derive everything from
   // the booking's uploaded BL (date/container/POL) and the buyer's own
   // shipping details, so this is just a POST + open the result.
-  async function handleGenerateDoc(kind: "fumigation" | "coo" | "sod") {
+  // Printing asks for the date first (owner, 2026-11-19): 3 days before
+  // the BL date, or another date the user enters.
+  const [datePrompt, setDatePrompt] = useState<"fumigation" | "coo" | "sod" | null>(null);
+  function handleGenerateDoc(kind: "fumigation" | "coo" | "sod") {
     if (!inv.tracking_id) return;
+    setDocError(null);
+    setDatePrompt(kind);
+  }
+
+  async function generateDoc(kind: "fumigation" | "coo" | "sod", date: string) {
+    if (!inv.tracking_id) return;
+    setDatePrompt(null);
     setGeneratingDoc(kind);
     setDocError(null);
     try {
       const endpoint = kind === "fumigation" ? "fumigation-certificate" : kind === "coo" ? "certificate-of-origin" : "set-of-documents";
-      const res = await fetch(`/api/tracking/${inv.tracking_id}/${endpoint}`, { method: "POST" });
+      const res = await fetch(`/api/tracking/${inv.tracking_id}/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to generate");
       if (json.url) window.open(json.url, "_blank");
@@ -649,6 +664,17 @@ function InvoiceRows({
 
   return (
     <>
+      {datePrompt &&
+        inv.tracking_id &&
+        createPortal(
+          <DocDateDialog
+            trackingId={inv.tracking_id}
+            title={datePrompt === "fumigation" ? "Fumigation Certificate" : datePrompt === "coo" ? "Certificate of Origin" : "Set of Documents"}
+            onCancel={() => setDatePrompt(null)}
+            onPrint={(date) => generateDoc(datePrompt, date)}
+          />,
+          document.body
+        )}
       <tr className="group border-b border-line hover:bg-surface-2">
         {isAdmin && (
           <td className="px-3 py-3.5 sticky left-0 z-10 bg-surface group-hover:bg-surface-2 w-10">
@@ -896,5 +922,113 @@ function WeightCell({
         {error && <span className="text-xs text-cutoff">{error}</span>}
       </div>
     </td>
+  );
+}
+
+// ---------------- "Which date?" before printing Fumigation / COO / Set of Documents ----------------
+
+function fmtLong(iso: string | null) {
+  if (!iso) return "";
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+function DocDateDialog({
+  trackingId,
+  title,
+  onCancel,
+  onPrint,
+}: {
+  trackingId: string;
+  title: string;
+  onCancel: () => void;
+  onPrint: (date: string) => void;
+}) {
+  const [info, setInfo] = useState<{ bl_date: string | null; default_date: string | null } | null>(null);
+  const [mode, setMode] = useState<"default" | "other">("default");
+  const [other, setOther] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/tracking/${trackingId}/doc-date`)
+      .then((r) => r.json())
+      .then((j) => {
+        setInfo({ bl_date: j.bl_date ?? null, default_date: j.default_date ?? null });
+        if (!j.default_date) setMode("other");
+      })
+      .catch(() => {
+        setInfo({ bl_date: null, default_date: null });
+        setMode("other");
+      });
+  }, [trackingId]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  function print() {
+    const date = mode === "default" ? info?.default_date : other;
+    if (!date) {
+      setError("Enter the date to print.");
+      return;
+    }
+    onPrint(date);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="docdate-title"
+        className="bg-surface border border-line rounded-xl shadow-lg p-6 w-full max-w-md whitespace-normal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="docdate-title" className="text-lg font-semibold text-ink mb-1">Print {title}</h2>
+        {info === null ? (
+          <p className="text-sm text-muted">Loading…</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted mb-4">
+              {info.bl_date ? <>BL date: <b className="text-ink">{fmtLong(info.bl_date)}</b>. Which date should be printed?</> : <>This booking has no BL date yet - enter the date to print.</>}
+            </p>
+            <div className="flex flex-col gap-3">
+              {info.default_date && (
+                <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                  <input type="radio" name="docdate" checked={mode === "default"} onChange={() => setMode("default")} />
+                  3 days before the BL date - <b>{fmtLong(info.default_date)}</b>
+                </label>
+              )}
+              <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                <input type="radio" name="docdate" checked={mode === "other"} onChange={() => setMode("other")} />
+                Another date
+                <input
+                  type="date"
+                  aria-label="Date to print"
+                  className="border border-line bg-surface rounded-lg px-2 py-1 text-sm ml-1"
+                  value={other}
+                  onFocus={() => setMode("other")}
+                  onChange={(e) => {
+                    setOther(e.target.value);
+                    setMode("other");
+                    setError(null);
+                  }}
+                />
+              </label>
+            </div>
+            {error && <p className="text-xs text-cutoff mt-2">{error}</p>}
+          </>
+        )}
+        <div className="flex gap-2 mt-5 justify-end">
+          <button onClick={onCancel} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-4 py-2">Cancel</button>
+          <button onClick={print} disabled={info === null} className="text-sm bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg font-medium disabled:opacity-60">
+            Print
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

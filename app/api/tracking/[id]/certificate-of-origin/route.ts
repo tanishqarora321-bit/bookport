@@ -4,7 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import { loadDocTemplate } from "@/lib/doc-templates";
 import { getTrackingDocContext } from "@/lib/tracking-doc-context";
 import { generateCertificateOfOriginPdf, COOTemplateConfig } from "@/lib/pdf/generateCertificateOfOrigin";
-import { addDaysIso } from "@/lib/pdf/pdfHelpers";
+import { resolveDocDate } from "@/lib/doc-print-date";
 
 // Same no-override-form design as fumigation-certificate - fix the
 // source data on Booking & Instructions / Buyers & Customers, then
@@ -12,7 +12,7 @@ import { addDaysIso } from "@/lib/pdf/pdfHelpers";
 // container_packing_items) if present, with a manual-entry fallback
 // through those same screens if a container's BL data hasn't been
 // filled in yet - this route itself has no separate manual-entry path.
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
   if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
@@ -23,12 +23,10 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   if (!ctx.buyerParty) {
     return NextResponse.json({ error: "This tracking entry has no Buyer (Consignee) assigned yet." }, { status: 400 });
   }
-  if (!ctx.booking?.bl_date) {
-    return NextResponse.json(
-      { error: "This booking has no BL Issued Date yet -- upload the BL (or set it manually) on Booking & Instructions first." },
-      { status: 400 }
-    );
-  }
+  // The printed date: 3 days before the BL date, or the date the user
+  // chose when printing (lib/doc-print-date.ts).
+  const printDate = await resolveDocDate(req, ctx.booking?.bl_date);
+  if ("error" in printDate) return NextResponse.json({ error: printDate.error }, { status: 400 });
   if (!ctx.tracking.container_number) {
     return NextResponse.json({ error: "This tracking entry has no Container Number yet." }, { status: 400 });
   }
@@ -41,13 +39,13 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const fieldData = {
     consignee_name: ctx.buyerParty.legal_name,
     consignee_address: ctx.gstEntry?.address || ctx.buyerParty.address || "",
-    description_of_goods: ctx.gstEntry?.description_of_goods || ctx.booking.commodity || "",
+    description_of_goods: ctx.gstEntry?.description_of_goods || ctx.booking?.commodity || "",
     container_no: ctx.tracking.container_number,
     seal_no: ctx.packingItem?.seal_no || "",
     bales: ctx.packingItem?.bales != null ? String(ctx.packingItem.bales) : "",
     weight: ctx.packingItem?.weight ?? null,
     weight_unit: ctx.packingItem?.weight_unit ?? null,
-    date: addDaysIso(ctx.booking.bl_date, 3),
+    date: printDate.date,
   };
 
 

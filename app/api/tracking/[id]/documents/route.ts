@@ -4,7 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import { INVOICE_KIND_LABEL, INVOICE_PARTY_COLUMN, INVOICE_TABLE, listInvoicePdfs, parseInvoicePdfName, type InvoiceKind } from "@/lib/party-invoice-pdf";
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 import { buildFinalInvoiceDefaults } from "@/lib/final-invoice-defaults";
-import { chargeKeyOf, setBuyerCharges } from "@/lib/buyer-charges";
+import { saveInvoiceToLedger } from "@/lib/final-invoice-ledger";
 import { findOrCreateItem } from "@/lib/buyer-items";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -67,6 +67,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const supabase = createServiceClient();
   const overridesIn: Record<string, any> = body.overrides ?? {};
 
+  // A locked version is the one in use (Shipment Tracking, the ledger) -
+  // unlock it first to make a new one.
+  const { data: lockedDocs } = await supabase
+    .from("generated_documents")
+    .select("id, version, field_data")
+    .eq("tracking_id", params.id)
+    .eq("company_id", me.company_id)
+    .eq("doc_type", "final_invoice");
+  const locked = (lockedDocs ?? []).find((d: any) => d.field_data?.locked);
+  if (locked) {
+    return NextResponse.json({ error: `Version v${locked.version} is locked. Unlock it in Version history to generate a new one.` }, { status: 409 });
+  }
+
   // 0. The goods line's Item (owner, 2026-11) is required: a new one is
   // added to the Items tab, and it's stored on the shipment
   // (tracking.item_id) - what Profit & Loss groups goods by.
@@ -96,46 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // the page (terms, reference, seal, ship via, bales, supplier line...)
   // is for this print only and kept on the version.
   if (body.save_to_ledger) {
-    const { data: bi } = await supabase
-      .from("buyer_invoices")
-      .select("id")
-      .eq("tracking_id", params.id)
-      .eq("company_id", me.company_id)
-      .maybeSingle();
-    if (bi) {
-      const updates: Record<string, any> = {};
-      if (overridesIn.invoice_date) updates.invoice_date = overridesIn.invoice_date;
-      if (overridesIn.weight_lbs !== undefined) {
-        const w = parseFloat(String(overridesIn.weight_lbs).replace(/[^0-9.]/g, ""));
-        updates.weight = Number.isFinite(w) ? w : null;
-      }
-      if (overridesIn.weight_unit) updates.weight_unit = /^KG/i.test(overridesIn.weight_unit) ? "KG" : "LBS";
-      if (Object.keys(updates).length) {
-        updates.updated_at = new Date().toISOString();
-        await supabase.from("buyer_invoices").update(updates).eq("id", bi.id);
-      }
-      if (Array.isArray(overridesIn.items)) {
-        const { data: current } = await supabase.from("buyer_invoice_items").select("id, description, weight_kg, unit_price, amount").eq("buyer_invoice_id", bi.id);
-        const goodsIds = (current ?? []).filter((it: any) => !chargeKeyOf(it)).map((it: any) => it.id);
-        if (goodsIds.length) await supabase.from("buyer_invoice_items").delete().in("id", goodsIds);
-        const num = (v: any) => {
-          const n = parseFloat(String(v ?? "").replace(/[^0-9.-]/g, ""));
-          return Number.isFinite(n) ? n : null;
-        };
-        const rows = overridesIn.items
-          .map((it: any, i: number) => {
-            const w = num(it.weight_kg);
-            const r = num(it.unit_price);
-            const amount = w !== null && r !== null ? Math.round(w * r * 100) / 100 : num(it.amount) ?? 0;
-            return { buyer_invoice_id: bi.id, description: (it.description ?? "").toString().trim() || null, weight_kg: w, unit_price: r, amount, sort_order: i };
-          })
-          .filter((it: any) => it.description || it.weight_kg !== null || it.unit_price !== null || it.amount);
-        if (rows.length) await supabase.from("buyer_invoice_items").insert(rows);
-      }
-      if (overridesIn.charges && typeof overridesIn.charges === "object") {
-        await setBuyerCharges(supabase, bi.id, overridesIn.charges);
-      }
-    }
+    await saveInvoiceToLedger(supabase, me.company_id, params.id, overridesIn);
   }
 
   // 2. Defaults from the data the app already has (lib/final-invoice-
@@ -176,13 +150,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // 3. Render the PDF.
   const pdfBytes = await generateFinalInvoicePdf(templateRow.template_config as TemplateConfig, finalData);
 
-  // 4. Version = count of prior docs for this tracking row + 1. Old
-  // versions are never overwritten or deleted -- see migration 0005 notes.
-  const { count } = await supabase
-    .from("generated_documents")
-    .select("id", { count: "exact", head: true })
-    .eq("tracking_id", params.id);
-  const version = (count ?? 0) + 1;
+  // 4. Version = this container's highest Final Invoice version + 1 (the
+  // fumigation / COO / set-of-documents versions are counted on their own,
+  // and a deleted version's number is never reused).
+  const version = (lockedDocs ?? []).reduce((m: number, d: any) => Math.max(m, Number(d.version) || 0), 0) + 1;
 
   const filePath = `${me.company_id}/${params.id}/final_invoice_v${version}.pdf`;
   const { error: uploadError } = await supabase.storage
