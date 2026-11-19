@@ -85,7 +85,7 @@ export async function buildFinalInvoiceDefaults(supabase: any, trackingId: strin
     description: item?.name || "",
     // The heading line: the buyer's own "Description of Goods" (Shipping
     // Details) when filled, else the booking's commodity, else the item.
-    goods_description: ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || item?.name || "",
+    goods_description: ctx?.gstEntry?.description_of_goods || ctx?.booking?.commodity || "",
     supplier_name: supplierName,
     rate: "",
     amount: "",

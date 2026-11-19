@@ -293,6 +293,8 @@ booking's own ERD year (Trucker + Supplier).
 
 - Buyer Shipping Details "Description of Goods" = the buyer's Items as chips (★ = default, kept in buyer_gst_entries.description_of_goods for COO / SOD / Instructions; an old typed value is auto-converted to an Item). Final Invoice heading = dropdown of those (default preselected, or type another); Supplier = dropdown of all active suppliers (default the booking's).
 
+- REVERSED (owner, 2026-11-19): one Description of Goods per buyer again (plain text in Shipping Details), Items tab back to a plain list; buyer_items table (0039) stays but is unused. The buyer ledger has no Cost section - only Goods Value + the three charges. Final Invoice page: Description of Goods (first line, from the buyer), Item (required dropdown of the Items tab, or add new) + Rate; goods line = "<Qty> Bales <Item> <Total Weight> <unit>", amount = total weight x rate (typed only without a rate); Supplier back at the template's own slot.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

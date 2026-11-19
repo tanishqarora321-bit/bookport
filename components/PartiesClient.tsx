@@ -41,28 +41,13 @@ type Item = {
   is_active: boolean;
 };
 
-// Which Items (goods descriptions) belong to which buyer (migration 0039,
-// lib/buyer-items.ts). assignReady is false until 0039 has been run.
-type Assignment = { buyer_id: string; item_id: string };
-type ItemLinks = {
-  items: Item[];
-  assignments: Assignment[];
-  assignReady: boolean;
-  assign: (buyerId: string, target: { item_id?: string; name?: string }) => Promise<void>;
-  unassign: (buyerId: string, itemId: string) => Promise<void>;
-};
-
 export default function PartiesClient({
   initialParties,
   initialItems,
-  initialAssignments = [],
-  assignReady = false,
   isAdmin = false,
 }: {
   initialParties: Party[];
   initialItems: Item[];
-  initialAssignments?: Assignment[];
-  assignReady?: boolean;
   isAdmin?: boolean;
 }) {
   const [tab, setTab] = useState<"parties" | "items">("parties");
@@ -72,29 +57,6 @@ export default function PartiesClient({
   // Lifted up so "+ New Buyer" can sit in the page header (same place as
   // Forwarders' buttons) while the form itself stays in the Accounts tab.
   const [adding, setAdding] = useState(false);
-  const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
-
-  async function assign(buyerId: string, target: { item_id?: string; name?: string }) {
-    const res = await fetch(`/api/parties/${buyerId}/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(target),
-    });
-    const json = await res.json();
-    const item: Item | undefined = json.item ? { is_active: true, ...json.item } : undefined;
-    if (item && !items.some((i) => i.id === item.id)) setItems((prev) => [...prev, item].sort((a, b) => a.name.localeCompare(b.name)));
-    if (!res.ok) throw new Error(json.error || "Could not assign");
-    setAssignments((prev) => (prev.some((a) => a.buyer_id === buyerId && a.item_id === item!.id) ? prev : [...prev, { buyer_id: buyerId, item_id: item!.id }]));
-  }
-  async function unassign(buyerId: string, itemId: string) {
-    const res = await fetch(`/api/parties/${buyerId}/items?item_id=${itemId}`, { method: "DELETE" });
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      throw new Error(json.error || "Could not remove");
-    }
-    setAssignments((prev) => prev.filter((a) => !(a.buyer_id === buyerId && a.item_id === itemId)));
-  }
-  const links: ItemLinks = { items, assignments, assignReady, assign, unassign };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -150,9 +112,9 @@ export default function PartiesClient({
       </div>
 
       {tab === "parties" ? (
-        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} adding={adding} setAdding={setAdding} links={links} />
+        <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} adding={adding} setAdding={setAdding} />
       ) : (
-        <ItemsTab items={items} setItems={(i) => setItems(i)} showInactive={showInactive} buyers={parties.filter((p) => p.is_active)} links={links} />
+        <ItemsTab items={items} setItems={setItems} showInactive={showInactive} />
       )}
     </div>
   );
@@ -167,7 +129,6 @@ function PartiesTab({
   isAdmin,
   adding,
   setAdding,
-  links,
 }: {
   parties: Party[];
   setParties: (p: Party[]) => void;
@@ -175,7 +136,6 @@ function PartiesTab({
   isAdmin: boolean;
   adding: boolean;
   setAdding: (v: boolean) => void;
-  links: ItemLinks;
 }) {
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -471,7 +431,7 @@ function PartiesTab({
                 {expanded[p.id] && (
                   <tr className="border-b border-line bg-surface-2">
                     <td colSpan={isAdmin ? 9 : 8} className="px-6 py-3">
-                      <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} links={links} />
+                      <ShippingDetailsSection buyerPartyId={p.id} entry={p.gst_entry} onChange={(entry) => updateGstEntry(p.id, entry)} />
                     </td>
                   </tr>
                 )}
@@ -797,8 +757,8 @@ const SHIPPING_FIELDS: { key: keyof GstEntry; label: string; wide?: boolean; tit
 ];
 
 function ShippingDetailsSection({
-  buyerPartyId, entry, onChange, links,
-}: { buyerPartyId: string; entry: GstEntry | null; onChange: (entry: GstEntry) => void; links: ItemLinks }) {
+  buyerPartyId, entry, onChange,
+}: { buyerPartyId: string; entry: GstEntry | null; onChange: (entry: GstEntry) => void }) {
   const [error, setError] = useState<string | null>(null);
 
   async function saveField(field: keyof GstEntry, value: string) {
@@ -824,16 +784,7 @@ function ShippingDetailsSection({
         {SHIPPING_FIELDS.map((f) => (
           <div key={f.key} className={f.wide ? "col-span-3" : ""} title={f.title}>
             <div className="text-xs text-muted mb-0.5">{f.label}</div>
-            {f.key === "description_of_goods" ? (
-              <DescriptionOfGoodsField
-                buyerId={buyerPartyId}
-                links={links}
-                current={entry?.description_of_goods ?? null}
-                setDefault={(v) => saveField("description_of_goods", v)}
-              />
-            ) : (
-              <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
-            )}
+            <ShippingFieldInput value={entry?.[f.key] ?? null} onSave={(v) => saveField(f.key, v)} />
           </div>
         ))}
       </div>
@@ -889,16 +840,11 @@ function ItemsTab({
   items,
   setItems,
   showInactive,
-  buyers,
-  links,
 }: {
   items: Item[];
   setItems: (i: Item[]) => void;
   showInactive: boolean;
-  buyers: Party[];
-  links: ItemLinks;
 }) {
-  const [assignError, setAssignError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -938,17 +884,7 @@ function ItemsTab({
   const visible = items.filter((i) => showInactive || i.is_active);
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto max-w-4xl">
-      <p className="text-sm text-muted mb-3">
-        Goods descriptions used on buyer invoices (e.g. Mixed Rags). Assign each to the buyers who buy it - the Final
-        Invoice then offers that buyer&apos;s descriptions in a dropdown, and Profit &amp; Loss can show which goods and
-        which buyer are profitable.
-      </p>
-      {!links.assignReady && (
-        <div className="text-xs text-warning bg-warning-soft border border-warning/30 rounded-lg p-2 mb-3">
-          Assigning items to buyers needs a one-time database update: run <span className="mono">supabase/migrations/0039_buyer_items.sql</span> in Supabase&apos;s SQL Editor.
-        </div>
-      )}
+    <div className="flex-1 min-h-0 overflow-auto max-w-lg">
       <div className="flex gap-2 mb-4">
         <input
           placeholder="New item name, e.g. Mixed Rags"
@@ -966,7 +902,6 @@ function ItemsTab({
         </button>
       </div>
       {error && <div className="text-xs text-cutoff mb-2">{error}</div>}
-      {assignError && <div className="text-xs text-cutoff mb-2">{assignError}</div>}
 
       <div className="bg-surface border border-line rounded-xl overflow-hidden">
         <ul className="divide-y divide-line">
@@ -975,47 +910,7 @@ function ItemsTab({
               key={item.id}
               className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-surface-2 ${!item.is_active ? "opacity-40" : ""}`}
             >
-              <span className="text-ink font-medium w-48 shrink-0">{item.name}</span>
-              <div className="flex-1 flex flex-wrap items-center gap-1.5 px-2">
-                {links.assignments
-                  .filter((a) => a.item_id === item.id)
-                  .map((a) => {
-                    const b = buyers.find((x) => x.id === a.buyer_id);
-                    if (!b) return null;
-                    return (
-                      <span key={a.buyer_id} className="inline-flex items-center gap-1 text-xs bg-accent-soft text-accent rounded-full pl-2 pr-1 py-0.5">
-                        {b.legal_name}
-                        <button
-                          aria-label={`Remove ${item.name} from ${b.legal_name}`}
-                          onClick={() => links.unassign(b.id, item.id).catch((e) => setAssignError(e.message))}
-                          className="w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-accent hover:text-white"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    );
-                  })}
-                {item.is_active && links.assignReady && (
-                  <select
-                    aria-label={`Assign ${item.name} to a buyer`}
-                    className="text-xs border border-line rounded-lg px-1.5 py-0.5 bg-surface text-muted"
-                    value=""
-                    onChange={(e) => {
-                      const buyerId = e.target.value;
-                      if (!buyerId) return;
-                      setAssignError(null);
-                      links.assign(buyerId, { item_id: item.id }).catch((err) => setAssignError(err.message));
-                    }}
-                  >
-                    <option value="">+ Buyer</option>
-                    {buyers
-                      .filter((b) => !links.assignments.some((a) => a.item_id === item.id && a.buyer_id === b.id))
-                      .map((b) => (
-                        <option key={b.id} value={b.id}>{b.legal_name}</option>
-                      ))}
-                  </select>
-                )}
-              </div>
+              <span className="text-ink">{item.name}</span>
               <button
                 onClick={() => toggleActive(item)}
                 className={`text-xs px-2 py-1 rounded-lg ${
@@ -1029,135 +924,6 @@ function ItemsTab({
         </ul>
         {visible.length === 0 && <EmptyState icon={Package} title="No items yet" hint="Add item categories like Mixed Rag to assign in Shipment Tracking." />}
       </div>
-    </div>
-  );
-}
-
-// ---------------- Description of Goods: the buyer's descriptions (Items) ----------------
-//
-// A buyer can have several descriptions of goods. Each is an Item (Items
-// tab) assigned to this buyer (migration 0039); they're the dropdowns on the
-// Final Invoice. The starred one is the buyer's default - the single value
-// the Certificate of Origin, Set of Documents and Instructions email print
-// (buyer_gst_entries.description_of_goods, as before). A description typed
-// here before Items existed becomes an Item automatically.
-
-function DescriptionOfGoodsField({
-  buyerId,
-  links,
-  current,
-  setDefault,
-}: {
-  buyerId: string;
-  links: ItemLinks;
-  current: string | null;
-  setDefault: (v: string) => Promise<any>;
-}) {
-  const [newName, setNewName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const mine = links.assignments
-    .filter((a) => a.buyer_id === buyerId)
-    .map((a) => links.items.find((i) => i.id === a.item_id))
-    .filter((i): i is Item => !!i);
-  const others = links.items.filter((i) => i.is_active && !mine.some((m) => m.id === i.id));
-  const isDefault = (name: string) => (current ?? "").trim().toLowerCase() === name.trim().toLowerCase();
-
-  // The old single text value becomes one of the buyer's Items.
-  const legacy = (current ?? "").trim();
-  const [converted, setConverted] = useState(false);
-  useEffect(() => {
-    if (!links.assignReady || converted || !legacy) return;
-    if (mine.some((m) => isDefault(m.name))) return;
-    setConverted(true);
-    links.assign(buyerId, { name: legacy }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [links.assignReady, legacy, mine.length]);
-
-  async function run(fn: () => Promise<void>) {
-    setError(null);
-    try {
-      await fn();
-    } catch (e: any) {
-      setError(e.message);
-    }
-  }
-  async function add(target: { item_id?: string; name?: string }, name: string) {
-    await links.assign(buyerId, target);
-    if (!legacy) await setDefault(name);
-  }
-  async function remove(item: Item) {
-    await links.unassign(buyerId, item.id);
-    if (isDefault(item.name)) await setDefault(mine.find((m) => m.id !== item.id)?.name ?? "");
-  }
-
-  if (!links.assignReady) {
-    return (
-      <div>
-        <div className="text-sm text-ink py-1">{legacy || <span className="text-muted">—</span>}</div>
-        <div className="text-xs text-warning">Several descriptions per buyer need the one-time database update (migration 0039_buyer_items.sql).</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="py-1">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {mine.map((i) => (
-          <span
-            key={i.id}
-            className={`inline-flex items-center gap-1 text-xs rounded-full pl-2 pr-1 py-0.5 ${isDefault(i.name) ? "bg-accent text-white" : "bg-accent-soft text-accent"}`}
-          >
-            <button
-              type="button"
-              onClick={() => !isDefault(i.name) && run(() => setDefault(i.name))}
-              title={isDefault(i.name) ? "Default - printed on the COO, Set of Documents and Instructions" : "Make this the default"}
-            >
-              {isDefault(i.name) ? "★ " : ""}
-              {i.name}
-            </button>
-            <button
-              aria-label={`Remove ${i.name}`}
-              onClick={() => run(() => remove(i))}
-              className="w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-white/30"
-            >
-              ✕
-            </button>
-          </span>
-        ))}
-        {others.length > 0 && (
-          <select
-            aria-label="Add an existing description"
-            className="text-xs border border-line rounded-lg px-1.5 py-0.5 bg-surface text-muted"
-            value=""
-            onChange={(e) => {
-              const item = others.find((i) => i.id === e.target.value);
-              if (item) run(() => add({ item_id: item.id }, item.name));
-            }}
-          >
-            <option value="">+ Existing item</option>
-            {others.map((i) => (
-              <option key={i.id} value={i.id}>{i.name}</option>
-            ))}
-          </select>
-        )}
-        <input
-          placeholder="New description, e.g. Cream Rags"
-          autoComplete="off"
-          className="text-xs border border-line rounded-lg px-2 py-0.5 bg-surface w-56"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            const name = newName.trim();
-            if (e.key === "Enter" && name) run(() => add({ name }, name).then(() => setNewName("")));
-          }}
-        />
-      </div>
-      {mine.length > 0 && !mine.some((m) => isDefault(m.name)) ? (
-        <div className="text-xs text-muted mt-1">No default yet - click one to make it the default (printed on the COO, Set of Documents and Instructions).</div>
-      ) : (
-        mine.length > 1 && <div className="text-xs text-muted mt-1">★ = default (COO, Set of Documents, Instructions). Click another to change it.</div>
-      )}
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
     </div>
   );
 }

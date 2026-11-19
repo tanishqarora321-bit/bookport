@@ -5,7 +5,7 @@ import { INVOICE_KIND_LABEL, INVOICE_PARTY_COLUMN, INVOICE_TABLE, listInvoicePdf
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 import { buildFinalInvoiceDefaults } from "@/lib/final-invoice-defaults";
 import { chargeKeyOf, setBuyerCharges } from "@/lib/buyer-charges";
-import { assignItemToBuyer, findOrCreateItem } from "@/lib/buyer-items";
+import { findOrCreateItem } from "@/lib/buyer-items";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const me = await getCurrentProfile();
@@ -67,25 +67,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const supabase = createServiceClient();
   const overridesIn: Record<string, any> = body.overrides ?? {};
 
-  // 0. Goods descriptions are Items (owner, 2026-11): each goods line needs
-  // one; a new description becomes an Item, every one is assigned to this
-  // buyer (migration 0039), and the first is stored on the shipment
+  // 0. The goods line's Item (owner, 2026-11) is required: a new one is
+  // added to the Items tab, and it's stored on the shipment
   // (tracking.item_id) - what Profit & Loss groups goods by.
   if (Array.isArray(overridesIn.items)) {
     const used = overridesIn.items.filter(
       (l: any) => String(l.description ?? "").trim() || String(l.weight_kg ?? "").trim() || String(l.unit_price ?? "").trim() || String(l.amount ?? "").trim()
     );
     if (used.length === 0 || used.some((l: any) => !String(l.description ?? "").trim())) {
-      return NextResponse.json({ error: "Choose a description for each goods line before generating." }, { status: 400 });
+      return NextResponse.json({ error: "Select the Item before generating." }, { status: 400 });
     }
-    const { data: trk } = await supabase.from("tracking").select("id, party_id").eq("id", params.id).eq("company_id", me.company_id).maybeSingle();
+    const { data: trk } = await supabase.from("tracking").select("id").eq("id", params.id).eq("company_id", me.company_id).maybeSingle();
     if (trk) {
       let firstItemId: string | null = null;
       for (const l of used) {
         const item = await findOrCreateItem(supabase, me.company_id, String(l.description));
         if (!item) continue;
         firstItemId = firstItemId ?? item.id;
-        if (trk.party_id) await assignItemToBuyer(supabase, me.company_id, trk.party_id, item.id);
       }
       if (firstItemId) await supabase.from("tracking").update({ item_id: firstItemId }).eq("id", trk.id);
     }

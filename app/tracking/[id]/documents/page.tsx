@@ -3,7 +3,6 @@ import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
 import DocumentsClient from "@/components/DocumentsClient";
 import { buildFinalInvoiceDefaults } from "@/lib/final-invoice-defaults";
-import { listItemsForBuyer } from "@/lib/buyer-items";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +28,8 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
     );
   }
 
-  // The goods-description dropdown: this buyer's Items first, then the rest.
-  const itemLists = defaults.tracking.party_id
-    ? await listItemsForBuyer(supabase, me.company_id, defaults.tracking.party_id)
-    : { buyerItems: [], allItems: [], tableReady: false };
+  // The goods line's Item dropdown: the Buyers > Items tab list.
+  const { data: items } = await supabase.from("items").select("name, is_active").eq("company_id", me.company_id).order("name");
 
   // Supplier dropdown: every active supplier.
   const { data: suppliers } = await supabase
@@ -57,8 +54,7 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
       defaults={defaults.data}
       hasBuyerInvoice={!!defaults.buyerInvoiceId}
       letterhead={defaults.templateConfig}
-      buyerItems={itemLists.buyerItems.map((i) => i.name)}
-      allItems={itemLists.allItems.map((i) => i.name)}
+      allItems={(items ?? []).filter((i: any) => i.is_active !== false).map((i: any) => i.name as string)}
       suppliers={(suppliers ?? []).filter((x: any) => x.is_active !== false).map((x: any) => x.legal_name as string)}
       existingDocs={existingDocs ?? []}
       backHref={back ?? "/tracking"}
