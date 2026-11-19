@@ -1,3 +1,5 @@
+import ComingSoon from "@/components/ComingSoon";
+
 const TITLES: Record<string, string> = {
   forwarders: "Forwarders",
   suppliers: "Suppliers",
@@ -12,18 +14,6 @@ const TITLES: Record<string, string> = {
   "settings-control": "Settings & Control"
 };
 
-export default function ComingSoon({ params }: { params: { slug: string } }) {
-  const title = TITLES[params.slug] ?? "This module";
-
-  return (
-    <div className="h-[70vh] flex flex-col items-center justify-center text-center">
-      <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-2xl mb-4">🚧</div>
-      <h1 className="text-xl font-semibold text-ink">{title}</h1>
-      <p className="text-text-2 mt-1">Work in progress — not built yet.</p>
-      <p className="text-muted text-sm mt-4 max-w-sm">
-        Booking & Instructions is the only live module right now, by design —
-        it's the foundation everything else reads from.
-      </p>
-    </div>
-  );
+export default function ComingSoonPage({ params }: { params: { slug: string } }) {
+  return <ComingSoon title={TITLES[params.slug] ?? "This module"} />;
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, TrendingUp, TrendingDown, DollarSign, Percent, Download } from "lucide-react";
 import StatCard from "@/components/ui/StatCard";
+import MultiSelect from "@/components/ui/MultiSelect";
 import EmptyState from "@/components/ui/EmptyState";
 import { useYear } from "@/lib/year-context";
 import { dateInWorkingYear } from "@/lib/year-scope";
@@ -32,12 +33,13 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
   const [rows, setRows] = useState(initialRows);
   const [view, setView] = useState<"elaborate" | "consolidated">("elaborate");
   const [search, setSearch] = useState("");
-  const [month, setMonth] = useState("all");
-  const [buyer, setBuyer] = useState("all");
-  const [supplier, setSupplier] = useState("all");
-  const [forwarder, setForwarder] = useState("all");
-  const [trucker, setTrucker] = useState("all");
-  const [item, setItem] = useState("all");
+  // Multi-select filters: nothing ticked = all.
+  const [month, setMonth] = useState<string[]>([]);
+  const [buyer, setBuyer] = useState<string[]>([]);
+  const [supplier, setSupplier] = useState<string[]>([]);
+  const [forwarder, setForwarder] = useState<string[]>([]);
+  const [trucker, setTrucker] = useState<string[]>([]);
+  const [item, setItem] = useState<string[]>([]);
 
   const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.month, year)), [rows, year]);
   const opts = (pick: (r: PnlRow) => string | null) =>
@@ -52,12 +54,13 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return yearRows.filter((r) => {
-      if (month !== "all" && r.month?.slice(0, 7) !== month) return false;
-      if (buyer !== "all" && r.buyer !== buyer) return false;
-      if (supplier !== "all" && r.supplier !== supplier) return false;
-      if (forwarder !== "all" && r.forwarder !== forwarder) return false;
-      if (trucker !== "all" && r.trucker !== trucker) return false;
-      if (item !== "all" && r.item !== item) return false;
+      const pass = (sel: string[], v: string | null | undefined) => sel.length === 0 || sel.includes(v ?? "");
+      if (!pass(month, r.month?.slice(0, 7))) return false;
+      if (!pass(buyer, r.buyer)) return false;
+      if (!pass(supplier, r.supplier)) return false;
+      if (!pass(forwarder, r.forwarder)) return false;
+      if (!pass(trucker, r.trucker)) return false;
+      if (!pass(item, r.item)) return false;
       if (!q) return true;
       return [r.booking_number, r.container_number, r.buyer, r.supplier, r.forwarder, r.trucker, r.inv_buyer, r.inv_supplier, r.inv_forwarder, r.item, r.commission_parties]
         .filter(Boolean)
@@ -72,7 +75,7 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
   const totalCost = sum(rowCost);
   const profit = totalSell - totalCost;
   const margin = totalSell ? (profit / totalSell) * 100 : 0;
-  const anyFilter = search || month !== "all" || buyer !== "all" || supplier !== "all" || forwarder !== "all" || trucker !== "all" || item !== "all";
+  const anyFilter = search || [month, buyer, supplier, forwarder, trucker, item].some((f) => f.length > 0);
 
   async function saveAdjust(r: PnlRow, field: Adjust, value: string) {
     const res = await fetch(`/api/pnl-adjustments/${r.tracking_id}`, {
@@ -108,15 +111,8 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
     URL.revokeObjectURL(url);
   }
 
-  const sel = (label: string, value: string, set: (v: string) => void, options: string[], all: string, width = 170) =>
-    options.length > 0 ? (
-      <select value={value} onChange={(e) => set(e.target.value)} aria-label={label} className="select select-s" style={{ width }}>
-        <option value="all">{all}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
-      </select>
-    ) : null;
+  const sel = (label: string, value: string[], set: (v: string[]) => void, options: string[], all: string) =>
+    options.length > 0 ? <MultiSelect label={label} allLabel={all} options={options} value={value} onChange={set} width={170} /> : null;
 
   const th = "px-3 py-2.5 font-medium whitespace-nowrap sticky top-0 z-10 bg-surface-2";
   const thR = `${th} text-right`;
@@ -172,30 +168,23 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
               style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
             />
           </label>
-          {monthOptions.length > 0 && (
-            <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
-              <option value="all">All Months</option>
-              {monthOptions.map((m) => (
-                <option key={m} value={m}>{fmtMonth(m)}</option>
-              ))}
-            </select>
-          )}
+          {monthOptions.length > 0 && <MultiSelect label="Month of Loading" allLabel="All Months" options={monthOptions} value={month} onChange={setMonth} format={fmtMonth} width={170} />}
           {sel("Buyer", buyer, setBuyer, buyerOptions, "All Buyers")}
           {sel("Supplier", supplier, setSupplier, supplierOptions, "All Suppliers")}
           {sel("Forwarder", forwarder, setForwarder, forwarderOptions, "All Forwarders")}
           {sel("Trucker", trucker, setTrucker, truckerOptions, "All Truckers")}
-          {sel("Item", item, setItem, itemOptions, "All Items", 150)}
+          {sel("Item", item, setItem, itemOptions, "All Items")}
           {anyFilter && (
             <button
               type="button"
               onClick={() => {
                 setSearch("");
-                setMonth("all");
-                setBuyer("all");
-                setSupplier("all");
-                setForwarder("all");
-                setTrucker("all");
-                setItem("all");
+                setMonth([]);
+                setBuyer([]);
+                setSupplier([]);
+                setForwarder([]);
+                setTrucker([]);
+                setItem([]);
               }}
               className="chip"
               aria-label="Clear filters"

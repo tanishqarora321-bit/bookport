@@ -305,6 +305,10 @@ booking's own ERD year (Trucker + Supplier).
 - Commission Bookings (Operations, /commission-bookings; migration 0040 - must be run once): manual-only list (Booking, Container, Commission Party, Commission Amount, Month of Loading), Working Year by Month of Loading, inline edit, delete.
 - P&L rebuilt (/profit-loss, lib/pnl-report.ts, components/PnlClient.tsx; old ProfitLossClient / api/profit-loss / lib/profit-loss removed): one row per container (cancelled bookings excluded). Sell = Buyer + Discount from Supplier + Commission; Cost = Supplier + Forwarder + Trucking (+ custom number columns) + Discount to Customer + Pier Pass. Commission from commission_bookings matched by container (else booking); unmatched ones are rows of their own. Pier Pass / discounts typed on the page -> pnl_adjustments (/api/pnl-adjustments/[trackingId]). Elaborate + Consolidated tabs, filters (month, buyer, supplier, forwarder, trucker, item, search), totals, CSV export. Freight = buyer invoice's Ocean Freight. Month of Loading = booking ERD (else cut-offs).
 
+- Multi-select filters: components/ui/MultiSelect.tsx (value string[], empty = all). Used on Commission Bookings and P&L so far; other modules still single-select (owner to confirm rollout).
+- Commission Bookings: Import Excel (CommissionImportModal, /api/commission-bookings/import/{parse,commit}; default month for rows without one; identical existing rows skipped), equal header buttons, pagination.
+- COMING_SOON (lib/ui-flags.ts): modules shown as "Coming soon" + sidebar "Soon" tag; currently Offer Sheet (its code is untouched, remove the key to reopen).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

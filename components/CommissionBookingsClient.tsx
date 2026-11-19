@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search, Percent, DollarSign, Plus } from "lucide-react";
+import MultiSelect from "@/components/ui/MultiSelect";
+import CommissionImportModal from "@/components/CommissionImportModal";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import { useYear } from "@/lib/year-context";
@@ -21,7 +24,7 @@ function thisMonth() {
 const COLS = "minmax(150px,1fr) minmax(150px,1fr) minmax(200px,1.4fr) 150px 130px 150px";
 
 // Operations > Commission Bookings (owner, 2026-11): bookings the company
-// earns a commission on. Added by hand only (no import, no link from
+// earns a commission on. Added by hand or with Import Excel (no link from
 // Booking & Instructions). Scoped to the sidebar's Working Year by Month of
 // Loading. Each row's Commission Amount is the P&L's Commission for that
 // container.
@@ -35,11 +38,17 @@ export default function CommissionBookingsClient({
   partyNames: string[];
 }) {
   const { year } = useYear();
+  const router = useRouter();
   const [rows, setRows] = useState(initialRows);
+  useEffect(() => setRows(initialRows), [initialRows]);
   const [search, setSearch] = useState("");
-  const [monthFilter, setMonthFilter] = useState("all");
-  const [partyFilter, setPartyFilter] = useState("all");
+  // Multi-select filters: nothing ticked = all.
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
+  const [partyFilter, setPartyFilter] = useState<string[]>([]);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const yearRows = useMemo(() => rows.filter((r) => String(r.month_of_loading).slice(0, 4) === String(year)), [rows, year]);
@@ -51,15 +60,19 @@ export default function CommissionBookingsClient({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return yearRows.filter((r) => {
-      if (monthFilter !== "all" && String(r.month_of_loading).slice(0, 7) !== monthFilter) return false;
-      if (partyFilter !== "all" && r.commission_party !== partyFilter) return false;
+      if (monthFilter.length && !monthFilter.includes(String(r.month_of_loading).slice(0, 7))) return false;
+      if (partyFilter.length && !partyFilter.includes(r.commission_party ?? "")) return false;
       if (!q) return true;
       return [r.booking_number, r.container_number, r.commission_party].filter(Boolean).join(" ").toLowerCase().includes(q);
     });
   }, [yearRows, search, monthFilter, partyFilter]);
   const total = filtered.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
   const yearTotal = yearRows.reduce((s, r) => s + (Number(r.commission_amount) || 0), 0);
-  const anyFilter = search || monthFilter !== "all" || partyFilter !== "all";
+  const anyFilter = search || monthFilter.length > 0 || partyFilter.length > 0;
+  useEffect(() => setPage(0), [search, monthFilter, partyFilter, pageSize, year]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStart = Math.min(page, pageCount - 1) * pageSize;
+  const paginated = filtered.slice(pageStart, pageStart + pageSize);
 
   async function save(id: string, patch: Partial<CommissionBooking>) {
     setError(null);
@@ -91,15 +104,25 @@ export default function CommissionBookingsClient({
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h1 className="text-xl font-semibold text-ink">Commission Bookings</h1>
-            <p className="sub">Bookings we earn a commission on - entered by hand. The Commission Amount goes to the P&amp;L for that container.</p>
+            <p className="sub">Bookings we earn a commission on - added by hand or with Import Excel. The Commission Amount goes to the P&amp;L for that container.</p>
           </div>
-          <button
-            onClick={() => setAdding((v) => !v)}
-            disabled={!ready}
-            className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 disabled:opacity-50 shrink-0"
-          >
-            <Plus className="w-4 h-4" size={16} /> New Commission Booking
-          </button>
+          {/* Equal columns sized to the wider label - both buttons the same size. */}
+          <div className="grid grid-flow-col auto-cols-fr gap-2 shrink-0">
+            <button
+              onClick={() => setImporting(true)}
+              disabled={!ready}
+              className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium flex items-center justify-center disabled:opacity-50"
+            >
+              Import Excel
+            </button>
+            <button
+              onClick={() => setAdding((v) => !v)}
+              disabled={!ready}
+              className="text-sm bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg font-medium flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" size={16} /> New Commission Booking
+            </button>
+          </div>
         </div>
         {!ready && (
           <div className="text-sm text-warning bg-warning-soft border border-warning/30 rounded-lg p-3 mb-4">
@@ -111,6 +134,7 @@ export default function CommissionBookingsClient({
           <StatCard icon={DollarSign} label={`Commission ${year} (USD)`} value={fmtMoney(yearTotal)} tone="success" />
           <StatCard icon={DollarSign} label="Shown (USD)" value={fmtMoney(total)} />
         </div>
+        {importing && <CommissionImportModal onClose={() => setImporting(false)} onImported={() => router.refresh()} />}
         {adding && (
           <AddForm
             onCancel={() => setAdding(false)}
@@ -135,25 +159,15 @@ export default function CommissionBookingsClient({
               style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
             />
           </label>
-          <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 160 }}>
-            <option value="all">All Months</option>
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>{fmtMonth(m)}</option>
-            ))}
-          </select>
-          <select value={partyFilter} onChange={(e) => setPartyFilter(e.target.value)} aria-label="Commission party" className="select select-s" style={{ width: 200 }}>
-            <option value="all">All Parties</option>
-            {partyOptions.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+          <MultiSelect label="Month of Loading" allLabel="All Months" options={monthOptions} value={monthFilter} onChange={setMonthFilter} format={fmtMonth} />
+          <MultiSelect label="Commission Party" allLabel="All Parties" options={partyOptions} value={partyFilter} onChange={setPartyFilter} />
           {anyFilter && (
             <button
               type="button"
               onClick={() => {
                 setSearch("");
-                setMonthFilter("all");
-                setPartyFilter("all");
+                setMonthFilter([]);
+                setPartyFilter([]);
               }}
               className="chip"
               aria-label="Clear filters"
@@ -183,7 +197,7 @@ export default function CommissionBookingsClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => (
+              {paginated.map((r) => (
                 <tr key={r.id} className="border-b border-line hover:bg-surface-2 items-center" style={{ display: "grid", gridTemplateColumns: COLS }}>
                   <Cell value={r.booking_number} mono onSave={(v) => save(r.id, { booking_number: v })} accent />
                   <Cell value={r.container_number} mono onSave={(v) => save(r.id, { container_number: v })} accent />
@@ -216,6 +230,28 @@ export default function CommissionBookingsClient({
               hint={yearRows.length === 0 ? 'Click "New Commission Booking" above to add one.' : undefined}
             />
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 border-t border-line shrink-0">
+          <span className="text-xs text-muted tabular-nums">
+            {filtered.length === 0 ? "Showing 0 of 0" : `Showing ${pageStart + 1}-${Math.min(pageStart + pageSize, filtered.length)} of ${filtered.length}`}
+          </span>
+          <div className="flex items-center gap-2.5">
+            <label className="flex items-center gap-2 text-xs text-muted">
+              Rows per page
+              <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="border border-line rounded-lg px-2 py-1 text-xs bg-surface">
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={pageStart === 0} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+              Previous
+            </button>
+            <button onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={pageStart + pageSize >= filtered.length} className="text-sm border border-line bg-surface hover:bg-surface-2 rounded-lg px-3 py-1.5 font-medium disabled:opacity-50">
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
