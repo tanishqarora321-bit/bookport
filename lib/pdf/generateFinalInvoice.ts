@@ -186,10 +186,8 @@ export async function generateFinalInvoicePdf(template: TemplateConfig, data: In
     if (l.amount) v[`amt${i + 1}`] = `$ ${l.amount}`;
   });
 
-  // The Supplier sits just below the last line (one line's gap), in the
-  // template's own font for it.
-  const lastY = lines.length > 0 ? INVOICE_SLOTS[`line${lines.length}`][0].y : INVOICE_SLOTS.line1[0].y - 17.76;
-  slots.location = [{ ...INVOICE_SLOTS.location[0], y: Math.min(lastY + 26.64, INVOICE_SLOTS.location[0].y) }];
+  // The Supplier prints where the owner's invoice has it ("GOODWILL
+  // Nashville", the template's own slot below the lines).
 
   return fillTemplate("final-invoice-template.pdf", slots, v, `Invoice ${data.invoice_no}`);
 }

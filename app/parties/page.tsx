@@ -42,17 +42,5 @@ export default async function PartiesPage() {
     return { ...rest, gst_entry: gst_entries?.[0] ?? null };
   });
 
-  // Items assigned to buyers (migration 0039) - an error just means it
-  // hasn't been run yet; the page then says so instead of failing.
-  const assigned = await supabase.from("buyer_items").select("buyer_id, item_id").eq("company_id", companyId);
-
-  return (
-    <PartiesClient
-      initialParties={sortedParties}
-      initialItems={items ?? []}
-      initialAssignments={assigned.error ? [] : assigned.data ?? []}
-      assignReady={!assigned.error}
-      isAdmin={me.role === "admin"}
-    />
-  );
+  return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} isAdmin={me.role === "admin"} />;
 }

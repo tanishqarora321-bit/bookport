@@ -65,8 +65,10 @@ const PAID_STATUS_MENU_OPTIONS: StatusOption[] = [
 // BL Date, Due Date, Weight, Goods Value, Ocean Freight, Commission,
 // Trucking, Total, Total (USD), ETA (live), Status (live), Paid, Generate
 // Invoice (opens the Final Invoice page), Fumigation Cert., Certificate of
-// Origin, Set of Documents, Cost section, Delete.
-const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 140, 140, 130, 120, 130, 130, 120, 150, 110, 160, 150, 180, 160, 150, 80];
+// Origin, Set of Documents, Delete. No Cost section (owner, 2026-11): the
+// goods (item, weight x rate) are entered on the Final Invoice page; the
+// ledger just shows the final Goods Value and the three charges.
+const LEDGER_COLUMN_WIDTHS = [160, 180, 120, 140, 160, 140, 140, 120, 120, 150, 140, 140, 130, 120, 130, 130, 120, 150, 110, 160, 150, 180, 160, 80];
 // Ledger column order of the three charges (lib/buyer-charges.ts).
 const LEDGER_CHARGES: BuyerChargeKey[] = ["ocean_freight", "commission", "trucking"];
 const chargeLabel = (k: BuyerChargeKey) => BUYER_CHARGES.find((c) => c.key === k)!.label;
@@ -118,7 +120,6 @@ export default function BuyerInvoiceLedgerClient({
   // belongs to).
   const { year } = useYear();
   const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   // Pending = no invoice number yet (not imported, not generated) - a toggle
   // in the header like the other ledgers, so it costs the table no space.
   const [pendingOnly, setPendingOnly] = useState(false);
@@ -135,9 +136,6 @@ export default function BuyerInvoiceLedgerClient({
     setInvoices((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }
 
-  function toggleExpanded(id: string) {
-    setExpanded({ ...expanded, [id]: !expanded[id] });
-  }
 
   async function handleDelete(inv: Invoice) {
     if (!confirm(`Delete this invoice (${inv.invoice_number || inv.booking_number || "no reference"})? This also removes its cost-section lines, and clears this buyer from Booking & Instructions if it was their only invoice there.`)) return;
@@ -426,7 +424,6 @@ export default function BuyerInvoiceLedgerClient({
               <Th></Th>
               <Th></Th>
               <Th></Th>
-              <Th></Th>
             </tr>
           </thead>
           <tbody>
@@ -435,8 +432,6 @@ export default function BuyerInvoiceLedgerClient({
                 key={inv.id}
                 buyerId={buyerId}
                 inv={inv}
-                expanded={!!expanded[inv.id]}
-                onToggle={() => toggleExpanded(inv.id)}
                 onChange={(patch) => updateLocal(inv.id, patch)}
                 onDelete={() => handleDelete(inv)}
                 deleting={deletingId === inv.id}
@@ -551,40 +546,12 @@ function Td({ children }: { children: React.ReactNode }) {
   return <td className="px-3 py-3.5 whitespace-nowrap overflow-hidden text-ellipsis text-text-2">{children}</td>;
 }
 
-// ---------------- Add Invoice panel: lookup + header fields + cost section ----------------
-
-type DraftItem = { description: string; weight_kg: string; unit_price: string; amount: string };
-
-function blankItem(): DraftItem {
-  return { description: "", weight_kg: "", unit_price: "", amount: "" };
-}
-
-function LabeledInput({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <div className="text-xs text-muted mb-0.5">{label}</div>
-      <input type={type} className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-full" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
 
 // ---------------- One invoice's header row + expandable cost section ----------------
 
 function InvoiceRows({
   buyerId,
   inv,
-  expanded,
-  onToggle,
   onChange,
   onDelete,
   deleting,
@@ -595,8 +562,6 @@ function InvoiceRows({
 }: {
   buyerId: string;
   inv: Invoice;
-  expanded: boolean;
-  onToggle: () => void;
   onChange: (patch: Partial<Invoice>) => void;
   onDelete: () => void;
   deleting: boolean;
@@ -786,273 +751,15 @@ function InvoiceRows({
           </button>
           {docError?.kind === "sod" && <div className="text-xs text-cutoff mt-1 max-w-[180px] whitespace-normal">{docError.message}</div>}
         </td>
-        <td className="px-3 py-3.5 whitespace-nowrap">
-          {/* Same look as Booking & Instructions' View button. */}
-          <button
-            onClick={onToggle}
-            aria-expanded={expanded}
-            className="text-xs border border-accent text-accent px-2 py-1 rounded hover:bg-accent hover:text-white"
-          >
-            {expanded ? "Hide cost ▲" : "Cost section ▼"}
-          </button>
-        </td>
         <td className="px-3 py-3.5">
           <button onClick={onDelete} disabled={deleting} className="text-xs text-cutoff hover:underline whitespace-nowrap disabled:opacity-50">
             {deleting ? "…" : "Delete"}
           </button>
         </td>
       </tr>
-      {expanded && (
-        <tr className="border-b border-line bg-surface-2">
-          <td colSpan={colSpan} className="px-6 py-3">
-            {/* Pinned to the left edge so it stays in view however far the
-                wide ledger is scrolled sideways. */}
-            <div className="sticky left-6" style={{ maxWidth: "min(1100px, calc(100vw - 340px))" }}>
-            {/* Goods lines only (weight x unit price = amount); Ocean Freight /
-                Commission / Trucking are their own columns on the row. */}
-            <CostSection
-              invoiceId={inv.id}
-              items={split.goods}
-              currency={inv.currency}
-              onTotalChange={(total) => onChange({ total, total_usd: total * (Number(inv.fx_rate) || 1) })}
-              onItemsChange={(goods) => onChange({ items: [...goods, ...inv.items.filter((it) => !split.goods.includes(it))] })}
-            />
-            </div>
-          </td>
-        </tr>
-      )}
     </>
   );
 }
-
-function CostSection({
-  invoiceId,
-  items,
-  currency,
-  onTotalChange,
-  onItemsChange,
-}: {
-  invoiceId: string;
-  items: Item[];
-  currency: string;
-  onTotalChange: (total: number) => void;
-  onItemsChange: (items: Item[]) => void;
-}) {
-  const [rows, setRows] = useState(items);
-  const [addingRow, setAddingRow] = useState(false);
-  const [draft, setDraft] = useState<DraftItem>(blankItem());
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function saveNewRow() {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/buyer-invoices/${invoiceId}/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to add line");
-      const next = [...rows, json.item];
-      setRows(next);
-      onItemsChange(next);
-      onTotalChange(json.total);
-      setDraft(blankItem());
-      setAddingRow(false);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function patchItem(itemId: string, field: keyof Item, value: string) {
-    const res = await fetch(`/api/buyer-invoices/${invoiceId}/items/${itemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [field]: value }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Save failed");
-    const next = rows.map((r) => (r.id === itemId ? json.item : r));
-    setRows(next);
-    onItemsChange(next);
-    onTotalChange(json.total);
-  }
-
-  async function deleteRow(itemId: string) {
-    if (!confirm("Remove this cost line?")) return;
-    const res = await fetch(`/api/buyer-invoices/${invoiceId}/items/${itemId}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!res.ok) return;
-    const next = rows.filter((r) => r.id !== itemId);
-    setRows(next);
-    onItemsChange(next);
-    onTotalChange(json.total);
-  }
-
-  return (
-    <div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-muted">
-            <th className="pb-1 pr-2 font-normal">Description</th>
-            <th className="pb-1 pr-2 font-normal w-32">Weight</th>
-            <th className="pb-1 pr-2 font-normal w-28">Unit Price</th>
-            <th className="pb-1 pr-2 font-normal w-32">Amount ({currency})</th>
-            <th className="pb-1 w-8"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((item) => (
-            <tr key={item.id} className="border-t border-line">
-              <ItemCell value={item.description} onSave={(v) => patchItem(item.id, "description", v)} />
-              <ItemCell value={item.weight_kg?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "weight_kg", v)} />
-              <ItemCell value={item.unit_price?.toString() ?? ""} isNumber onSave={(v) => patchItem(item.id, "unit_price", v)} />
-              {item.weight_kg != null && item.unit_price != null ? (
-                <td className="py-1 pr-2 tabular-nums text-text-2" title="Weight × Unit Price">{item.amount}</td>
-              ) : (
-                <ItemCell value={item.amount?.toString() ?? "0"} isNumber onSave={(v) => patchItem(item.id, "amount", v)} />
-              )}
-              <td className="py-1 text-center">
-                <button onClick={() => deleteRow(item.id)} className="text-cutoff text-xs">
-                  ✕
-                </button>
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={5} className="py-2 text-muted text-xs">
-                No cost lines yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {addingRow ? (
-        <div className="flex gap-2 items-center mt-2">
-          <input
-            placeholder="Description"
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm flex-1"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-          />
-          <input
-            type="number"
-            placeholder="Weight KG"
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-28"
-            value={draft.weight_kg}
-            onChange={(e) => setDraft({ ...draft, weight_kg: e.target.value })}
-          />
-          <input
-            type="number"
-            step="0.0001"
-            placeholder="Unit Price"
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-28"
-            value={draft.unit_price}
-            onChange={(e) => setDraft({ ...draft, unit_price: e.target.value })}
-          />
-          <input
-            type="number"
-            step="0.01"
-            placeholder="Amount (if no rate)"
-            className="border border-line bg-surface rounded-lg px-2 py-1 text-sm w-28"
-            value={draft.amount}
-            onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-          />
-          <button onClick={saveNewRow} disabled={saving} className="bg-accent text-white hover:bg-accent-hover rounded-lg px-2 py-1 text-xs">
-            {saving ? "…" : "✓"}
-          </button>
-          <button
-            onClick={() => {
-              setAddingRow(false);
-              setDraft(blankItem());
-            }}
-            className="border border-line bg-surface hover:bg-surface-2 rounded-lg px-2 py-1 text-xs"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3 mt-2">
-          <button onClick={() => setAddingRow(true)} className="text-xs text-accent hover:underline">
-            + Add Line
-          </button>
-          <span className="text-xs text-muted">Goods: amount = weight × unit price. Ocean Freight, Commission and Trucking have their own columns on the row.</span>
-        </div>
-      )}
-      {error && <div className="text-xs text-cutoff mt-1">{error}</div>}
-    </div>
-  );
-}
-
-function ItemCell({
-  value,
-  onSave,
-  isNumber = false,
-}: {
-  value: string | null;
-  onSave: (v: string) => Promise<any>;
-  isNumber?: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(value ?? "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave(val);
-      setEditing(false);
-    } catch (err: any) {
-      setError(err.message || "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <td className="py-1 pr-2">
-        <span onClick={() => setEditing(true)} className="cursor-text hover:bg-surface-2 px-1 rounded-lg block">
-          {value || (isNumber ? "0" : "—")}
-        </span>
-      </td>
-    );
-  }
-
-  return (
-    <td className="py-1 pr-2">
-      <div className="flex gap-1 items-center">
-        <input
-          autoFocus
-          type={isNumber ? "number" : "text"}
-          step={isNumber ? "0.0001" : undefined}
-          className="border border-accent rounded-lg px-1.5 py-0.5 text-sm w-full bg-surface"
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && save()}
-          disabled={saving}
-        />
-        <button onClick={save} disabled={saving} className="text-xs bg-accent text-white hover:bg-accent-hover px-1.5 py-0.5 rounded-lg">
-          {saving ? "…" : "✓"}
-        </button>
-        <button onClick={() => setEditing(false)} className="text-xs border border-line bg-surface hover:bg-surface-2 px-1.5 py-0.5 rounded-lg">
-          ✕
-        </button>
-        {error && <span className="text-xs text-cutoff">{error}</span>}
-      </div>
-    </td>
-  );
-}
-
-// ---------------- Header-row EditableCell (invoice_number, invoice_date, location, bl_date, due_date) ----------------
 
 function EditableCell({
   value,

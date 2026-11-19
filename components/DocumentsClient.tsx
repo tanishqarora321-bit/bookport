@@ -27,7 +27,11 @@ type FormState = {
   weight_lbs: string;
   weight_unit: string;
   supplier_name: string;
-  items: GoodsLine[];
+  // The goods line: "<Qty> Bales <Item> <Weight>" - the Item (Items tab),
+  // the rate, and the amount (weight x rate; typed only when there's no rate).
+  item: string;
+  rate: string;
+  goods_amount: string;
   charges: Record<BuyerChargeKey, string>;
 };
 
@@ -63,7 +67,6 @@ export default function DocumentsClient({
   defaults,
   hasBuyerInvoice,
   letterhead,
-  buyerItems = [],
   allItems = [],
   suppliers = [],
   existingDocs,
@@ -74,8 +77,7 @@ export default function DocumentsClient({
   defaults: InvoiceFieldData;
   hasBuyerInvoice: boolean;
   letterhead: TemplateConfig | null;
-  // Goods descriptions (Items): this buyer's, and the company's whole list.
-  buyerItems?: string[];
+  // The company's Items (Buyers > Items tab) - the goods line's item.
   allItems?: string[];
   suppliers?: string[];
   existingDocs: Doc[];
@@ -92,21 +94,13 @@ export default function DocumentsClient({
     reference_no: latest.reference_no || "",
     ship_via: defaults.ship_via,
     seal_number: defaults.seal_number,
-    // The buyer's default Description of Goods, else their first one.
-    goods_description: defaults.goods_description || buyerItems[0] || "",
+    // The buyer's Description of Goods (Shipping Details) - first line.
+    goods_description: defaults.goods_description || "",
     qty_bales: defaults.qty_bales,
     weight_lbs: defaults.weight_lbs,
     weight_unit: defaults.weight_unit || "LBS",
     supplier_name: defaults.supplier_name || "",
-    items:
-      (defaults.items ?? []).length > 0
-        ? defaults.items!.map((it) => ({
-            description: it.description ?? "",
-            weight_kg: it.weight_kg != null ? String(it.weight_kg) : "",
-            unit_price: it.unit_price != null ? String(it.unit_price) : "",
-            amount: it.weight_kg != null && it.unit_price != null ? "" : String(it.amount ?? ""),
-          }))
-        : [{ description: defaults.description || "", weight_kg: defaults.weight_lbs || "", unit_price: "", amount: "" }],
+    ...initialGoods(defaults, allItems),
     charges: {
       trucking: defaults.charges?.trucking ? String(defaults.charges.trucking) : "",
       commission: defaults.charges?.commission ? String(defaults.charges.commission) : "",
@@ -118,18 +112,17 @@ export default function DocumentsClient({
   const [lastUrl, setLastUrl] = useState<string | null>(null);
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
-  const setLine = (i: number, patch: Partial<GoodsLine>) => setForm((f) => ({ ...f, items: f.items.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
-
-  const goodsTotal = form.items.reduce((s, l) => s + lineAmount(l), 0);
+  const goodsLine: GoodsLine = { description: form.item, weight_kg: form.weight_lbs, unit_price: form.rate, amount: form.goods_amount };
+  const rateGiven = num(form.rate) !== null && num(form.weight_lbs) !== null;
+  const goodsTotal = lineAmount(goodsLine);
   const chargesTotal = CHARGE_ORDER.reduce((s, k) => s + (num(form.charges[k]) ?? 0), 0);
   const grandTotal = round2(goodsTotal + chargesTotal);
 
   async function generate() {
-    // Every goods line needs its description (an Item) - it prints on the
-    // invoice and is what Profit & Loss groups goods by.
-    const used = form.items.filter((l) => l.description.trim() || num(l.weight_kg) !== null || num(l.unit_price) !== null || num(l.amount) !== null);
-    if (used.length === 0 || used.some((l) => !l.description.trim())) {
-      setError("Choose a description for each goods line (or add a new one) before generating.");
+    // The Item is required - it prints on the goods line and is what Profit
+    // & Loss groups goods by.
+    if (!form.item.trim()) {
+      setError("Select the Item (or add a new one) before generating.");
       return;
     }
     setGenerating(true);
@@ -144,7 +137,7 @@ export default function DocumentsClient({
           save_to_ledger: hasBuyerInvoice,
           overrides: {
             ...form,
-            items: form.items.map((l) => ({ ...l, amount: num(l.weight_kg) !== null && num(l.unit_price) !== null ? "" : l.amount })),
+            items: [{ ...goodsLine, amount: rateGiven ? "" : form.goods_amount }],
           },
         }),
       });
@@ -174,13 +167,13 @@ export default function DocumentsClient({
   // The Description column as it will print (lib/pdf/generateFinalInvoice.ts).
   const previewLines = useMemo(() => {
     const out: { text: string; indent: boolean; rate?: string; amount?: string }[] = [];
-    form.items.forEach((l, i) => {
-      const amt = lineAmount(l);
-      const lead = i === 0 && form.qty_bales ? `${form.qty_bales} Bales ` : "";
-      const w = num(l.weight_kg) !== null ? `${l.weight_kg} ${unit}` : "";
-      const text = `${lead}${l.description} ${w}`.replace(/\s+/g, " ").trim();
-      if (text || amt) out.push({ text, indent: false, rate: l.unit_price || undefined, amount: amt ? plain(amt) : undefined });
-    });
+    {
+      const amt = lineAmount(goodsLine);
+      const lead = form.qty_bales ? `${form.qty_bales} Bales ` : "";
+      const w = num(form.weight_lbs) !== null ? `${form.weight_lbs} ${unit}` : "";
+      const text = `${lead}${form.item} ${w}`.replace(/\s+/g, " ").trim();
+      if (text || amt) out.push({ text, indent: false, rate: form.rate || undefined, amount: amt ? plain(amt) : undefined });
+    }
     for (const k of CHARGE_ORDER) {
       const a = num(form.charges[k]) ?? 0;
       if (a) out.push({ text: chargeLabel(k), indent: true, amount: plain(a) });
@@ -250,69 +243,26 @@ export default function DocumentsClient({
                 </div>
               </Field>
               <div style={{ gridColumn: "1 / -1" }}>
-                <Field id="df-desc" label="Goods description (heading) - the buyer's Description of Goods">
-                  <DescriptionPicker
-                    id="df-desc"
-                    value={form.goods_description}
-                    buyerItems={buyerItems}
-                    allItems={allItems}
-                    invalid={false}
-                    placeholder="Select description of goods…"
-                    newLabel="+ Type a different heading…"
-                    onChange={(v) => set({ goods_description: v })}
-                  />
+                <Field id="df-desc" label="Description of Goods (first line - the buyer's, from Shipping Details)">
+                  <input id="df-desc" autoComplete="off" className="input" value={form.goods_description} onChange={(e) => set({ goods_description: e.target.value })} />
                 </Field>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-medium text-ink">Goods (rate × weight = amount) · description required</span>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-muted text-xs">
-                    <th className="pb-1 pr-2 font-medium">Description</th>
-                    <th className="pb-1 pr-2 font-medium w-28">Weight ({unit})</th>
-                    <th className="pb-1 pr-2 font-medium w-24">Rate</th>
-                    <th className="pb-1 pr-2 font-medium w-28 text-right">Amount</th>
-                    <th className="pb-1 w-8"><span className="sr-only">Remove</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.items.map((l, i) => {
-                    const computed = num(l.weight_kg) !== null && num(l.unit_price) !== null;
-                    return (
-                      <tr key={i}>
-                        <td className="pr-2 py-1">
-                          <DescriptionPicker
-                            value={l.description}
-                            buyerItems={buyerItems}
-                            allItems={allItems}
-                            invalid={!!error && !l.description.trim()}
-                            onChange={(v) => setLine(i, { description: v })}
-                          />
-                        </td>
-                        <td className="pr-2 py-1"><input autoComplete="off" aria-label="Line weight" className="input num" value={l.weight_kg} onChange={(e) => setLine(i, { weight_kg: e.target.value })} /></td>
-                        <td className="pr-2 py-1"><input autoComplete="off" aria-label="Line rate" className="input num" placeholder="0.15" value={l.unit_price} onChange={(e) => setLine(i, { unit_price: e.target.value })} /></td>
-                        <td className="pr-2 py-1">
-                          {computed ? (
-                            <div className="h-10 px-3 flex items-center justify-end border border-line rounded-[9px] bg-surface-2 num" title="Weight × Rate">{plain(lineAmount(l))}</div>
-                          ) : (
-                            <input autoComplete="off" aria-label="Line amount" className="input num text-right" value={l.amount} onChange={(e) => setLine(i, { amount: e.target.value })} />
-                          )}
-                        </td>
-                        <td className="py-1 text-center">
-                          {form.items.length > 1 && (
-                            <button onClick={() => set({ items: form.items.filter((_, j) => j !== i) })} aria-label="Remove line" className="text-muted hover:text-critical">✕</button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <button onClick={() => set({ items: [...form.items, { description: "", weight_kg: "", unit_price: "", amount: "" }] })} className="text-xs text-accent hover:underline self-start">
-                + Add goods line
-              </button>
+            <div className="grid gap-3.5" style={{ gridTemplateColumns: "2fr 1fr 1fr" }}>
+              <Field id="df-item" label="Item (required)" help={`Prints as "${form.qty_bales ? `${form.qty_bales} Bales ` : ""}${form.item || "<Item>"} ${form.weight_lbs ? `${form.weight_lbs} ${unit}` : ""}"`}>
+                <ItemPicker id="df-item" value={form.item} allItems={allItems} invalid={!!error && !form.item.trim()} onChange={(v) => set({ item: v })} />
+              </Field>
+              <Field id="df-rate" label={`Rate (per ${unit})`}>
+                <input id="df-rate" autoComplete="off" className="input num" placeholder="0.15" value={form.rate} onChange={(e) => set({ rate: e.target.value })} />
+              </Field>
+              <Field id="df-gamt" label="Amount">
+                {rateGiven ? (
+                  <div className="h-10 px-3 flex items-center justify-end border border-line rounded-[9px] bg-surface-2 num" title="Total Weight × Rate">{plain(goodsTotal)}</div>
+                ) : (
+                  <input id="df-gamt" autoComplete="off" className="input num text-right" value={form.goods_amount} onChange={(e) => set({ goods_amount: e.target.value })} />
+                )}
+              </Field>
             </div>
 
             <div className="grid gap-3.5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
@@ -523,37 +473,29 @@ function VersionRow({ doc, isCurrent }: { doc: Doc; isCurrent: boolean }) {
   );
 }
 
-// The goods line's description: a dropdown of this buyer's Items, then the
-// company's other Items, or "+ Add new description" (saved as a new Item and
-// assigned to this buyer when the invoice is generated).
-function DescriptionPicker({
+// The goods line's Item: a dropdown of the Items tab's list, or "+ Add new
+// item" (saved to the Items tab when the invoice is generated).
+function ItemPicker({
   id,
   value,
-  buyerItems,
   allItems,
   invalid,
   onChange,
-  placeholder = "Select description…",
-  newLabel = "+ Add new description…",
 }: {
   id?: string;
   value: string;
-  buyerItems: string[];
   allItems: string[];
   invalid: boolean;
   onChange: (v: string) => void;
-  placeholder?: string;
-  newLabel?: string;
 }) {
-  const known = (v: string) => [...buyerItems, ...allItems].some((n) => n.toLowerCase() === v.trim().toLowerCase());
+  const known = (v: string) => allItems.some((n) => n.toLowerCase() === v.trim().toLowerCase());
   const [adding, setAdding] = useState(!!value && !known(value));
-  const others = allItems.filter((n) => !buyerItems.some((b) => b.toLowerCase() === n.toLowerCase()));
   const cls = `input ${invalid ? "border-critical" : ""}`;
 
   if (adding) {
     return (
       <div className="flex gap-1">
-        <input id={id} autoFocus autoComplete="off" aria-label="New description" className={`${cls} flex-1 min-w-0`} placeholder="New description, e.g. Cream Rags" value={value} onChange={(e) => onChange(e.target.value)} />
+        <input id={id} autoFocus autoComplete="off" aria-label="New item" className={`${cls} flex-1 min-w-0`} placeholder="New item, e.g. Mixed Rags" value={value} onChange={(e) => onChange(e.target.value)} />
         <button
           type="button"
           onClick={() => {
@@ -568,11 +510,10 @@ function DescriptionPicker({
       </div>
     );
   }
-  const selected = [...buyerItems, ...others].find((n) => n.toLowerCase() === value.trim().toLowerCase()) ?? "";
+  const selected = allItems.find((n) => n.toLowerCase() === value.trim().toLowerCase()) ?? "";
   return (
     <select
       id={id}
-      aria-label={id ? undefined : "Line description"}
       className={`select ${invalid ? "border-critical" : ""}`}
       style={{ width: "100%" }}
       value={selected}
@@ -583,22 +524,24 @@ function DescriptionPicker({
         } else onChange(e.target.value);
       }}
     >
-      <option value="">{placeholder}</option>
-      {buyerItems.length > 0 && (
-        <optgroup label="This buyer's goods">
-          {buyerItems.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </optgroup>
-      )}
-      {others.length > 0 && (
-        <optgroup label="Other items">
-          {others.map((n) => (
-            <option key={n} value={n}>{n}</option>
-          ))}
-        </optgroup>
-      )}
-      <option value="__new__">{newLabel}</option>
+      <option value="">Select item…</option>
+      {allItems.map((n) => (
+        <option key={n} value={n}>{n}</option>
+      ))}
+      <option value="__new__">+ Add new item…</option>
     </select>
   );
+}
+
+// The goods line from what's saved: the shipment's Item (or the saved goods
+// line's description), its rate, and its amount when there's no rate.
+function initialGoods(defaults: InvoiceFieldData, allItems: string[]) {
+  const goods = defaults.items ?? [];
+  const first = goods[0];
+  const total = goods.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
+  const fromLine = (first?.description ?? "").trim();
+  const isItem = (v: string) => allItems.some((n) => n.toLowerCase() === v.toLowerCase());
+  const item = defaults.description && isItem(defaults.description) ? defaults.description : fromLine || defaults.description || "";
+  const rate = goods.length === 1 && first?.unit_price != null ? String(first.unit_price) : "";
+  return { item, rate, goods_amount: rate ? "" : total ? String(round2(total)) : "" };
 }
