@@ -42,5 +42,26 @@ export default async function PartiesPage() {
     return { ...rest, gst_entry: gst_entries?.[0] ?? null };
   });
 
-  return <PartiesClient initialParties={sortedParties} initialItems={items ?? []} isAdmin={me.role === "admin"} />;
+  // How many shipments each item is on (the Final Invoice's Item,
+  // tracking.item_id) - shown in the Items tab, and warned about before a
+  // permanent delete. Paged past Supabase's 1000-row cap.
+  const usage: Record<string, number> = {};
+  for (let from = 0; ; from += 1000) {
+    const { data: rows } = await supabase
+      .from("tracking")
+      .select("item_id")
+      .eq("company_id", companyId)
+      .not("item_id", "is", null)
+      .range(from, from + 999);
+    for (const r of rows ?? []) usage[r.item_id] = (usage[r.item_id] ?? 0) + 1;
+    if (!rows || rows.length < 1000) break;
+  }
+
+  return (
+    <PartiesClient
+      initialParties={sortedParties}
+      initialItems={(items ?? []).map((i: any) => ({ ...i, used: usage[i.id] ?? 0 }))}
+      isAdmin={me.role === "admin"}
+    />
+  );
 }

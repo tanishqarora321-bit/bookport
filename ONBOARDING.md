@@ -298,6 +298,8 @@ booking's own ERD year (Trucker + Supplier).
 - Final Invoice versions (2026-11-19): page lists final_invoice versions only; version = max final_invoice version + 1 (was a count of ALL doc types -> duplicate numbers). Delete / Lock per version (/api/documents/[id] DELETE, PATCH {locked}); lock = field_data.locked, one per container+doc type, re-applies that version's figures to the buyer ledger (lib/final-invoice-ledger.ts), blocks generating until unlocked; Shipment Tracking / send-docs use the locked version else the newest (lib/doc-version.ts).
 - Fumigation / COO / Set of Documents date = 3 days BEFORE the BL date (lib/doc-print-date.ts); the Buyers ledger asks first (keep that date or enter another; required when there's no BL date) and sends body.date. Fumigation: the original's tail (year underline + " the CONTAINER NO") is copied from the template and slid so the month-year gap matches the original for any month.
 
+- Items tab is a table: Item (click to rename) / Used on (count of tracking.item_id) / Status / Remove-Restore + admin-only permanent Delete (/api/items/[id] DELETE unlinks tracking.item_id first).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
