@@ -9,6 +9,7 @@ import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton
 import { useYear } from "@/lib/year-context";
 import { isLocked, pickDoc } from "@/lib/doc-version";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { dateInWorkingYear } from "@/lib/year-scope";
 
 // One row per container (app/tracking/page.tsx builds it). Shipping Line,
@@ -130,17 +131,17 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const { year } = useYear();
   const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.filing_date, year)), [rows, year]);
 
-  const [search, setSearch] = useState("");
-  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [lineFilter, setLineFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [invoicePending, setInvoicePending] = useState(false);
-  const [docsPending, setDocsPending] = useState(false);
-  const [blPending, setBlPending] = useState(false);
-  const [notChecked, setNotChecked] = useState(false);
-  const [checkOverdue, setCheckOverdue] = useState(false);
+  const [search, setSearch] = usePersistentState(`tracking:search`, "");
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`tracking:monthFilter`, []); // multi-select: none ticked = all
+  const [statusFilter, setStatusFilter] = usePersistentState<string[]>(`tracking:statusFilter`, []); // multi-select: none ticked = all
+  const [lineFilter, setLineFilter] = usePersistentState<string[]>(`tracking:lineFilter`, []); // multi-select: none ticked = all
+  const [invoicePending, setInvoicePending] = usePersistentState(`tracking:invoicePending`, false);
+  const [docsPending, setDocsPending] = usePersistentState(`tracking:docsPending`, false);
+  const [blPending, setBlPending] = usePersistentState(`tracking:blPending`, false);
+  const [notChecked, setNotChecked] = usePersistentState(`tracking:notChecked`, false);
+  const [checkOverdue, setCheckOverdue] = usePersistentState(`tracking:checkOverdue`, false);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = usePersistentState(`tracking:pageSize`, 50);
   const [docsFor, setDocsFor] = useState<TrackingRow | null>(null);
 
   function updateLocal(id: string, patch: Partial<TrackingRow>) {

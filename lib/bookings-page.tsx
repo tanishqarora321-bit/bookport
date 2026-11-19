@@ -27,13 +27,17 @@ export async function renderBookingsPage(stage: BookingStage) {
   if (stages.error) return <p className="text-red-600 p-6">{stages.error.message}</p>;
 
   const rows = stage === "open" ? stages.openRows : stage === "closed" ? stages.closedRows : stages.cancelledRows;
+  // Booking & Instructions only COUNTS the closed / cancelled bookings (its
+  // KPI cards) - send just what the count needs, not every full row
+  // (speed, owner 2026-11: the page was carrying all three lists).
+  const slim = (list: any[]): any[] => list.map((r) => ({ booking_id: r.booking_id, erd: r.erd, cargo_cutoff: r.cargo_cutoff, si_cutoff: r.si_cutoff }));
 
   return (
     <BookingsClient
       rows={rows}
       stage={stage}
-      closedRows={stage === "open" ? stages.closedRows : []}
-      cancelledRows={stage === "open" ? stages.cancelledRows : []}
+      closedRows={stage === "open" ? slim(stages.closedRows) : []}
+      cancelledRows={stage === "open" ? slim(stages.cancelledRows) : []}
       forwarders={forwarders ?? []}
       truckers={truckers ?? []}
       suppliers={suppliers ?? []}

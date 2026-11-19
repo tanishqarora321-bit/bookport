@@ -309,6 +309,15 @@ booking's own ERD year (Trucker + Supplier).
 - Commission Bookings: Import Excel (CommissionImportModal, /api/commission-bookings/import/{parse,commit}; default month for rows without one; identical existing rows skipped), equal header buttons, pagination.
 - COMING_SOON (lib/ui-flags.ts): modules shown as "Coming soon" + sidebar "Soon" tag; currently Offer Sheet (its code is untouched, remove the key to reopen).
 
+## Performance (2026-11-19)
+- middleware.ts: the single-device check and "who is this" run in parallel; the session token is verified locally (lib/verify-jwt.ts: ES256/RS256 via the project's JWKS, cached; HS256 when SUPABASE_JWT_SECRET is set) - Supabase Auth's getUser() is only the fallback. Only a positive local result is trusted.
+- app/loading.tsx: skeleton shown instantly on every navigation.
+- usePersistentState (lib/hooks): filters / search / tabs / rows-per-page per screen survive navigation (sessionStorage, per tab).
+- Bulk move = one request (/api/bookings/bulk-status); bulk deletes run 6 at a time (lib/each-limited.ts; booking containers 1 at a time).
+- Bookings and the four ledgers read past the 1000-row cap (lib/fetch-all.ts); B&I sends only id/dates of closed/cancelled rows (KPI counts).
+- Gemini: lib/gemini-fast.ts - minimal thinking, retry + fallback model on 429/500/503; upload and extraction in parallel; maxDuration 60 on extract routes.
+- Settings and Final Invoice pages query in parallel; Settings looks up only this company's auth users.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { eachLimited } from "@/lib/each-limited";
 import { useYear } from "@/lib/year-context";
 
 type Entry = {
@@ -138,7 +139,7 @@ export default function FreightComparisonClient({
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = sheets.find((s) => s.id === id);
       const name = target?.forwarder_name ?? id;
       try {
@@ -152,7 +153,7 @@ export default function FreightComparisonClient({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setSheets((prev) => prev.filter((s) => !succeeded.includes(s.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

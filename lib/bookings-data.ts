@@ -101,13 +101,21 @@ export function isBookingComplete(rows: any[]): boolean {
 // Each row also carries `is_multiple` (its booking number has more than one
 // container) for Booking & Instructions' highlight + filter.
 export async function fetchBookingsByStage(supabase: SupabaseClient, companyId: string) {
-  const { data: bookings, error } = await supabase
-    .from("bookings")
-    .select(BOOKINGS_SELECT)
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false });
-
-  if (error) return { error, openRows: [], closedRows: [], cancelledRows: [], multipleGroupCount: 0 };
+  // Read in pages - Supabase returns at most 1000 rows per request, so a
+  // company with more bookings than that would silently lose the oldest.
+  const bookings: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select(BOOKINGS_SELECT)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) return { error, openRows: [], closedRows: [], cancelledRows: [], multipleGroupCount: 0 };
+    bookings.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
 
   const rowsByBooking = new Map<string, any[]>();
   const allRows: any[] = [];

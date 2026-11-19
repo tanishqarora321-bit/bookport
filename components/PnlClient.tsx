@@ -7,6 +7,7 @@ import MultiSelect from "@/components/ui/MultiSelect";
 import EmptyState from "@/components/ui/EmptyState";
 import { useYear } from "@/lib/year-context";
 import { dateInWorkingYear } from "@/lib/year-scope";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { rowCost, rowSell, type PnlRow } from "@/lib/pnl-report";
 
 function money(v: number) {
@@ -31,15 +32,15 @@ type Adjust = "pier_pass" | "discount_to_customer" | "discount_from_supplier";
 export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[]; ready: boolean }) {
   const { year } = useYear();
   const [rows, setRows] = useState(initialRows);
-  const [view, setView] = useState<"elaborate" | "consolidated">("elaborate");
-  const [search, setSearch] = useState("");
+  const [view, setView] = usePersistentState<"elaborate" | "consolidated">(`pnl:view`, "elaborate");
+  const [search, setSearch] = usePersistentState(`pnl:search`, "");
   // Multi-select filters: nothing ticked = all.
-  const [month, setMonth] = useState<string[]>([]);
-  const [buyer, setBuyer] = useState<string[]>([]);
-  const [supplier, setSupplier] = useState<string[]>([]);
-  const [forwarder, setForwarder] = useState<string[]>([]);
-  const [trucker, setTrucker] = useState<string[]>([]);
-  const [item, setItem] = useState<string[]>([]);
+  const [month, setMonth] = usePersistentState<string[]>(`pnl:month`, []);
+  const [buyer, setBuyer] = usePersistentState<string[]>(`pnl:buyer`, []);
+  const [supplier, setSupplier] = usePersistentState<string[]>(`pnl:supplier`, []);
+  const [forwarder, setForwarder] = usePersistentState<string[]>(`pnl:forwarder`, []);
+  const [trucker, setTrucker] = usePersistentState<string[]>(`pnl:trucker`, []);
+  const [item, setItem] = usePersistentState<string[]>(`pnl:item`, []);
 
   const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.month, year)), [rows, year]);
   const opts = (pick: (r: PnlRow) => string | null) =>

@@ -17,7 +17,21 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
   if (!me) return <SignInRequired />;
 
   const supabase = createServiceClient();
-  const defaults = await buildFinalInvoiceDefaults(supabase, params.id, me.company_id);
+  // Everything at once (speed, owner 2026-11).
+  const [defaults, { data: items }, { data: suppliers }, { data: existingDocs }] = await Promise.all([
+    buildFinalInvoiceDefaults(supabase, params.id, me.company_id),
+    // The goods line's Item dropdown: the Buyers > Items tab list.
+    supabase.from("items").select("name, is_active").eq("company_id", me.company_id).order("name"),
+    // Supplier dropdown: every active supplier.
+    supabase.from("parties").select("legal_name, is_active").eq("company_id", me.company_id).contains("roles", ["supplier"]).order("legal_name"),
+    supabase
+      .from("generated_documents")
+      .select("id, doc_type, field_data, pdf_path, version, created_at")
+      .eq("tracking_id", params.id)
+      .eq("company_id", me.company_id)
+      .eq("doc_type", "final_invoice")
+      .order("version", { ascending: false }),
+  ]);
 
   if (!defaults) {
     return (
@@ -27,24 +41,6 @@ export default async function TrackingDocumentsPage({ params, searchParams }: { 
       </div>
     );
   }
-
-  // The goods line's Item dropdown: the Buyers > Items tab list.
-  const { data: items } = await supabase.from("items").select("name, is_active").eq("company_id", me.company_id).order("name");
-
-  // Supplier dropdown: every active supplier.
-  const { data: suppliers } = await supabase
-    .from("parties")
-    .select("legal_name, is_active")
-    .eq("company_id", me.company_id)
-    .contains("roles", ["supplier"])
-    .order("legal_name");
-
-  const { data: existingDocs } = await supabase
-    .from("generated_documents")
-    .select("id, doc_type, field_data, pdf_path, version, created_at")
-    .eq("tracking_id", params.id)
-    .eq("doc_type", "final_invoice")
-    .order("version", { ascending: false });
 
   // Only an in-app Buyers ledger path is accepted as the way back.
   const back = searchParams?.back && /^\/parties\/[\w-]+\/invoices$/.test(searchParams.back) ? searchParams.back : null;

@@ -17,6 +17,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type Item = {
@@ -124,14 +126,14 @@ export default function BuyerInvoiceLedgerClient({
   const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
   // Pending = no invoice number yet (not imported, not generated) - a toggle
   // in the header like the other ledgers, so it costs the table no space.
-  const [pendingOnly, setPendingOnly] = useState(false);
+  const [pendingOnly, setPendingOnly] = usePersistentState(`buy:${buyerId}:pendingOnly`, false);
   // Payments Received side panel (same Payment History as the other ledgers,
   // but money received FROM the buyer).
   const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [paidFilter, setPaidFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = usePersistentState<string[]>(`buy:${buyerId}:statusFilter`, []); // multi-select: none ticked = all
+  const [paidFilter, setPaidFilter] = usePersistentState<string[]>(`buy:${buyerId}:paidFilter`, []); // multi-select: none ticked = all
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`buy:${buyerId}:monthFilter`, []); // multi-select: none ticked = all
+  const [search, setSearch] = usePersistentState(`buy:${buyerId}:search`, "");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
@@ -179,7 +181,7 @@ export default function BuyerInvoiceLedgerClient({
   }, [yearInvoices, pendingOnly, statusFilter, paidFilter, monthFilter, search]);
 
   // Pagination matches the other ledgers.
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = usePersistentState(`buy:${buyerId}:pageSize`, 25);
   const [page, setPage] = useState(0);
   useEffect(() => {
     setPage(0);
@@ -204,7 +206,7 @@ export default function BuyerInvoiceLedgerClient({
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = invoices.find((i) => i.id === id);
       const name = target?.invoice_number || target?.booking_number || id;
       try {
@@ -218,7 +220,7 @@ export default function BuyerInvoiceLedgerClient({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setInvoices((prev) => prev.filter((i) => !succeeded.includes(i.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fastModel } from "./gemini-fast";
 import { buyerInvoiceExtractionSchema as schema } from "./buyer-invoice-schema";
 
 // Separate genAI instance from lib/gemini.ts on purpose, same reasoning as
@@ -13,7 +14,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  * the same manual-entry form for review before writing anything.
  */
 export async function extractBuyerInvoiceFromPdf(fileBase64: string) {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",

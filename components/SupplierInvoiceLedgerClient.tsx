@@ -14,6 +14,8 @@ import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import StatusPill from "@/components/ui/StatusPill";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type Item = {
@@ -113,12 +115,12 @@ export default function SupplierInvoiceLedgerClient({
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [entering, setEntering] = useState<Invoice | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [statusFilter, setStatusFilter] = usePersistentState<string[]>(`sup:${supplierId}:statusFilter`, []); // multi-select: none ticked = all
   // "Pending Invoices" toggle: only invoices with no invoice number yet.
-  const [pendingOnly, setPendingOnly] = useState(false);
-  const [paidFilter, setPaidFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [search, setSearch] = useState("");
+  const [pendingOnly, setPendingOnly] = usePersistentState(`sup:${supplierId}:pendingOnly`, false);
+  const [paidFilter, setPaidFilter] = usePersistentState<string[]>(`sup:${supplierId}:paidFilter`, []); // multi-select: none ticked = all
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`sup:${supplierId}:monthFilter`, []); // multi-select: none ticked = all
+  const [search, setSearch] = usePersistentState(`sup:${supplierId}:search`, "");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function updateLocal(id: string, patch: Partial<Invoice>) {
@@ -169,7 +171,7 @@ export default function SupplierInvoiceLedgerClient({
   }, [yearInvoices, pendingOnly, statusFilter, paidFilter, monthFilter, search]);
 
   // Pagination matches the Forwarders/Truckers ledgers.
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = usePersistentState(`sup:${supplierId}:pageSize`, 25);
   const [page, setPage] = useState(0);
   // Payments & History side panel (lib/ui-flags.ts PAYMENTS_LAYOUT).
   const [paymentsOpen, setPaymentsOpen] = useState(false);
@@ -196,7 +198,7 @@ export default function SupplierInvoiceLedgerClient({
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = invoices.find((i) => i.id === id);
       const name = target?.invoice_number || target?.booking_number || id;
       try {
@@ -210,7 +212,7 @@ export default function SupplierInvoiceLedgerClient({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setInvoices((prev) => prev.filter((i) => !succeeded.includes(i.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import { extractForwarderInvoiceFromPdf } from "@/lib/forwarder-invoice-gemini";

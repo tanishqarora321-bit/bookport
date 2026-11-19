@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fastModel } from "./gemini-fast";
 import { packingListExtractionSchema as schema } from "./packing-list-schema";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -10,7 +11,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  * correctable" pattern as every other PDF extraction in this app.
  */
 export async function extractPackingListFromPdf(fileBase64: string) {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",

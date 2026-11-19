@@ -7,6 +7,7 @@ import { CloseIcon } from "@/components/EditableCell";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useYear } from "@/lib/year-context";
+import { eachLimited } from "@/lib/each-limited";
 import { dateInWorkingYear } from "@/lib/year-scope";
 
 type ColumnDef = { key: string; label: string; kind: string; hidden?: boolean };
@@ -54,7 +55,7 @@ export default function OfferSheetsListClient({
     const ids = bulk.selectedIds;
     let succeededCount = 0;
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = sheets.find((s) => s.id === id);
       const name = target?.title ?? id;
       try {
@@ -68,7 +69,7 @@ export default function OfferSheetsListClient({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setBulkDeleting(false);
     setBulkConfirming(false);
     bulk.clear();

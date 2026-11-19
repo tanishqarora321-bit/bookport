@@ -8,6 +8,7 @@ import CommissionImportModal from "@/components/CommissionImportModal";
 import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import { useYear } from "@/lib/year-context";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import type { CommissionBooking } from "@/lib/commission-bookings";
 
 function fmtMoney(n: number) {
@@ -41,13 +42,13 @@ export default function CommissionBookingsClient({
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   useEffect(() => setRows(initialRows), [initialRows]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePersistentState(`commission:search`, "");
   // Multi-select filters: nothing ticked = all.
-  const [monthFilter, setMonthFilter] = useState<string[]>([]);
-  const [partyFilter, setPartyFilter] = useState<string[]>([]);
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`commission:monthFilter`, []);
+  const [partyFilter, setPartyFilter] = usePersistentState<string[]>(`commission:partyFilter`, []);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = usePersistentState(`commission:pageSize`, 25);
   const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
