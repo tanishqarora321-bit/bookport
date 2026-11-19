@@ -8,6 +8,7 @@ import StatCard from "@/components/ui/StatCard";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 import { useYear } from "@/lib/year-context";
 import { isLocked, pickDoc } from "@/lib/doc-version";
+import MultiSelect from "@/components/ui/MultiSelect";
 import { dateInWorkingYear } from "@/lib/year-scope";
 
 // One row per container (app/tracking/page.tsx builds it). Shipping Line,
@@ -130,9 +131,9 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const yearRows = useMemo(() => rows.filter((r) => dateInWorkingYear(r.filing_date, year)), [rows, year]);
 
   const [search, setSearch] = useState("");
-  const [monthFilter, setMonthFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [lineFilter, setLineFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [lineFilter, setLineFilter] = useState<string[]>([]); // multi-select: none ticked = all
   const [invoicePending, setInvoicePending] = useState(false);
   const [docsPending, setDocsPending] = useState(false);
   const [blPending, setBlPending] = useState(false);
@@ -159,10 +160,9 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return yearRows.filter((r) => {
-      if (monthFilter !== "all" && monthKey(r.filing_date) !== monthFilter) return false;
-      if (statusFilter === "none" && r.release_status) return false;
-      if (statusFilter !== "all" && statusFilter !== "none" && r.release_status !== statusFilter) return false;
-      if (lineFilter !== "all" && r.shipping_line !== lineFilter) return false;
+      if (monthFilter.length && !monthFilter.includes(String(monthKey(r.filing_date) ?? ""))) return false;
+      if (statusFilter.length && !statusFilter.includes(r.release_status || "none")) return false;
+      if (lineFilter.length && !lineFilter.includes(String(r.shipping_line ?? ""))) return false;
       if (invoicePending && r.invoice_sent) return false;
       if (docsPending && r.documents_sent) return false;
       if (blPending && r.bl_status === "Y") return false;
@@ -191,12 +191,12 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const checkOverdueCount = yearRows.filter((r) => needsChecking(r) && (checkAgeDays(r.last_tracking_check_at) ?? -1) >= CHECK_OVERDUE_DAYS).length;
 
   const anyFilter =
-    search || monthFilter !== "all" || statusFilter !== "all" || lineFilter !== "all" || invoicePending || docsPending || blPending || notChecked || checkOverdue;
+    search || monthFilter.length > 0 || statusFilter.length > 0 || lineFilter.length > 0 || invoicePending || docsPending || blPending || notChecked || checkOverdue;
   function clearFilters() {
     setSearch("");
-    setMonthFilter("all");
-    setStatusFilter("all");
-    setLineFilter("all");
+    setMonthFilter([]);
+    setStatusFilter([]);
+    setLineFilter([]);
     setInvoicePending(false);
     setDocsPending(false);
     setBlPending(false);
@@ -234,27 +234,10 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
               style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
             />
           </label>
-          <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month" className="select select-s" style={{ width: 150 }}>
-            <option value="all">All Months</option>
-            {monthOptions.map((k) => (
-              <option key={k} value={k}>
-                {new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-              </option>
-            ))}
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Release status" className="select select-s" style={{ width: 150 }}>
-            <option value="all">All Status</option>
-            <option value="On Water">On Water</option>
-            <option value="Released">Released</option>
-            <option value="none">Not set</option>
-          </select>
+          <MultiSelect label="Month" allLabel="All Months" options={monthOptions} value={monthFilter} onChange={setMonthFilter} format={(k) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })} width={150} />
+          <MultiSelect label="Release status" allLabel="All Status" options={["On Water", "Released", "none"]} value={statusFilter} onChange={setStatusFilter} format={(v) => (v === "none" ? "Not set" : v)} width={150} />
           {lineOptions.length > 0 && (
-            <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: 150 }}>
-              <option value="all">All Lines</option>
-              {lineOptions.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
+            <MultiSelect label="Shipping line" allLabel="All Lines" options={lineOptions} value={lineFilter} onChange={setLineFilter} width={150} />
           )}
           <button type="button" className={`chip ${invoicePending ? "on" : ""}`} aria-pressed={invoicePending} onClick={() => setInvoicePending((v) => !v)}>
             Invoice pending <span className="num" style={{ color: "var(--tx2)" }}>{invoicePendingCount}</span>

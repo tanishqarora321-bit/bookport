@@ -15,6 +15,7 @@ import SendInstructionsCell from "@/components/SendInstructionsCell";
 import UploadBlCell from "@/components/UploadBlCell";
 import { useYear } from "@/lib/year-context";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import MultiSelect from "@/components/ui/MultiSelect";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type PartyRef = { id: string; name: string } | null;
@@ -105,16 +106,18 @@ function filingDate(r: Pick<Row, "erd" | "cargo_cutoff" | "si_cutoff">): { date:
 
 // Shared by the grid's `filtered` memo and the KPI cards, so the cards can
 // never show a total the grid has no rows to back up.
-function inYearScope(r: Pick<Row, "erd" | "cargo_cutoff" | "si_cutoff">, year: number, monthFilter: string): boolean {
+// monthFilter: the ticked months ("0"-"11"); none ticked = all months.
+function inYearScope(r: Pick<Row, "erd" | "cargo_cutoff" | "si_cutoff">, year: number, monthFilter: string[]): boolean {
   const filed = filingDate(r);
   // Undated: every year, but not under a specific month.
-  if (!filed) return monthFilter === "all";
+  if (!filed) return monthFilter.length === 0;
   if (filed.date.getFullYear() !== year) return false;
-  if (monthFilter !== "all" && filed.date.getMonth() !== Number(monthFilter)) return false;
+  if (monthFilter.length && !monthFilter.includes(String(filed.date.getMonth()))) return false;
   return true;
 }
 
 const FILED_BY_LABEL = { cargo_cutoff: "Cargo Cut Off", si_cutoff: "DOC Cut Off" } as const;
+const STATUS_FILTER_LABEL: Record<string, string> = { draft: "Draft", confirmed: "Confirmed", in_transit: "In Transit", delivered: "Closed", cancelled: "Cancelled" };
 
 function toCsv(rows: Row[]) {
   const headers = [
@@ -216,7 +219,8 @@ export default function BookingsClient({
   // belong to any year, so it won't show until it has one. The Month
   // filter below narrows further within whichever year is selected.
   const { year } = useYear();
-  const [monthFilter, setMonthFilter] = useState("all");
+  // Multi-select filters (owner, 2026-11): nothing ticked = all.
+  const [monthFilter, setMonthFilter] = useState<string[]>([]);
 
   // "Multiple only": just the booking numbers with more than one container
   // (the old Multiple Bookings & Instructions page). /bookings?multiple=1 -
@@ -243,13 +247,13 @@ export default function BookingsClient({
     [rows, year, monthFilter]
   );
 
-  const [line, setLine] = useState("all");
-  const [destination, setDestination] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [forwarderFilter, setForwarderFilter] = useState("all");
-  const [truckerFilter, setTruckerFilter] = useState("all");
-  const [supplierFilter, setSupplierFilter] = useState("all");
-  const [buyerFilter, setBuyerFilter] = useState("all");
+  const [line, setLine] = useState<string[]>([]);
+  const [destination, setDestination] = useState<string[]>([]);
+  const [status, setStatus] = useState<string[]>([]);
+  const [forwarderFilter, setForwarderFilter] = useState<string[]>([]);
+  const [truckerFilter, setTruckerFilter] = useState<string[]>([]);
+  const [supplierFilter, setSupplierFilter] = useState<string[]>([]);
+  const [buyerFilter, setBuyerFilter] = useState<string[]>([]);
   const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [search, setSearch] = useState("");
@@ -269,13 +273,14 @@ export default function BookingsClient({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (line !== "all" && r.carrier !== line) return false;
-      if (destination !== "all" && r.final_destination !== destination) return false;
-      if (status !== "all" && r.status !== status) return false;
-      if (forwarderFilter !== "all" && r.forwarder?.name !== forwarderFilter) return false;
-      if (truckerFilter !== "all" && r.trucker?.name !== truckerFilter) return false;
-      if (supplierFilter !== "all" && r.supplier?.name !== supplierFilter) return false;
-      if (buyerFilter !== "all" && r.buyer?.name !== buyerFilter) return false;
+      const pass = (sel: string[], v: string | null | undefined) => sel.length === 0 || sel.includes(v ?? "");
+      if (!pass(line, r.carrier)) return false;
+      if (!pass(destination, r.final_destination)) return false;
+      if (!pass(status, r.status)) return false;
+      if (!pass(forwarderFilter, r.forwarder?.name)) return false;
+      if (!pass(truckerFilter, r.trucker?.name)) return false;
+      if (!pass(supplierFilter, r.supplier?.name)) return false;
+      if (!pass(buyerFilter, r.buyer?.name)) return false;
       if (multipleOnly && !r.is_multiple) return false;
       if (noErdOnly && r.erd) return false;
       if (openOnly && bookingsWithContainer.has(r.booking_id)) return false;
@@ -568,13 +573,13 @@ export default function BookingsClient({
   }
 
   function clearFilters() {
-    setLine("all");
-    setDestination("all");
-    setStatus("all");
-    setForwarderFilter("all");
-    setTruckerFilter("all");
-    setSupplierFilter("all");
-    setBuyerFilter("all");
+    setLine([]);
+    setDestination([]);
+    setStatus([]);
+    setForwarderFilter([]);
+    setTruckerFilter([]);
+    setSupplierFilter([]);
+    setBuyerFilter([]);
     setCutoffSoonOnly(false);
     setOverdueOnly(false);
     setMultipleOnly(false);
@@ -584,13 +589,13 @@ export default function BookingsClient({
   }
 
   const activeChips: { label: string; clear: () => void }[] = [
-    line !== "all" ? { label: `Line: ${line}`, clear: () => setLine("all") } : null,
-    destination !== "all" ? { label: `Destination: ${destination}`, clear: () => setDestination("all") } : null,
-    status !== "all" ? { label: `Status: ${status}`, clear: () => setStatus("all") } : null,
-    forwarderFilter !== "all" ? { label: `Forwarder: ${forwarderFilter}`, clear: () => setForwarderFilter("all") } : null,
-    truckerFilter !== "all" ? { label: `Trucker: ${truckerFilter}`, clear: () => setTruckerFilter("all") } : null,
-    supplierFilter !== "all" ? { label: `Supplier: ${supplierFilter}`, clear: () => setSupplierFilter("all") } : null,
-    buyerFilter !== "all" ? { label: `Buyer: ${buyerFilter}`, clear: () => setBuyerFilter("all") } : null,
+    line.length ? { label: `Line: ${line.join(", ")}`, clear: () => setLine([]) } : null,
+    destination.length ? { label: `Destination: ${destination.join(", ")}`, clear: () => setDestination([]) } : null,
+    status.length ? { label: `Status: ${status.map((st) => STATUS_FILTER_LABEL[st] ?? st).join(", ")}`, clear: () => setStatus([]) } : null,
+    forwarderFilter.length ? { label: `Forwarder: ${forwarderFilter.join(", ")}`, clear: () => setForwarderFilter([]) } : null,
+    truckerFilter.length ? { label: `Trucker: ${truckerFilter.join(", ")}`, clear: () => setTruckerFilter([]) } : null,
+    supplierFilter.length ? { label: `Supplier: ${supplierFilter.join(", ")}`, clear: () => setSupplierFilter([]) } : null,
+    buyerFilter.length ? { label: `Buyer: ${buyerFilter.join(", ")}`, clear: () => setBuyerFilter([]) } : null,
     multipleOnly ? { label: "Multiple only", clear: () => setMultipleOnly(false) } : null,
     noErdOnly ? { label: "No ERD", clear: () => setNoErdOnly(false) } : null,
     openOnly ? { label: "Open Bookings", clear: () => setOpenOnly(false) } : null,
@@ -691,56 +696,30 @@ export default function BookingsClient({
                 style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
               />
             </label>
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Months ({year})</option>
-              {MONTH_NAMES.map((m, i) => (
-                <option key={m} value={i}>{m} {year}</option>
-              ))}
-            </select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="in_transit">In Transit</option>
-              {stage === "closed" && <option value="delivered">Closed</option>}
-              {stage === "cancelled" && <option value="cancelled">Cancelled</option>}
-            </select>
-            <select value={line} onChange={(e) => setLine(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Lines</option>
-              {lines.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-            <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label="Port of delivery" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Destinations</option>
-              {destinations.map((d) => (
-                <option key={d} value={d}>{d}</option>
-              ))}
-            </select>
-            <select value={forwarderFilter} onChange={(e) => setForwarderFilter(e.target.value)} aria-label="Forwarder" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Forwarders</option>
-              {forwarderOptions.map((f) => (
-                <option key={f.id} value={f.legal_name}>{f.legal_name}</option>
-              ))}
-            </select>
-            <select value={truckerFilter} onChange={(e) => setTruckerFilter(e.target.value)} aria-label="Trucker" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Truckers</option>
-              {truckerOptions.map((t) => (
-                <option key={t.id} value={t.legal_name}>{t.legal_name}</option>
-              ))}
-            </select>
-            <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} aria-label="Supplier" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Suppliers</option>
-              {supplierOptions.map((sp) => (
-                <option key={sp.id} value={sp.legal_name}>{sp.legal_name}</option>
-              ))}
-            </select>
-            <select value={buyerFilter} onChange={(e) => setBuyerFilter(e.target.value)} aria-label="Buyer" className="select select-s" style={{ width: FILTER_WIDTH }}>
-              <option value="all">All Buyers</option>
-              {buyerOptions.map((b) => (
-                <option key={b.id} value={b.legal_name}>{b.legal_name}</option>
-              ))}
-            </select>
+            <MultiSelect
+              label="Month of loading"
+              allLabel={`All Months (${year})`}
+              options={MONTH_NAMES.map((_, i) => String(i))}
+              value={monthFilter}
+              onChange={setMonthFilter}
+              format={(i) => `${MONTH_NAMES[Number(i)]} ${year}`}
+              width={FILTER_WIDTH}
+            />
+            <MultiSelect
+              label="Status"
+              allLabel="All Status"
+              options={["draft", "confirmed", "in_transit", ...(stage === "closed" ? ["delivered"] : []), ...(stage === "cancelled" ? ["cancelled"] : [])]}
+              value={status}
+              onChange={setStatus}
+              format={(v) => STATUS_FILTER_LABEL[v] ?? v}
+              width={FILTER_WIDTH}
+            />
+            <MultiSelect label="Shipping line" allLabel="All Lines" options={lines} value={line} onChange={setLine} width={FILTER_WIDTH} />
+            <MultiSelect label="Port of delivery" allLabel="All Destinations" options={destinations} value={destination} onChange={setDestination} width={FILTER_WIDTH} />
+            <MultiSelect label="Forwarder" allLabel="All Forwarders" options={forwarderOptions.map((f) => f.legal_name)} value={forwarderFilter} onChange={setForwarderFilter} width={FILTER_WIDTH} />
+            <MultiSelect label="Trucker" allLabel="All Truckers" options={truckerOptions.map((t) => t.legal_name)} value={truckerFilter} onChange={setTruckerFilter} width={FILTER_WIDTH} />
+            <MultiSelect label="Supplier" allLabel="All Suppliers" options={supplierOptions.map((sp) => sp.legal_name)} value={supplierFilter} onChange={setSupplierFilter} width={FILTER_WIDTH} />
+            <MultiSelect label="Buyer" allLabel="All Buyers" options={buyerOptions.map((b) => b.legal_name)} value={buyerFilter} onChange={setBuyerFilter} width={FILTER_WIDTH} />
             <button onClick={() => setCutoffSoonOnly(!cutoffSoonOnly)} aria-pressed={cutoffSoonOnly} className={cutoffSoonOnly ? "chip on" : "chip"} style={{ height: 36 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z" />
@@ -781,14 +760,14 @@ export default function BookingsClient({
               </svg>
               No ERD{noErdCount > 0 ? ` (${noErdCount})` : ""}
             </button>
-            {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter !== "all") && (
+            {(activeChips.length > 0 || cutoffSoonOnly || overdueOnly || search || monthFilter.length > 0) && (
               // A compact round ✕ (tooltip "Clear filters") rather than a text
               // link, so it fits at the end of the last filter line instead of
               // wrapping onto a line of its own.
               <button
                 onClick={() => {
                   clearFilters();
-                  setMonthFilter("all");
+                  setMonthFilter([]);
                 }}
                 aria-label="Clear filters"
                 title="Clear filters"
