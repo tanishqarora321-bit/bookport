@@ -35,20 +35,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString("base64");
 
+  // Store the file and read it at the same time.
   const path = `bills-of-lading/${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(path, buffer, { contentType: "application/pdf" });
+  const [{ error: uploadError }, extraction] = await Promise.all([
+    supabase.storage.from("documents").upload(path, buffer, { contentType: "application/pdf" }),
+    extractBLFromPdf(base64).then(
+      (value) => ({ value, error: null as any }),
+      (error) => ({ value: null, error })
+    ),
+  ]);
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
-
-  let extracted;
-  try {
-    extracted = await extractBLFromPdf(base64);
-  } catch (err: any) {
-    return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 502 });
+  if (extraction.error) {
+    return NextResponse.json({ error: `Extraction failed: ${extraction.error.message}` }, { status: 502 });
   }
+  const extracted = extraction.value;
 
   const { data: doc, error: docError } = await supabase
     .from("documents")

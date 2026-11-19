@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { fetchAllRows } from "@/lib/fetch-all";
 import SignInRequired from "@/components/SignInRequired";
 import InvoiceLedgerClient from "@/components/InvoiceLedgerClient";
 import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
@@ -36,14 +37,16 @@ export default async function ForwarderInvoicesPage({ params }: { params: { id: 
   // This IS the "reflects automatically" behavior: there's no cached copy
   // to go stale, so every page load shows whatever tracking currently says.
   const [{ data: invoices, error: invoicesError }, { data: customColumns }] = await Promise.all([
-    supabase
+    fetchAllRows((from, to) =>
+      supabase
       .from("forwarder_invoices")
       .select(
         "id, booking_number, container_number, month_of_loading, shipping_line, consignee_name, pol, pod, invoice_number, invoice_date, invoice_due_date, freight_charges, bl_fees, aes_fees, extra_charges, correction_charges, demurrage, custom_charges, total, currency, fx_rate, total_usd, paid_status, tracking_id, tracking:tracking_id (eta, release_status)"
       )
       .eq("company_id", companyId)
       .eq("forwarder_id", params.id)
-      .order("month_of_loading", { ascending: false, nullsFirst: false }),
+      .order("month_of_loading", { ascending: false, nullsFirst: false }).order("id", { ascending: true }).range(from, to)
+    ),
     // Shared across every forwarder's ledger, not just this one - see
     // supabase/migrations/0016_forwarder_invoice_custom_columns.sql.
     supabase

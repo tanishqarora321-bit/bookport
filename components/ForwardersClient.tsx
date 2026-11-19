@@ -7,6 +7,8 @@ import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Forwarder = {
@@ -22,9 +24,9 @@ type Forwarder = {
 
 export default function ForwardersClient({ initialForwarders, isAdmin = false }: { initialForwarders: Forwarder[]; isAdmin?: boolean }) {
   const [forwarders, setForwarders] = useState(initialForwarders);
-  const [showInactive, setShowInactive] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showInactive, setShowInactive] = usePersistentState(`forwarders:showInactive`, false);
+  const [search, setSearch] = usePersistentState(`forwarders:search`, "");
+  const [sortDir, setSortDir] = usePersistentState<"asc" | "desc">(`forwarders:sortDir`, "asc");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -119,7 +121,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = forwarders.find((f) => f.id === id);
       const name = target?.legal_name ?? id;
       try {
@@ -132,7 +134,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
           if (!deactivateRes.ok) {
             const json = await deactivateRes.json().catch(() => ({}));
             failures.push(`${name}: ${json.error || "couldn't remove before deleting"}`);
-            continue;
+            return;
           }
         }
         const res = await fetch(`/api/forwarders/${id}`, { method: "DELETE" });
@@ -145,7 +147,7 @@ export default function ForwardersClient({ initialForwarders, isAdmin = false }:
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setForwarders((prev) => prev.filter((f) => !succeeded.includes(f.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

@@ -16,6 +16,8 @@ import UploadBlCell from "@/components/UploadBlCell";
 import { useYear } from "@/lib/year-context";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type PartyRef = { id: string; name: string } | null;
@@ -220,7 +222,7 @@ export default function BookingsClient({
   // filter below narrows further within whichever year is selected.
   const { year } = useYear();
   // Multi-select filters (owner, 2026-11): nothing ticked = all.
-  const [monthFilter, setMonthFilter] = useState<string[]>([]);
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`bookings:${stage}:monthFilter`, []);
 
   // "Multiple only": just the booking numbers with more than one container
   // (the old Multiple Bookings & Instructions page). /bookings?multiple=1 -
@@ -229,14 +231,14 @@ export default function BookingsClient({
   const [multipleOnly, setMultipleOnly] = useState(searchParams?.get("multiple") === "1");
   // "No ERD": bookings still missing their ERD (filed by a cut-off date, or
   // undated) - so they can be found and filled in.
-  const [noErdOnly, setNoErdOnly] = useState(false);
+  const [noErdOnly, setNoErdOnly] = usePersistentState(`bookings:${stage}:noErdOnly`, false);
   const noErdCount = useMemo(
     () => new Set(rows.filter((r) => !r.erd && inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
     [rows, year, monthFilter]
   );
   // "Open Bookings" (Booking & Instructions only): bookings that don't have
   // a container number yet - not a single one of their rows has one.
-  const [openOnly, setOpenOnly] = useState(false);
+  const [openOnly, setOpenOnly] = usePersistentState(`bookings:${stage}:openOnly`, false);
   const bookingsWithContainer = useMemo(() => new Set(rows.filter((r) => (r.container_no ?? "").trim()).map((r) => r.booking_id)), [rows]);
   const openCount = useMemo(
     () => new Set(rows.filter((r) => !bookingsWithContainer.has(r.booking_id) && inYearScope(r, year, monthFilter)).map((r) => r.booking_id)).size,
@@ -247,17 +249,17 @@ export default function BookingsClient({
     [rows, year, monthFilter]
   );
 
-  const [line, setLine] = useState<string[]>([]);
-  const [destination, setDestination] = useState<string[]>([]);
-  const [status, setStatus] = useState<string[]>([]);
-  const [forwarderFilter, setForwarderFilter] = useState<string[]>([]);
-  const [truckerFilter, setTruckerFilter] = useState<string[]>([]);
-  const [supplierFilter, setSupplierFilter] = useState<string[]>([]);
-  const [buyerFilter, setBuyerFilter] = useState<string[]>([]);
-  const [cutoffSoonOnly, setCutoffSoonOnly] = useState(false);
-  const [overdueOnly, setOverdueOnly] = useState(false);
-  const [search, setSearch] = useState("");
-  const [pageSize, setPageSize] = useState(25);
+  const [line, setLine] = usePersistentState<string[]>(`bookings:${stage}:line`, []);
+  const [destination, setDestination] = usePersistentState<string[]>(`bookings:${stage}:destination`, []);
+  const [status, setStatus] = usePersistentState<string[]>(`bookings:${stage}:status`, []);
+  const [forwarderFilter, setForwarderFilter] = usePersistentState<string[]>(`bookings:${stage}:forwarderFilter`, []);
+  const [truckerFilter, setTruckerFilter] = usePersistentState<string[]>(`bookings:${stage}:truckerFilter`, []);
+  const [supplierFilter, setSupplierFilter] = usePersistentState<string[]>(`bookings:${stage}:supplierFilter`, []);
+  const [buyerFilter, setBuyerFilter] = usePersistentState<string[]>(`bookings:${stage}:buyerFilter`, []);
+  const [cutoffSoonOnly, setCutoffSoonOnly] = usePersistentState(`bookings:${stage}:cutoffSoonOnly`, false);
+  const [overdueOnly, setOverdueOnly] = usePersistentState(`bookings:${stage}:overdueOnly`, false);
+  const [search, setSearch] = usePersistentState(`bookings:${stage}:search`, "");
+  const [pageSize, setPageSize] = usePersistentState(`bookings:${stage}:pageSize`, 25);
   const [page, setPage] = useState(0);
 
   const lines = useMemo(() => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[], [rows]);
@@ -409,7 +411,7 @@ export default function BookingsClient({
     const deletedBookings: string[] = [];
     const deletedContainers: string[] = [];
     const failures: string[] = [];
-    for (const bookingId of wholeBookings) {
+    await eachLimited(wholeBookings, 6, async (bookingId) => {
       const bookingNo = rows.find((r) => r.booking_id === bookingId)?.carrier_booking_no ?? bookingId;
       try {
         const res = await fetch(`/api/bookings/${bookingId}`, { method: "DELETE" });
@@ -418,8 +420,8 @@ export default function BookingsClient({
       } catch (err: any) {
         failures.push(`${bookingNo}: ${err?.message || "network error"}`);
       }
-    }
-    for (const r of containers) {
+    });
+    await eachLimited(containers, 1, async (r) => {
       try {
         const res = await fetch(`/api/bookings/${r.booking_id}/containers/${r.container_id}`, { method: "DELETE" });
         if (res.ok) deletedContainers.push(r.container_id!);
@@ -427,7 +429,7 @@ export default function BookingsClient({
       } catch (err: any) {
         failures.push(`${r.carrier_booking_no} / ${r.container_no}: ${err?.message || "network error"}`);
       }
-    }
+    });
     removeRowsLocally((r) => deletedBookings.includes(r.booking_id) || (!!r.container_id && deletedContainers.includes(r.container_id)));
     setBulkDeleting(false);
     setBulkConfirming(false);
@@ -451,25 +453,24 @@ export default function BookingsClient({
     if (!confirm(`Move ${ids.length} booking${ids.length === 1 ? "" : "s"} to ${STAGE_LABEL[to]}?${reopenNote}`)) return;
     setMoving(true);
     setBulkError(null);
-    const succeeded: string[] = [];
+    // One request for every selected booking (was one per booking).
+    let succeeded: string[] = [];
     const failures: string[] = [];
-    for (const bookingId of ids) {
-      try {
-        const res = await fetch(`/api/bookings/${bookingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: STAGE_STATUS[to] }),
-        });
-        if (res.ok) {
-          succeeded.push(bookingId);
-        } else {
-          const json = await res.json().catch(() => ({}));
-          const bookingNo = rows.find((r) => r.booking_id === bookingId)?.carrier_booking_no ?? bookingId;
-          failures.push(`${bookingNo}: ${json.error || "failed"}`);
-        }
-      } catch (err: any) {
-        failures.push(`${bookingId}: ${err?.message || "network error"}`);
+    try {
+      const res = await fetch("/api/bookings/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, status: STAGE_STATUS[to] }),
+      });
+      const json = await res.json().catch(() => ({}));
+      succeeded = json.updated ?? [];
+      if (!res.ok) failures.push(json.error || "failed");
+      const missed = ids.filter((id) => !succeeded.includes(id));
+      if (res.ok && missed.length) {
+        for (const id of missed) failures.push(`${rows.find((r) => r.booking_id === id)?.carrier_booking_no ?? id}: not found`);
       }
+    } catch (err: any) {
+      failures.push(err?.message || "network error");
     }
     applyStatusChange(succeeded, STAGE_STATUS[to]);
     setMoving(false);

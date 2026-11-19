@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { verifySupabaseJwt } from "@/lib/verify-jwt";
 
 // Stage 2: now that real accounts exist and login/invite has been
 // confirmed working end to end, this redirects signed-out visitors to
@@ -71,33 +72,49 @@ export async function middleware(request: NextRequest) {
   // signed in, or signed in before this feature shipped) is left alone
   // rather than locked out - it's handled by the ordinary
   // signed-out-entirely check below instead.
-  if (!isPublic) {
-    const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
-    if (sessionToken) {
-      const service = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-      const { data: owner } = await service.from("active_sessions").select("session_token").eq("session_token", sessionToken).maybeSingle();
-      if (!owner) {
-        await supabase.auth.signOut();
-        if (isApi) {
-          return NextResponse.json(
-            { error: "You've been signed out because this account signed in on another device." },
-            { status: 401 }
-          );
-        }
-        const loginUrl = request.nextUrl.clone();
-        loginUrl.pathname = "/login";
-        loginUrl.searchParams.set("reason", "elsewhere");
-        const redirectResponse = NextResponse.redirect(loginUrl);
-        for (const cookie of response.cookies.getAll()) {
-          redirectResponse.cookies.set(cookie);
-        }
-        redirectResponse.cookies.delete(SESSION_COOKIE);
-        return redirectResponse;
-      }
+  // Speed (owner, 2026-11): the single-device check below and the "who is
+  // this" check run at the same time, and "who is this" is answered by
+  // verifying the session token's signature locally (lib/verify-jwt.ts) -
+  // no round trip to Supabase's Auth server - falling back to getUser()
+  // only when the token can't be verified here.
+  const sessionToken = !isPublic ? request.cookies.get(SESSION_COOKIE)?.value : undefined;
+  const ownerCheck = sessionToken
+    ? createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+        .from("active_sessions")
+        .select("session_token")
+        .eq("session_token", sessionToken)
+        .maybeSingle()
+    : Promise.resolve({ data: { session_token: null } as any });
+  const userLookup = (async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const claims = await verifySupabaseJwt(session.access_token, process.env.NEXT_PUBLIC_SUPABASE_URL!);
+      if (claims) return { id: claims.sub, email: claims.email ?? session.user?.email ?? "" };
     }
+    const { data } = await supabase.auth.getUser();
+    return data.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
+  })();
+  const [{ data: owner }, user] = await Promise.all([ownerCheck, userLookup]);
+
+  if (sessionToken && !owner) {
+    await supabase.auth.signOut();
+    if (isApi) {
+      return NextResponse.json(
+        { error: "You've been signed out because this account signed in on another device." },
+        { status: 401 }
+      );
+    }
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("reason", "elsewhere");
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    for (const cookie of response.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    redirectResponse.cookies.delete(SESSION_COOKIE);
+    return redirectResponse;
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user && !isPublic && !isApi) {
     const loginUrl = request.nextUrl.clone();

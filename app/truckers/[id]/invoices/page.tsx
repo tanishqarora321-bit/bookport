@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { fetchAllRows } from "@/lib/fetch-all";
 import SignInRequired from "@/components/SignInRequired";
 import TruckerInvoiceLedgerClient from "@/components/TruckerInvoiceLedgerClient";
 import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
@@ -35,14 +36,16 @@ export default async function TruckerInvoicesPage({ params }: { params: { id: st
   // here, at render time -- never stored on trucker_invoices itself, same
   // "reflects automatically" pattern as Forwarder/Supplier invoices.
   const [{ data: invoices, error: invoicesError }, { data: customColumns }] = await Promise.all([
-    supabase
+    fetchAllRows((from, to) =>
+      supabase
       .from("trucker_invoices")
       .select(
         "id, booking_number, container_number, month_of_loading, location, invoice_number, invoice_date, invoice_due_date, trucking, fuel_surcharge, chassis_rental, stop_off, chassis_split, misc_charges, custom_charges, total, currency, fx_rate, total_usd, paid_status, tracking_id, tracking:tracking_id (eta, release_status)"
       )
       .eq("company_id", companyId)
       .eq("trucker_id", params.id)
-      .order("month_of_loading", { ascending: false, nullsFirst: false }),
+      .order("month_of_loading", { ascending: false, nullsFirst: false }).order("id", { ascending: true }).range(from, to)
+    ),
     // Shared across every trucker's ledger, not just this one - see
     // supabase/migrations/0022_trucker_invoice_charges.sql.
     supabase

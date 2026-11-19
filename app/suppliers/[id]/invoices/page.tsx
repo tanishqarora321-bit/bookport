@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { fetchAllRows } from "@/lib/fetch-all";
 import SignInRequired from "@/components/SignInRequired";
 import SupplierInvoiceLedgerClient from "@/components/SupplierInvoiceLedgerClient";
 import { applyLiveMonthOfLoading } from "@/lib/live-month-of-loading";
@@ -34,14 +35,16 @@ export default async function SupplierInvoicesPage({ params }: { params: { id: s
   // Every invoice's eta/release_status is read live from `tracking` right
   // here, at render time -- never stored on supplier_invoices itself, same
   // "reflects automatically" pattern as Forwarder/Trucker invoices.
-  const { data: invoices, error: invoicesError } = await supabase
+  const { data: invoices, error: invoicesError } = await fetchAllRows((from, to) =>
+      supabase
     .from("supplier_invoices")
     .select(
       "id, booking_number, container_number, month_of_loading, forwarder_name, consignee_name, invoice_number, invoice_date, total, total_usd, currency, fx_rate, paid_status, notes, tracking_id, tracking:tracking_id (eta, release_status), items:supplier_invoice_items (id, description, weight_kg, unit_price, amount, sort_order)"
     )
     .eq("company_id", companyId)
     .eq("supplier_id", params.id)
-    .order("invoice_date", { ascending: false, nullsFirst: false });
+    .order("invoice_date", { ascending: false, nullsFirst: false }).order("id", { ascending: true }).range(from, to)
+    );
 
   if (invoicesError) return <p className="text-red-600 p-6">{invoicesError.message}</p>;
 

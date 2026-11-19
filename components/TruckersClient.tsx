@@ -7,6 +7,8 @@ import StatCard from "@/components/ui/StatCard";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type Trucker = {
@@ -20,9 +22,9 @@ type Trucker = {
 
 export default function TruckersClient({ initialTruckers, isAdmin = false }: { initialTruckers: Trucker[]; isAdmin?: boolean }) {
   const [truckers, setTruckers] = useState(initialTruckers);
-  const [showInactive, setShowInactive] = useState(false);
-  const [search, setSearch] = useState("");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [showInactive, setShowInactive] = usePersistentState(`truckers:showInactive`, false);
+  const [search, setSearch] = usePersistentState(`truckers:search`, "");
+  const [sortDir, setSortDir] = usePersistentState<"asc" | "desc">(`truckers:sortDir`, "asc");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ legal_name: "", short_code: "", country: "", address: "" });
   const [saving, setSaving] = useState(false);
@@ -111,7 +113,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = truckers.find((t) => t.id === id);
       const name = target?.legal_name ?? id;
       try {
@@ -124,7 +126,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
           if (!deactivateRes.ok) {
             const json = await deactivateRes.json().catch(() => ({}));
             failures.push(`${name}: ${json.error || "couldn't remove before deleting"}`);
-            continue;
+            return;
           }
         }
         const res = await fetch(`/api/truckers/${id}`, { method: "DELETE" });
@@ -137,7 +139,7 @@ export default function TruckersClient({ initialTruckers, isAdmin = false }: { i
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setTruckers((prev) => prev.filter((t) => !succeeded.includes(t.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

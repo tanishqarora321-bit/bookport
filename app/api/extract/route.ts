@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 import { NextRequest, NextResponse } from "next/server";
 import { extractBookingFromPdf } from "@/lib/gemini";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -32,23 +34,24 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
   const base64 = buffer.toString("base64");
 
-  // 1. Store the raw file (Supabase Storage bucket 'documents')
+  // 1 + 2. Store the raw file (Supabase Storage bucket 'documents') and run
+  // the extraction at the same time - the upload no longer adds to the wait.
   const path = `booking-confirmations/${Date.now()}-${file.name}`;
-  const { error: uploadError } = await supabase.storage
-    .from("documents")
-    .upload(path, buffer, { contentType: "application/pdf" });
+  const [{ error: uploadError }, extraction] = await Promise.all([
+    supabase.storage.from("documents").upload(path, buffer, { contentType: "application/pdf" }),
+    extractBookingFromPdf(base64).then(
+      (value) => ({ value, error: null as any }),
+      (error) => ({ value: null, error })
+    ),
+  ]);
 
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
-
-  // 2. Run extraction
-  let extracted;
-  try {
-    extracted = await extractBookingFromPdf(base64);
-  } catch (err: any) {
-    return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 502 });
+  if (extraction.error) {
+    return NextResponse.json({ error: `Extraction failed: ${extraction.error.message}` }, { status: 502 });
   }
+  const extracted = extraction.value;
 
   // 3. Store raw + extracted for the review screen (never auto-saved into bookings)
   const { data: doc, error: docError } = await supabase

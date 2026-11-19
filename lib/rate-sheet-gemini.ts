@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fastModel } from "./gemini-fast";
 import { rateSheetExtractionSchema as schema } from "./rate-sheet-schema";
 
 // Separate genAI instance from lib/gemini.ts on purpose -- this keeps the
@@ -16,7 +17,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  * just without the separate review screen for this first version).
  */
 export async function extractRateSheetFromPdf(fileBase64: string) {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",

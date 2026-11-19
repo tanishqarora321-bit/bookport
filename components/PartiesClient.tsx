@@ -8,6 +8,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import InlineEditText from "@/components/ui/InlineEditText";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 
 type GstEntry = {
@@ -51,10 +53,10 @@ export default function PartiesClient({
   initialItems: Item[];
   isAdmin?: boolean;
 }) {
-  const [tab, setTab] = useState<"parties" | "items">("parties");
+  const [tab, setTab] = usePersistentState<"parties" | "items">(`buyers:tab`, "parties");
   const [parties, setParties] = useState(initialParties);
   const [items, setItems] = useState(initialItems);
-  const [showInactive, setShowInactive] = useState(false);
+  const [showInactive, setShowInactive] = usePersistentState(`buyers:showInactive`, false);
   // Lifted up so "+ New Buyer" can sit in the page header (same place as
   // Forwarders' buttons) while the form itself stays in the Accounts tab.
   const [adding, setAdding] = useState(false);
@@ -144,7 +146,7 @@ function PartiesTab({
   const [editing, setEditing] = useState<Party | null>(null);
   const [merging, setMerging] = useState<Party | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = usePersistentState(`buyers:search`, "");
 
   async function addParty() {
     if (!form.legal_name.trim()) {
@@ -231,7 +233,7 @@ function PartiesTab({
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = parties.find((p) => p.id === id);
       const name = target?.legal_name ?? id;
       try {
@@ -244,7 +246,7 @@ function PartiesTab({
           if (!deactivateRes.ok) {
             const json = await deactivateRes.json().catch(() => ({}));
             failures.push(`${name}: ${json.error || "couldn't remove before deleting"}`);
-            continue;
+            return;
           }
         }
         const res = await fetch(`/api/parties/${id}`, { method: "DELETE" });
@@ -257,7 +259,7 @@ function PartiesTab({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setParties(parties.filter((p) => !succeeded.includes(p.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

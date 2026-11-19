@@ -15,6 +15,8 @@ import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
 import BackButton from "@/components/ui/BackButton";
 import MultiSelect from "@/components/ui/MultiSelect";
+import { eachLimited } from "@/lib/each-limited";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
@@ -145,13 +147,13 @@ export default function TruckerInvoiceLedgerClient({
   const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
   const [customColumns, setCustomColumns] = useState(initialCustomColumns);
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [statusFilter, setStatusFilter] = usePersistentState<string[]>(`trk:${truckerId}:statusFilter`, []); // multi-select: none ticked = all
   // "Pending Invoices" toggle: only invoices with no invoice number yet.
-  const [pendingOnly, setPendingOnly] = useState(false);
-  const [paidFilter, setPaidFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [lineFilter, setLineFilter] = useState<string[]>([]); // multi-select: none ticked = all
-  const [search, setSearch] = useState("");
+  const [pendingOnly, setPendingOnly] = usePersistentState(`trk:${truckerId}:pendingOnly`, false);
+  const [paidFilter, setPaidFilter] = usePersistentState<string[]>(`trk:${truckerId}:paidFilter`, []); // multi-select: none ticked = all
+  const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`trk:${truckerId}:monthFilter`, []); // multi-select: none ticked = all
+  const [lineFilter, setLineFilter] = usePersistentState<string[]>(`trk:${truckerId}:lineFilter`, []); // multi-select: none ticked = all
+  const [search, setSearch] = usePersistentState(`trk:${truckerId}:search`, "");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
@@ -215,7 +217,7 @@ export default function TruckerInvoiceLedgerClient({
   }, [yearInvoices, pendingOnly, statusFilter, paidFilter, monthFilter, lineFilter, search]);
 
   // Pagination matches the Forwarders ledger / Booking & Instructions.
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = usePersistentState(`trk:${truckerId}:pageSize`, 25);
   const [page, setPage] = useState(0);
   // Payments & History side panel (lib/ui-flags.ts PAYMENTS_LAYOUT).
   const [paymentsOpen, setPaymentsOpen] = useState(false);
@@ -242,7 +244,7 @@ export default function TruckerInvoiceLedgerClient({
     const ids = bulk.selectedIds;
     const succeeded: string[] = [];
     const failures: string[] = [];
-    for (const id of ids) {
+    await eachLimited(ids, 6, async (id) => {
       const target = invoices.find((i) => i.id === id);
       const name = target?.invoice_number || target?.booking_number || id;
       try {
@@ -256,7 +258,7 @@ export default function TruckerInvoiceLedgerClient({
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
-    }
+    });
     setInvoices((prev) => prev.filter((i) => !succeeded.includes(i.id)));
     setBulkDeleting(false);
     setBulkConfirming(false);

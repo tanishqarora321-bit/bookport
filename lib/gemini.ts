@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fastModel } from "./gemini-fast";
 import { bookingExtractionSchema as schema } from "./booking-schema";
 import { blExtractionSchema } from "./bl-schema";
 import { IMPORT_FIELDS } from "./booking-import-fields";
@@ -12,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
  * review screen; nothing here is trusted until a person confirms it.
  */
 export async function extractBookingFromPdf(fileBase64: string) {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
@@ -105,7 +106,7 @@ match the meaning, not the literal words):
  * screen; nothing here writes to bookings/containers directly.
  */
 export async function extractBLFromPdf(fileBase64: string) {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: {
       responseMimeType: "application/json",
@@ -200,7 +201,7 @@ export async function suggestMapping(
   fields: { key: string; label: string }[],
   subjectLabel: string
 ): Promise<Record<string, string | null>> {
-  const model = genAI.getGenerativeModel({
+  const model = fastModel(genAI, {
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
     generationConfig: { responseMimeType: "application/json", maxOutputTokens: 512 }
   });
