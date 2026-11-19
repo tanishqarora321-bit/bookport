@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 // A filter dropdown where several values can be ticked (owner, 2026-11).
 // Nothing ticked = "All". Same height/look as the single selects
@@ -25,13 +26,32 @@ export default function MultiSelect({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  // The list floats above the page (fixed position, in a portal) so a
+  // card's overflow can never cut it off.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const show = (v: string) => (format ? format(v) : v);
 
   useEffect(() => {
     if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    function place() {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return;
+      const w = Math.max(width, 220);
+      setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) });
     }
+    place();
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || listRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onScroll(e: Event) {
+      if (listRef.current && listRef.current.contains(e.target as Node)) return;
+      place();
+    }
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", place);
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
@@ -40,8 +60,10 @@ export default function MultiSelect({
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", place);
     };
-  }, [open]);
+  }, [open, width]);
 
   const visible = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -74,13 +96,16 @@ export default function MultiSelect({
       >
         {text}
       </button>
-      {open && (
+      {open &&
+        pos &&
+        createPortal(
         <div
+          ref={listRef}
           role="listbox"
           aria-multiselectable="true"
           aria-label={label}
           className="bg-surface border border-line rounded-lg shadow-lg"
-          style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 40, minWidth: Math.max(width, 220), maxWidth: 360 }}
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 60, minWidth: Math.max(width, 220), maxWidth: 360 }}
         >
           {options.length > 8 && (
             <div className="p-2 border-b border-line">
@@ -113,8 +138,9 @@ export default function MultiSelect({
             ))}
             {visible.length === 0 && <div className="px-3 py-2 text-xs text-muted">No matches</div>}
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   );
 }

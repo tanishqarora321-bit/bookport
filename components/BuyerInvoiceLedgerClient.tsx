@@ -16,6 +16,7 @@ import StatusPill from "@/components/ui/StatusPill";
 import EmptyState from "@/components/ui/EmptyState";
 import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import MultiSelect from "@/components/ui/MultiSelect";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type Item = {
@@ -127,9 +128,9 @@ export default function BuyerInvoiceLedgerClient({
   // Payments Received side panel (same Payment History as the other ledgers,
   // but money received FROM the buyer).
   const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [paidFilter, setPaidFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [paidFilter, setPaidFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -163,9 +164,9 @@ export default function BuyerInvoiceLedgerClient({
     const q = search.trim().toLowerCase();
     return yearInvoices.filter((inv) => {
       if (pendingOnly && inv.invoice_number) return false;
-      if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
-      if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
-      if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
+      if (statusFilter.length && !statusFilter.includes(String((inv.tracking?.release_status ?? "") ?? ""))) return false;
+      if (paidFilter.length && !paidFilter.includes(String(inv.paid_status ?? ""))) return false;
+      if (monthFilter.length && !monthFilter.includes(String(monthKey(inv.month_of_loading) ?? ""))) return false;
       if (q) {
         const haystack = [inv.booking_number, inv.container_number, inv.invoice_number, inv.forwarder_name, inv.location]
           .filter(Boolean)
@@ -334,32 +335,16 @@ export default function BuyerInvoiceLedgerClient({
             style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
           />
         </label>
-        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Months</option>
-          {monthOptions.map((k) => (
-            <option key={k} value={k}>
-              {new Date(`${k}-01`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-            </option>
-          ))}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Status" className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Status</option>
-          {RELEASE_STATUS_OPTIONS.map((st) => (
-            <option key={st} value={st}>{st}</option>
-          ))}
-        </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} aria-label="Paid" className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Paid</option>
-          <option value="PAID">Paid</option>
-          <option value="UNPAID">Unpaid</option>
-        </select>
-        {(pendingOnly || statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || search) && (
+        <MultiSelect label="Month of loading" allLabel="All Months" options={monthOptions} value={monthFilter} onChange={setMonthFilter} format={(k) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })} width={150} />
+        <MultiSelect label="Status" allLabel="All Status" options={RELEASE_STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} width={150} />
+        <MultiSelect label="Paid" allLabel="All Paid" options={["PAID", "UNPAID"]} value={paidFilter} onChange={setPaidFilter} format={(v) => (v === "PAID" ? "Paid" : "Unpaid")} width={150} />
+        {(pendingOnly || statusFilter.length > 0 || paidFilter.length > 0 || monthFilter.length > 0 || search) && (
           <button
             onClick={() => {
               setPendingOnly(false);
-              setStatusFilter("all");
-              setPaidFilter("all");
-              setMonthFilter("all");
+              setStatusFilter([]);
+              setPaidFilter([]);
+              setMonthFilter([]);
               setSearch("");
             }}
             aria-label="Clear filters"

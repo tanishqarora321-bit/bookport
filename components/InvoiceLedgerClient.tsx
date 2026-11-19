@@ -14,6 +14,7 @@ import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import AddColumnPanel from "@/components/ui/AddColumnPanel";
 import BackButton from "@/components/ui/BackButton";
+import MultiSelect from "@/components/ui/MultiSelect";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 
 type CustomColumn = { id: string; key: string; label: string; value_type: "number" | "text" | "date" };
@@ -155,12 +156,12 @@ export default function InvoiceLedgerClient({
   const yearInvoices = useMemo(() => invoices.filter((i) => invoiceInWorkingYear(i, year)), [invoices, year]);
   const [customColumns, setCustomColumns] = useState(initialCustomColumns);
   const [enteringInvoice, setEnteringInvoice] = useState<Invoice | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]); // multi-select: none ticked = all
   // "Pending Invoices" toggle: only invoices with no invoice number yet.
   const [pendingOnly, setPendingOnly] = useState(false);
-  const [paidFilter, setPaidFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("all");
-  const [lineFilter, setLineFilter] = useState("all");
+  const [paidFilter, setPaidFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [monthFilter, setMonthFilter] = useState<string[]>([]); // multi-select: none ticked = all
+  const [lineFilter, setLineFilter] = useState<string[]>([]); // multi-select: none ticked = all
   const [search, setSearch] = useState("");
   const [addColumnOpen, setAddColumnOpen] = useState(false);
   const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
@@ -210,11 +211,11 @@ export default function InvoiceLedgerClient({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return yearInvoices.filter((inv) => {
-      if (statusFilter !== "all" && (inv.tracking?.release_status ?? "") !== statusFilter) return false;
+      if (statusFilter.length && !statusFilter.includes(String((inv.tracking?.release_status ?? "") ?? ""))) return false;
       if (pendingOnly && inv.invoice_number) return false;
-      if (paidFilter !== "all" && inv.paid_status !== paidFilter) return false;
-      if (monthFilter !== "all" && monthKey(inv.month_of_loading) !== monthFilter) return false;
-      if (lineFilter !== "all" && inv.shipping_line !== lineFilter) return false;
+      if (paidFilter.length && !paidFilter.includes(String(inv.paid_status ?? ""))) return false;
+      if (monthFilter.length && !monthFilter.includes(String(monthKey(inv.month_of_loading) ?? ""))) return false;
+      if (lineFilter.length && !lineFilter.includes(String(inv.shipping_line ?? ""))) return false;
       if (q) {
         const haystack = [inv.booking_number, inv.container_number, inv.invoice_number, inv.consignee_name, inv.pol, inv.pod]
           .filter(Boolean)
@@ -406,42 +407,21 @@ export default function InvoiceLedgerClient({
             style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: "transparent", font: "inherit", fontSize: 13, color: "var(--tx)" }}
           />
         </label>
-        <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Month of loading" className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Months</option>
-          {monthOptions.map((k) => (
-            <option key={k} value={k}>
-              {new Date(`${k}-01`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-            </option>
-          ))}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Status</option>
-          {RELEASE_STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-        <select value={paidFilter} onChange={(e) => setPaidFilter(e.target.value)} className="select select-s" style={{ width: 150 }}>
-          <option value="all">All Paid</option>
-          <option value="PAID">Paid</option>
-          <option value="UNPAID">Unpaid</option>
-        </select>
+        <MultiSelect label="Month of loading" allLabel="All Months" options={monthOptions} value={monthFilter} onChange={setMonthFilter} format={(k) => new Date(`${k}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })} width={150} />
+        <MultiSelect label="Status" allLabel="All Status" options={RELEASE_STATUS_OPTIONS} value={statusFilter} onChange={setStatusFilter} width={150} />
+        <MultiSelect label="Paid" allLabel="All Paid" options={["PAID", "UNPAID"]} value={paidFilter} onChange={setPaidFilter} format={(v) => (v === "PAID" ? "Paid" : "Unpaid")} width={150} />
         {lineOptions.length > 0 && (
-          <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Shipping line" className="select select-s" style={{ width: 150 }}>
-            <option value="all">All Lines</option>
-            {lineOptions.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
+          <MultiSelect label="Shipping line" allLabel="All Lines" options={lineOptions} value={lineFilter} onChange={setLineFilter} width={150} />
         )}
-        {(pendingOnly || statusFilter !== "all" || paidFilter !== "all" || monthFilter !== "all" || lineFilter !== "all" || search) && (
+        {(pendingOnly || statusFilter.length > 0 || paidFilter.length > 0 || monthFilter.length > 0 || lineFilter.length > 0 || search) && (
           // Same compact round ✕ as Booking & Instructions' clear-filters.
           <button
             onClick={() => {
               setPendingOnly(false);
-              setStatusFilter("all");
-              setPaidFilter("all");
-              setMonthFilter("all");
-              setLineFilter("all");
+              setStatusFilter([]);
+              setPaidFilter([]);
+              setMonthFilter([]);
+              setLineFilter([]);
               setSearch("");
             }}
             aria-label="Clear filters"
