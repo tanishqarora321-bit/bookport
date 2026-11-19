@@ -8,3 +8,8 @@
 //              the KPI cards and the ledger table.
 // To reverse it, set this to "card" - nothing else needs to change.
 export const PAYMENTS_LAYOUT: "drawer" | "card" = "drawer";
+
+// Modules shown as "Coming soon" (page + a "Soon" tag in the sidebar)
+// instead of their unfinished screens (owner, 2026-11-19). Remove a key to
+// open that module again - its code is untouched.
+export const COMING_SOON = new Set<string>(["offers"]);

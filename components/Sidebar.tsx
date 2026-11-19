@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { useYear } from "@/lib/year-context";
+import { COMING_SOON } from "@/lib/ui-flags";
 import { NAV_GROUPS, NAV_ICON_PATHS, navKeyForPathname } from "@/lib/nav";
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
@@ -224,6 +225,11 @@ export default function Sidebar() {
                   {!collapsed && (
                     <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
                       <span className="truncate">{it.label}</span>
+                      {COMING_SOON.has(it.key) && (
+                        <span className="shrink-0 rounded-full px-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.86)" }}>
+                          Soon
+                        </span>
+                      )}
                     </span>
                   )}
                 </Link>

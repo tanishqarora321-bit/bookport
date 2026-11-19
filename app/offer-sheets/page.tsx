@@ -1,6 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
+import ComingSoon from "@/components/ComingSoon";
+import { COMING_SOON } from "@/lib/ui-flags";
 import OfferSheetsListClient from "@/components/OfferSheetsListClient";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +13,9 @@ export default async function OfferSheetsPage({
 }: {
   searchParams: { type?: string };
 }) {
+  if (COMING_SOON.has("offers")) {
+    return <ComingSoon title="Offer Sheet" blurb="Costing sheets with your own columns and formulas, to build offers for buyers. Coming soon." />;
+  }
   const me = await getCurrentProfile();
   if (!me) return <SignInRequired />;
   const companyId = me.company_id;

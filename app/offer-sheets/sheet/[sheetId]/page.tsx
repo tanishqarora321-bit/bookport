@@ -1,6 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
 import SignInRequired from "@/components/SignInRequired";
+import ComingSoon from "@/components/ComingSoon";
+import { COMING_SOON } from "@/lib/ui-flags";
 import { computeAllRows, ColumnDef } from "@/lib/offer-sheet-compute";
 import OfferSheetGridClient from "@/components/OfferSheetGridClient";
 import Link from "next/link";
@@ -9,6 +11,9 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function OfferSheetGridPage({ params }: { params: { sheetId: string } }) {
+  if (COMING_SOON.has("offers")) {
+    return <ComingSoon title="Offer Sheet" blurb="Costing sheets with your own columns and formulas, to build offers for buyers. Coming soon." />;
+  }
   const me = await getCurrentProfile();
   if (!me) return <SignInRequired />;
 
