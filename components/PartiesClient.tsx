@@ -39,6 +39,7 @@ type Item = {
   id: string;
   name: string;
   is_active: boolean;
+  used?: number; // shipments whose Final Invoice uses it
 };
 
 export default function PartiesClient({
@@ -114,7 +115,7 @@ export default function PartiesClient({
       {tab === "parties" ? (
         <PartiesTab parties={parties} setParties={setParties} showInactive={showInactive} isAdmin={isAdmin} adding={adding} setAdding={setAdding} />
       ) : (
-        <ItemsTab items={items} setItems={setItems} showInactive={showInactive} />
+        <ItemsTab items={items} setItems={setItems} showInactive={showInactive} isAdmin={isAdmin} />
       )}
     </div>
   );
@@ -840,11 +841,54 @@ function ItemsTab({
   items,
   setItems,
   showInactive,
+  isAdmin,
 }: {
   items: Item[];
   setItems: (i: Item[]) => void;
   showInactive: boolean;
+  isAdmin: boolean;
 }) {
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState("");
+
+  async function rename(item: Item) {
+    const name = renameVal.replace(/\s+/g, " ").trim();
+    if (!name || name === item.name) {
+      setRenaming(null);
+      return;
+    }
+    setError(null);
+    const res = await fetch(`/api/items/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(json.error || "Couldn't rename");
+      return;
+    }
+    setItems(items.map((i) => (i.id === item.id ? { ...i, name } : i)).sort((a, b) => a.name.localeCompare(b.name)));
+    setRenaming(null);
+  }
+
+  // Permanent delete (admin). An item already on shipments is unlinked from
+  // them first - the confirm says how many.
+  async function deleteItem(item: Item) {
+    const used = item.used ?? 0;
+    const msg = used
+      ? `Permanently delete "${item.name}"? It's the Item on ${used} shipment${used === 1 ? "" : "s"} - they'll be left without an Item (their generated invoices don't change). This can't be undone.`
+      : `Permanently delete "${item.name}"? This can't be undone.`;
+    if (!confirm(msg)) return;
+    setError(null);
+    const res = await fetch(`/api/items/${item.id}`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(json.error || "Couldn't delete");
+      return;
+    }
+    setItems(items.filter((i) => i.id !== item.id));
+  }
   const [newName, setNewName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -884,7 +928,11 @@ function ItemsTab({
   const visible = items.filter((i) => showInactive || i.is_active);
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto max-w-lg">
+    <div className="flex-1 min-h-0 overflow-auto max-w-3xl">
+      <p className="text-sm text-muted mb-3">
+        The goods you sell - the Item dropdown on the Final Invoice. Click a name to rename it. Remove hides an item (Restore
+        brings it back); Delete removes it for good.
+      </p>
       <div className="flex gap-2 mb-4">
         <input
           placeholder="New item name, e.g. Mixed Rags"
@@ -904,25 +952,71 @@ function ItemsTab({
       {error && <div className="text-xs text-cutoff mb-2">{error}</div>}
 
       <div className="bg-surface border border-line rounded-xl overflow-hidden">
-        <ul className="divide-y divide-line">
-          {visible.map((item) => (
-            <li
-              key={item.id}
-              className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-surface-2 ${!item.is_active ? "opacity-40" : ""}`}
-            >
-              <span className="text-ink">{item.name}</span>
-              <button
-                onClick={() => toggleActive(item)}
-                className={`text-xs px-2 py-1 rounded-lg ${
-                  item.is_active ? "text-cutoff hover:bg-critical-soft" : "text-accent hover:bg-accent-soft"
-                }`}
-              >
-                {item.is_active ? "Remove" : "Restore"}
-              </button>
-            </li>
-          ))}
-        </ul>
-        {visible.length === 0 && <EmptyState icon={Package} title="No items yet" hint="Add item categories like Mixed Rag to assign in Shipment Tracking." />}
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-left text-muted border-b border-line bg-surface-2">
+              <th className="px-3 py-2 font-medium">Item</th>
+              <th className="px-3 py-2 font-medium w-28 text-right">Used on</th>
+              <th className="px-3 py-2 font-medium w-24">Status</th>
+              <th className="px-3 py-2 w-40"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((item) => (
+              <tr key={item.id} className="border-b border-line last:border-b-0 hover:bg-surface-2">
+                <td className={`px-3 py-2 ${item.is_active ? "text-ink" : "text-muted"}`}>
+                  {renaming === item.id ? (
+                    <input
+                      autoFocus
+                      aria-label={`Rename ${item.name}`}
+                      className="border border-accent rounded-lg px-2 py-1 text-sm w-full bg-surface"
+                      value={renameVal}
+                      onChange={(e) => setRenameVal(e.target.value)}
+                      onBlur={() => rename(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") rename(item);
+                        if (e.key === "Escape") setRenaming(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-left hover:underline decoration-dotted"
+                      title="Click to rename"
+                      onClick={() => {
+                        setRenaming(item.id);
+                        setRenameVal(item.name);
+                      }}
+                    >
+                      {item.name}
+                    </button>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-text-2">
+                  {item.used ? `${item.used} shipment${item.used === 1 ? "" : "s"}` : <span className="text-muted">—</span>}
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`badge ${item.is_active ? "b-ok" : "b-neu"}`}>{item.is_active ? "Active" : "Removed"}</span>
+                </td>
+                <td className="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    onClick={() => toggleActive(item)}
+                    className={`text-xs px-2 py-1 rounded-lg ${item.is_active ? "text-text-2 hover:bg-surface-2" : "text-accent hover:bg-accent-soft"}`}
+                    title={item.is_active ? "Hide from the Item dropdown (can be restored)" : "Show in the Item dropdown again"}
+                  >
+                    {item.is_active ? "Remove" : "Restore"}
+                  </button>
+                  {isAdmin && (
+                    <button onClick={() => deleteItem(item)} className="text-xs px-2 py-1 rounded-lg text-cutoff hover:bg-critical-soft ml-1" title="Delete permanently">
+                      Delete
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {visible.length === 0 && <EmptyState icon={Package} title="No items yet" hint="Add the goods you sell, e.g. Mixed Rags - they're the Item dropdown on the Final Invoice." />}
       </div>
     </div>
   );
