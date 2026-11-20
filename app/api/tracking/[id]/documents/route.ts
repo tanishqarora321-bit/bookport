@@ -5,6 +5,7 @@ import { INVOICE_KIND_LABEL, INVOICE_PARTY_COLUMN, INVOICE_TABLE, listInvoicePdf
 import { generateFinalInvoicePdf, TemplateConfig, InvoiceFieldData } from "@/lib/pdf/generateFinalInvoice";
 import { buildFinalInvoiceDefaults } from "@/lib/final-invoice-defaults";
 import { saveInvoiceToLedger } from "@/lib/final-invoice-ledger";
+import { nextInvoiceNumber } from "@/lib/invoice-number";
 import { findOrCreateItem } from "@/lib/buyer-items";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -142,8 +143,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!finalData.consignee_name) {
     return NextResponse.json({ error: "This tracking entry has no party assigned yet -- can't generate a consignee." }, { status: 400 });
   }
+  // The invoice number (owner, 2026-11): assigned only when the FIRST PDF
+  // is generated - worked out here, and saved to the Buyers ledger and
+  // Shipment Tracking only once the PDF has been stored (step 5), so a
+  // failed generation never uses a number up.
+  let newInvoiceNo: string | null = null;
   if (!finalData.invoice_no) {
-    return NextResponse.json({ error: "Generate an invoice number on this row first." }, { status: 400 });
+    if (!defaults.tracking.party_id) {
+      return NextResponse.json({ error: "This container has no buyer assigned yet." }, { status: 400 });
+    }
+    const next = await nextInvoiceNumber(supabase, me.company_id, defaults.tracking.party_id);
+    if ("error" in next) return NextResponse.json({ error: next.error }, { status: next.status });
+    newInvoiceNo = next.invoice_no;
+    finalData.invoice_no = newInvoiceNo;
   }
   const templateRow = { template_config: defaults.templateConfig };
 
@@ -182,11 +194,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
+  // 5. The number printed on this PDF is now this invoice's number - on the
+  // Buyers ledger row and on Shipment Tracking (kept in step either way).
+  if (newInvoiceNo && defaults.buyerInvoiceId) {
+    await supabase.from("buyer_invoices").update({ invoice_number: newInvoiceNo, updated_at: new Date().toISOString() }).eq("id", defaults.buyerInvoiceId);
+  }
+  if (defaults.tracking.invoice_no !== finalData.invoice_no) {
+    await supabase.from("tracking").update({ invoice_no: finalData.invoice_no }).eq("id", params.id).eq("company_id", me.company_id);
+  }
+
   // Generating a PDF no longer marks it "Sent" - Invoice Sent / Docs Sent
   // flip only when the PDF is actually emailed from Shipment Tracking's
   // Docs dialog (app/api/tracking/[id]/send-docs).
 
   const { data: signedUrl } = await supabase.storage.from("documents").createSignedUrl(filePath, 60 * 60);
 
-  return NextResponse.json({ document: doc, url: signedUrl?.signedUrl });
+  return NextResponse.json({ document: doc, url: signedUrl?.signedUrl, invoice_no: finalData.invoice_no });
 }

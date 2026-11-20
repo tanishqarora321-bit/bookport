@@ -318,6 +318,8 @@ booking's own ERD year (Trucker + Supplier).
 - Gemini: lib/gemini-fast.ts - minimal thinking, retry + fallback model on 429/500/503; upload and extraction in parallel; maxDuration 60 on extract routes.
 - Settings and Final Invoice pages query in parallel; Settings looks up only this company's auth users.
 
+- Buyer invoice number (lib/invoice-number.ts) is assigned only when the first Final Invoice PDF is generated: computed in POST /api/tracking/[id]/documents and saved to buyer_invoices + tracking.invoice_no only after the PDF is stored. "Generate Invoice" in the ledger just opens the page. Editing/clearing the number in the ledger also updates tracking.invoice_no.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
