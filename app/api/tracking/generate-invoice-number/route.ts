@@ -1,24 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/session";
-import { nextInvoiceNumber } from "@/lib/invoice-number";
+import { NextResponse } from "next/server";
 
-// Pattern confirmed from the real NAM/Tracking sheets: YYYY-{party_short_code}/{seq}
-// e.g. "2026-LR/09", next one is "2026-LR/10". Year = year of generation
-// (not shipment date) - matches "the Year they issue" from the spec.
-// Sequence resets per party per year, padded to at least 2 digits.
-export async function POST(req: NextRequest) {
-  const me = await getCurrentProfile();
-  if (!me) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
-
-  const body = await req.json();
-  const supabase = createServiceClient();
-
-  if (!body.party_id) {
-    return NextResponse.json({ error: "party_id is required" }, { status: 400 });
-  }
-
-  const result = await nextInvoiceNumber(supabase, me.company_id, body.party_id);
-  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
-  return NextResponse.json({ invoice_no: result.invoice_no });
+// Retired (owner, 2026-11): a buyer invoice number is assigned only when the
+// invoice's first PDF is generated (POST /api/tracking/[id]/documents, see
+// lib/invoice-number.ts). Nothing in the app calls this any more; a browser
+// tab still running the old page code did, which handed out numbers without
+// a PDF - so it now refuses and asks for a refresh instead.
+export async function POST() {
+  return NextResponse.json(
+    { error: "Ship-Sphere was updated - please refresh this page (Ctrl+Shift+R). Invoice numbers are now given when the PDF is generated." },
+    { status: 409 }
+  );
 }
