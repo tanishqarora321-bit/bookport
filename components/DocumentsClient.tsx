@@ -147,6 +147,8 @@ export default function DocumentsClient({
       ocean_freight: defaults.charges?.ocean_freight ? String(defaults.charges.ocean_freight) : "",
     },
   }));
+  // Assigned when the first PDF is generated (owner, 2026-11).
+  const [invoiceNo, setInvoiceNo] = useState(defaults.invoice_no);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUrl, setLastUrl] = useState<string | null>(null);
@@ -184,6 +186,7 @@ export default function DocumentsClient({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Generation failed");
       setDocs([json.document, ...docs]);
+      if (json.invoice_no) setInvoiceNo(json.invoice_no);
       setLastUrl(json.url);
       if (json.url) window.open(json.url, "_blank");
     } catch (err: any) {
@@ -197,9 +200,9 @@ export default function DocumentsClient({
   const currentVersion = docs[0]?.version;
   const unit = /^KG/i.test(form.weight_unit) ? "KG" : "LBS";
 
-  const lockedFields: { label: string; value: string | null; mono?: boolean }[] = [
+  const lockedFields: { label: string; value: string | null; mono?: boolean; empty?: string }[] = [
     { label: "Consignee", value: defaults.consignee_name },
-    { label: "Invoice Number", value: defaults.invoice_no, mono: true },
+    { label: "Invoice Number", value: invoiceNo, mono: true, empty: "Assigned when the PDF is generated" },
     { label: "Booking Number", value: defaults.booking_number, mono: true },
     { label: "Container Number", value: defaults.container_number, mono: true },
   ];
@@ -249,7 +252,7 @@ export default function DocumentsClient({
                     <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mut)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                       <path d="M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4" />
                     </svg>
-                    {l.value ? <span className={`truncate ${l.mono ? "mono" : ""}`}>{l.value}</span> : <span className="dash">—</span>}
+                    {l.value ? <span className={`truncate ${l.mono ? "mono" : ""}`}>{l.value}</span> : <span className={l.empty ? "text-muted text-[13px]" : "dash"}>{l.empty ?? "—"}</span>}
                   </div>
                 </div>
               ))}
@@ -408,7 +411,7 @@ export default function DocumentsClient({
                 <table style={tbl}>
                   <tbody>
                     <tr><th style={th}>Date</th><th style={th}>Invoice #</th></tr>
-                    <tr><td style={tdC}>{dmy(form.invoice_date)}</td><td style={tdC}>{defaults.invoice_no || "—"}</td></tr>
+                    <tr><td style={tdC}>{dmy(form.invoice_date)}</td><td style={tdC}>{invoiceNo || "(on generate)"}</td></tr>
                   </tbody>
                 </table>
               </div>

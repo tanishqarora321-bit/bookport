@@ -569,48 +569,17 @@ function InvoiceRows({
   // (app/api/tracking/[id]/documents/route.ts) rather than a new
   // generator - it just assigns an invoice number first if this row
   // doesn't have one yet, then renders/opens the PDF.
-  async function handleGenerateInvoice() {
+  // Opens the Final Invoice page: everything pre-filled (BL, packing,
+  // booking, this row), editable, then printed from there. No invoice
+  // number is assigned here - only when the first PDF is generated
+  // (owner, 2026-11).
+  function handleGenerateInvoice() {
     if (!inv.tracking_id) return;
     setGenerating(true);
     setGenError(null);
-    try {
-      let invoiceNumber = inv.invoice_number;
-      if (!invoiceNumber) {
-        const res = await fetch("/api/tracking/generate-invoice-number", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ party_id: buyerId }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "Could not generate invoice number");
-        invoiceNumber = json.invoice_no;
-        await patchInvoice(inv.id, { invoice_number: invoiceNumber });
-        onChange({ invoice_number: invoiceNumber });
-      }
-      // The documents route (below) reads invoice_no off the TRACKING
-      // row, not off buyer_invoices.invoice_number - has to be pushed
-      // there every time (not just when freshly generated), since an
-      // imported invoice can already have its own invoice_number with
-      // the linked tracking row still blank, and the route 400s with
-      // "Generate an invoice number on this row first" otherwise.
-      const trackingRes = await fetch(`/api/tracking/${inv.tracking_id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_no: invoiceNumber }),
-      });
-      if (!trackingRes.ok) {
-        const trackingJson = await trackingRes.json().catch(() => ({}));
-        throw new Error(trackingJson.error || "Could not save the invoice number to this tracking entry");
-      }
-
-      // Opens the Final Invoice page: everything pre-filled (BL, packing,
-      // booking, this row), editable, then printed from there.
-      router.push(`/tracking/${inv.tracking_id}/documents?back=${encodeURIComponent(`/parties/${buyerId}/invoices`)}`);
-    } catch (err: any) {
-      setGenError(err.message);
-      setGenerating(false);
-    }
+    router.push(`/tracking/${inv.tracking_id}/documents?back=${encodeURIComponent(`/parties/${buyerId}/invoices`)}`);
   }
+
 
   // Fumigation Certificate / Certificate of Origin - no override form by
   // design (see app/api/tracking/[id]/fumigation-certificate/route.ts's

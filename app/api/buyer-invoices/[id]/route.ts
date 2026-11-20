@@ -139,6 +139,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     updates.updated_at = new Date().toISOString();
     const { error: updateError } = await supabase.from("buyer_invoices").update(updates).eq("id", params.id).eq("company_id", companyId);
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    // Shipment Tracking shows (and numbering counts) the tracking row's own
+    // copy of the invoice number - keep it in step when it's edited or
+    // cleared here.
+    if ("invoice_number" in updates) {
+      const { data: row } = await supabase.from("buyer_invoices").select("tracking_id").eq("id", params.id).maybeSingle();
+      if (row?.tracking_id) await supabase.from("tracking").update({ invoice_no: updates.invoice_number }).eq("id", row.tracking_id).eq("company_id", companyId);
+    }
   }
 
   const { data, error } = await supabase
