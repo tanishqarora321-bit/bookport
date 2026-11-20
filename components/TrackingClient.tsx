@@ -135,6 +135,11 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const [monthFilter, setMonthFilter] = usePersistentState<string[]>(`tracking:monthFilter`, []); // multi-select: none ticked = all
   const [statusFilter, setStatusFilter] = usePersistentState<string[]>(`tracking:statusFilter`, []); // multi-select: none ticked = all
   const [lineFilter, setLineFilter] = usePersistentState<string[]>(`tracking:lineFilter`, []); // multi-select: none ticked = all
+  // Party filters, as on Booking & Instructions (owner, 2026-11).
+  const [forwarderFilter, setForwarderFilter] = usePersistentState<string[]>(`tracking:forwarderFilter`, []);
+  const [truckerFilter, setTruckerFilter] = usePersistentState<string[]>(`tracking:truckerFilter`, []);
+  const [supplierFilter, setSupplierFilter] = usePersistentState<string[]>(`tracking:supplierFilter`, []);
+  const [buyerFilter, setBuyerFilter] = usePersistentState<string[]>(`tracking:buyerFilter`, []);
   const [invoicePending, setInvoicePending] = usePersistentState(`tracking:invoicePending`, false);
   const [docsPending, setDocsPending] = usePersistentState(`tracking:docsPending`, false);
   const [blPending, setBlPending] = usePersistentState(`tracking:blPending`, false);
@@ -157,6 +162,12 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
     () => Array.from(new Set(yearRows.map((r) => r.shipping_line).filter((l): l is string => Boolean(l)))).sort(),
     [yearRows]
   );
+  const optionsOf = (pick: (r: TrackingRow) => string | null) =>
+    Array.from(new Set(yearRows.map(pick).filter((v): v is string => Boolean(v)))).sort((a, b) => a.localeCompare(b));
+  const forwarderOptions = useMemo(() => optionsOf((r) => r.forwarder), [yearRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const truckerOptions = useMemo(() => optionsOf((r) => r.trucker), [yearRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const supplierOptions = useMemo(() => optionsOf((r) => r.supplier), [yearRows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const buyerOptions = useMemo(() => optionsOf((r) => r.buyer), [yearRows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -164,6 +175,10 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
       if (monthFilter.length && !monthFilter.includes(String(monthKey(r.filing_date) ?? ""))) return false;
       if (statusFilter.length && !statusFilter.includes(r.release_status || "none")) return false;
       if (lineFilter.length && !lineFilter.includes(String(r.shipping_line ?? ""))) return false;
+      if (forwarderFilter.length && !forwarderFilter.includes(r.forwarder ?? "")) return false;
+      if (truckerFilter.length && !truckerFilter.includes(r.trucker ?? "")) return false;
+      if (supplierFilter.length && !supplierFilter.includes(r.supplier ?? "")) return false;
+      if (buyerFilter.length && !buyerFilter.includes(r.buyer ?? "")) return false;
       if (invoicePending && r.invoice_sent) return false;
       if (docsPending && r.documents_sent) return false;
       if (blPending && r.bl_status === "Y") return false;
@@ -176,9 +191,9 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
         .toLowerCase()
         .includes(q);
     });
-  }, [yearRows, search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue]);
+  }, [yearRows, search, monthFilter, statusFilter, lineFilter, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue]);
 
-  useEffect(() => setPage(0), [search, monthFilter, statusFilter, lineFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue, pageSize, year]);
+  useEffect(() => setPage(0), [search, monthFilter, statusFilter, lineFilter, forwarderFilter, truckerFilter, supplierFilter, buyerFilter, invoicePending, docsPending, blPending, notChecked, checkOverdue, pageSize, year]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageStart = Math.min(page, pageCount - 1) * pageSize;
   const paginated = filtered.slice(pageStart, pageStart + pageSize);
@@ -192,12 +207,16 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
   const checkOverdueCount = yearRows.filter((r) => needsChecking(r) && (checkAgeDays(r.last_tracking_check_at) ?? -1) >= CHECK_OVERDUE_DAYS).length;
 
   const anyFilter =
-    search || monthFilter.length > 0 || statusFilter.length > 0 || lineFilter.length > 0 || invoicePending || docsPending || blPending || notChecked || checkOverdue;
+    search || monthFilter.length > 0 || statusFilter.length > 0 || lineFilter.length > 0 || forwarderFilter.length > 0 || truckerFilter.length > 0 || supplierFilter.length > 0 || buyerFilter.length > 0 || invoicePending || docsPending || blPending || notChecked || checkOverdue;
   function clearFilters() {
     setSearch("");
     setMonthFilter([]);
     setStatusFilter([]);
     setLineFilter([]);
+    setForwarderFilter([]);
+    setTruckerFilter([]);
+    setSupplierFilter([]);
+    setBuyerFilter([]);
     setInvoicePending(false);
     setDocsPending(false);
     setBlPending(false);
@@ -240,6 +259,10 @@ export default function TrackingClient({ initialTracking }: { initialTracking: T
           {lineOptions.length > 0 && (
             <MultiSelect label="Shipping line" allLabel="All Lines" options={lineOptions} value={lineFilter} onChange={setLineFilter} width={150} />
           )}
+          <MultiSelect label="Forwarder" allLabel="All Forwarders" options={forwarderOptions} value={forwarderFilter} onChange={setForwarderFilter} width={150} />
+          <MultiSelect label="Trucker" allLabel="All Truckers" options={truckerOptions} value={truckerFilter} onChange={setTruckerFilter} width={150} />
+          <MultiSelect label="Supplier" allLabel="All Suppliers" options={supplierOptions} value={supplierFilter} onChange={setSupplierFilter} width={150} />
+          <MultiSelect label="Buyer" allLabel="All Buyers" options={buyerOptions} value={buyerFilter} onChange={setBuyerFilter} width={150} />
           <button type="button" className={`chip ${invoicePending ? "on" : ""}`} aria-pressed={invoicePending} onClick={() => setInvoicePending((v) => !v)}>
             Invoice pending <span className="num" style={{ color: "var(--tx2)" }}>{invoicePendingCount}</span>
           </button>
