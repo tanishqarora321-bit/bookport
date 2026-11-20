@@ -36,16 +36,6 @@ export async function POST(req: NextRequest) {
   const dest = (destination || "Mundra, IN").trim();
   const name = forwarder_name.trim();
 
-  if (body.replace_existing !== false) {
-    await supabase
-      .from("rate_sheets")
-      .delete()
-      .eq("company_id", me.company_id)
-      .eq("rate_month", month)
-      .eq("destination", dest)
-      .ilike("forwarder_name", name);
-  }
-
   const base = {
     company_id: me.company_id,
     forwarder_name: name,
@@ -78,7 +68,24 @@ export async function POST(req: NextRequest) {
         sort_order: i + j,
       }))
     );
-    if (entriesError) return NextResponse.json({ error: entriesError.message }, { status: 500 });
+    if (entriesError) {
+      await supabase.from("rate_sheets").delete().eq("id", sheet.id); // don't leave a half-saved sheet
+      return NextResponse.json({ error: entriesError.message }, { status: 500 });
+    }
+  }
+
+  // Only once the new sheet and its rates are saved, remove that forwarder's
+  // earlier sheet for the same month and destination (a failed save never
+  // loses the old one).
+  if (body.replace_existing !== false) {
+    await supabase
+      .from("rate_sheets")
+      .delete()
+      .eq("company_id", me.company_id)
+      .eq("rate_month", month)
+      .eq("destination", dest)
+      .ilike("forwarder_name", name)
+      .neq("id", sheet.id);
   }
 
   return NextResponse.json({ rate_sheet: sheet, entries_found: validEntries.length, warning });
