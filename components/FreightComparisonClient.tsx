@@ -6,6 +6,9 @@ import BulkActionBar from "@/components/ui/BulkActionBar";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { eachLimited } from "@/lib/each-limited";
 import { useYear } from "@/lib/year-context";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
+import { buildComparison, colLabel } from "@/lib/freight-compare";
+import { lineKey } from "@/lib/freight-normalize";
 
 type Entry = {
   id: string;
@@ -22,12 +25,20 @@ type RateSheet = {
   destination: string;
   rate_month: string;
   currency: string;
-  source_type: "pdf" | "manual";
+  source_type: "pdf" | "excel" | "manual";
   source_file_name: string | null;
   notes: string | null;
+  add_on?: number | null;
+  add_on_by_line?: Record<string, number> | null;
+  charges_note?: string | null;
   created_at: string;
   entries: Entry[];
 };
+
+export type LastAddOn = { add_on: number; add_on_by_line: Record<string, number> };
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const money = (n: number) => `$${Math.round(n * 100) / 100 === Math.round(n) ? Math.round(n).toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 function fmtMonth(m: string) {
   // m is 'YYYY-MM-01'
@@ -99,14 +110,23 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+
+
+// Freight Comparison (owner, 2026-11): every forwarder's monthly rate sheet
+// for one destination, side by side - rows are origins, columns
+// "Forwarder - Line", each rate including that forwarder's per-container
+// add-on. Green = cheapest per origin; blue = the cheapest with at least the
+// chosen free days ("cheap and more free time"). Upload up to 8 PDFs /
+// Excel files at once; the Working Year comes from the sidebar.
 export default function FreightComparisonClient({
-  yearOptions,
   selectedYear,
   monthOptions,
   destinationOptions,
   selectedMonth,
   selectedDestination,
   initialSheets,
+  lastAddOns,
+  forwarderNames,
   isAdmin = false,
 }: {
   yearOptions: string[];
@@ -116,12 +136,17 @@ export default function FreightComparisonClient({
   selectedMonth: string;
   selectedDestination: string;
   initialSheets: RateSheet[];
+  lastAddOns: Record<string, LastAddOn>;
+  forwarderNames: string[];
   isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [sheets, setSheets] = useState(initialSheets);
+  useEffect(() => setSheets(initialSheets), [initialSheets]);
   const [uploading, setUploading] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [minFree, setMinFree] = usePersistentState<number>("freight:minFree", 10);
+  const [search, setSearch] = usePersistentState<string>("freight:search", "");
 
   const visibleSheetIds = useMemo(() => sheets.map((s) => s.id), [sheets]);
   const bulk = useBulkSelection(visibleSheetIds);
@@ -140,16 +165,11 @@ export default function FreightComparisonClient({
     const succeeded: string[] = [];
     const failures: string[] = [];
     await eachLimited(ids, 6, async (id) => {
-      const target = sheets.find((s) => s.id === id);
-      const name = target?.forwarder_name ?? id;
+      const name = sheets.find((s) => s.id === id)?.forwarder_name ?? id;
       try {
         const res = await fetch(`/api/rate-sheets/${id}`, { method: "DELETE" });
-        if (res.ok) {
-          succeeded.push(id);
-        } else {
-          const json = await res.json().catch(() => ({}));
-          failures.push(`${name}: ${json.error || "failed"}`);
-        }
+        if (res.ok) succeeded.push(id);
+        else failures.push(`${name}: ${(await res.json().catch(() => ({}))).error || "failed"}`);
       } catch (err: any) {
         failures.push(`${name}: ${err?.message || "network error"}`);
       }
@@ -158,9 +178,7 @@ export default function FreightComparisonClient({
     setBulkDeleting(false);
     setBulkConfirming(false);
     bulk.clear();
-    if (failures.length > 0) {
-      setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
-    }
+    if (failures.length > 0) setBulkError(`${failures.length} of ${ids.length} couldn't be deleted:\n${failures.join("\n")}`);
     if (succeeded.length > 0) router.refresh();
   }
 
@@ -168,162 +186,82 @@ export default function FreightComparisonClient({
     router.push(`/freight-comparison?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}&destination=${encodeURIComponent(destination)}`);
   }
 
-  function navigateYear(year: string) {
-    // Dropping the month param lets the server pick that year's own
-    // default month instead of carrying over a month from a different year.
-    router.replace(`/freight-comparison?year=${encodeURIComponent(year)}&destination=${encodeURIComponent(selectedDestination)}`);
-  }
-
-  // The sidebar's Working Year drives this page like every other module:
-  // whenever it differs from the year in the URL, follow it. The Year
-  // picker below just changes the sidebar year (same control, two places).
-  const { year: workingYear, setYear: setWorkingYear } = useYear();
+  // The sidebar's Working Year drives this page like every other module.
+  const { year: workingYear } = useYear();
   useEffect(() => {
-    if (selectedYear !== String(workingYear)) navigateYear(String(workingYear));
+    if (selectedYear !== String(workingYear)) router.replace(`/freight-comparison?year=${workingYear}&destination=${encodeURIComponent(selectedDestination)}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workingYear, selectedYear]);
 
-  // ---------------- Pivot: origins x (forwarder + shipping_line) columns ----------------
+  // All 12 months of the Working Year are pickable; the ones with sheets are marked.
+  const months = useMemo(() => MONTH_NAMES.map((_, i) => `${workingYear}-${String(i + 1).padStart(2, "0")}-01`), [workingYear]);
 
-  const { origins, columns, matrix } = useMemo(() => {
-    const originSet = new Map<string, string>(); // normalized -> display
-    const columnMap = new Map<string, { forwarder_name: string; shipping_line: string; free_days: number | null }>();
-    const cellMap = new Map<string, number>(); // `${originKey}||${colKey}` -> rate
+  const { columns, rows, colByKey } = useMemo(() => buildComparison(sheets, minFree), [sheets, minFree]);
+  const shownRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? rows.filter((r) => r.label.toLowerCase().includes(q)) : rows;
+  }, [rows, search]);
 
-    for (const sheet of sheets) {
-      for (const e of sheet.entries) {
-        if (e.rate === null || e.rate === undefined) continue;
-        const originKey = e.origin.trim().toUpperCase();
-        if (!originSet.has(originKey)) originSet.set(originKey, e.origin.trim());
-
-        const colKey = `${sheet.forwarder_name}||${e.shipping_line.trim().toUpperCase()}`;
-        if (!columnMap.has(colKey)) {
-          columnMap.set(colKey, {
-            forwarder_name: sheet.forwarder_name,
-            shipping_line: e.shipping_line.trim(),
-            free_days: e.free_days ?? null,
-          });
-        } else if (columnMap.get(colKey)!.free_days === null && e.free_days !== null) {
-          columnMap.get(colKey)!.free_days = e.free_days;
-        }
-
-        cellMap.set(`${originKey}||${colKey}`, e.rate);
-      }
+  // Column groups by forwarder for the two-row header.
+  const groups = useMemo(() => {
+    const g: { forwarder: string; span: number }[] = [];
+    for (const c of columns) {
+      const last = g[g.length - 1];
+      if (last && last.forwarder === c.forwarder) last.span += 1;
+      else g.push({ forwarder: c.forwarder, span: 1 });
     }
-
-    const originsSorted = Array.from(originSet.entries()).sort((a, b) => a[1].localeCompare(b[1]));
-    // Group columns by shipping line (matches the reference sheet's layout), then by forwarder within.
-    const columnsSorted = Array.from(columnMap.entries()).sort((a, b) => {
-      const lineCompare = a[1].shipping_line.localeCompare(b[1].shipping_line);
-      if (lineCompare !== 0) return lineCompare;
-      return a[1].forwarder_name.localeCompare(b[1].forwarder_name);
-    });
-
-    return { origins: originsSorted, columns: columnsSorted, matrix: cellMap };
-  }, [sheets]);
-
-  // Visual-only grouping of the already-sorted columns by shipping line, so the
-  // table can render a shipping-line header row above the forwarder sub-header row.
-  const lineGroups = useMemo(() => {
-    const groups: { shippingLine: string; span: number }[] = [];
-    for (const [, col] of columns) {
-      const last = groups[groups.length - 1];
-      if (last && last.shippingLine === col.shipping_line) {
-        last.span += 1;
-      } else {
-        groups.push({ shippingLine: col.shipping_line, span: 1 });
-      }
-    }
-    return groups;
+    return g;
   }, [columns]);
 
-  function exportCsv() {
-    const header = ["Origin", ...columns.map(([, c]) => `${c.forwarder_name} - ${c.shipping_line}`)];
-    const freeDaysRow = ["Free Days", ...columns.map(([, c]) => (c.free_days ?? ""))];
-    const rows = origins.map(([originKey, originDisplay]) => [
-      originDisplay,
-      ...columns.map(([colKey]) => matrix.get(`${originKey}||${colKey}`) ?? ""),
-    ]);
-    const csv = [header, freeDaysRow, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mundra-comparison-${selectedMonth}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  // ---------------- Cheapest-per-origin highlighting ----------------
-
-  function cheapestColKeyForOrigin(originKey: string): string | null {
-    let best: string | null = null;
-    let bestRate = Infinity;
-    for (const [colKey] of columns) {
-      const v = matrix.get(`${originKey}||${colKey}`);
-      if (v !== undefined && v < bestRate) {
-        bestRate = v;
-        best = colKey;
-      }
-    }
-    return best;
-  }
+  const exportHref = `/api/rate-sheets/export?month=${encodeURIComponent(selectedMonth)}&destination=${encodeURIComponent(selectedDestination)}&minFree=${minFree}`;
+  const cellBorder = "1px solid var(--line)";
 
   return (
-    <div className="h-full flex flex-col" style={{ gap: 20 }}>
+    <div className="h-full flex flex-col overflow-y-auto" style={{ gap: 16 }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
         <div>
           <h1 className="h1">Freight Comparison</h1>
           <p className="sub">
-            {fmtMonth(selectedMonth)} — {selectedDestination}
+            {fmtMonth(selectedMonth)} — {selectedDestination} · {sheets.length} forwarder{sheets.length === 1 ? "" : "s"} · rates include each forwarder&apos;s add-on per container
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button type="button" onClick={exportCsv} disabled={origins.length === 0} className="btn">
+        <div className="grid grid-flow-col auto-cols-fr gap-2">
+          <a href={rows.length ? exportHref : undefined} aria-disabled={!rows.length} className={`btn ${rows.length ? "" : "opacity-50 pointer-events-none"}`}>
             <DownloadIcon />
-            Export CSV
-          </button>
+            Download Excel
+          </a>
           <button type="button" onClick={() => setUploading(true)} className="btn btn-p">
             <PlusIcon />
-            + Upload Rate Sheet
+            Upload Rate Sheets
           </button>
         </div>
       </div>
 
       {uploading && (
         <UploadPanel
-          defaultMonth={selectedMonth}
+          year={workingYear}
+          defaultMonth={selectedMonth.startsWith(String(workingYear)) ? selectedMonth : `${workingYear}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`}
           defaultDestination={selectedDestination}
+          lastAddOns={lastAddOns}
+          forwarderNames={forwarderNames}
           onClose={() => setUploading(false)}
-          onSaved={() => {
+          onSaved={(month, destination) => {
             setUploading(false);
-            router.refresh();
+            if (month !== selectedMonth || destination !== selectedDestination) navigate(month, destination, String(workingYear));
+            else router.refresh();
           }}
         />
       )}
 
-      <section className="card" style={{ overflow: "hidden" }}>
+      <section className="card flex-1 flex flex-col" style={{ overflow: "hidden", minHeight: 460 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
-          <div className="field" style={{ width: 150 }}>
-            <label htmlFor="fy">Year</label>
-            <select id="fy" className="select select-s" value={String(workingYear)} onChange={(e) => setWorkingYear(Number(e.target.value))}>
-              {!yearOptions.includes(String(workingYear)) && <option value={String(workingYear)}>{workingYear}</option>}
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field" style={{ width: 180 }}>
-            <label htmlFor="fm">Month</label>
-            <select id="fm" className="select select-s" value={selectedMonth} onChange={(e) => navigate(e.target.value, selectedDestination)}>
-              {!monthOptions.includes(selectedMonth) && <option value={selectedMonth}>{fmtMonth(selectedMonth)}</option>}
-              {monthOptions.map((m) => (
+          <div className="field" style={{ width: 190 }}>
+            <label htmlFor="fm">Month ({workingYear})</label>
+            <select id="fm" className="select select-s" value={selectedMonth} onChange={(e) => navigate(e.target.value, selectedDestination, String(workingYear))}>
+              {months.map((m) => (
                 <option key={m} value={m}>
                   {fmtMonth(m)}
+                  {monthOptions.includes(m) ? " ●" : ""}
                 </option>
               ))}
             </select>
@@ -339,87 +277,126 @@ export default function FreightComparisonClient({
               ))}
             </select>
           </div>
+          <div className="field" style={{ width: 190 }}>
+            <label htmlFor="fmin">Best value needs</label>
+            <select id="fmin" className="select select-s" value={minFree} onChange={(e) => setMinFree(Number(e.target.value))}>
+              {[7, 8, 10, 12, 14].map((d) => (
+                <option key={d} value={d}>
+                  {d}+ free days
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field" style={{ width: 200 }}>
+            <label htmlFor="fs">Origin</label>
+            <input id="fs" type="search" autoComplete="off" className="input input-s" placeholder="Search origin…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
           <div style={{ flex: 1 }} />
-          <div className="lbl" style={{ display: "flex", gap: 16, alignItems: "center", paddingBottom: 6 }}>
+          <div className="lbl" style={{ display: "flex", gap: 14, alignItems: "center", paddingBottom: 6, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: "var(--okS)", border: "1px solid var(--ok)" }} />
-              Cheapest per origin
+              <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: "#C6EFCE", border: "1px solid #3a9b52" }} />
+              Cheapest
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span className="dash">—</span> no rate
+              <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: "#DDEBF7", border: "1px solid #2f6db5" }} />
+              Best value ({minFree}+ free days)
+            </span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: 4, background: "var(--warnS)", border: "1px solid var(--warn)" }} />
+              Under {minFree} free days
             </span>
           </div>
         </div>
 
-        <div className="tw">
-          <table className="tbl" style={{ minWidth: 900 }}>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <table className="text-sm border-collapse" style={{ minWidth: "100%" }}>
             <caption className="sr">
-              Ocean freight comparison for {selectedDestination}, {fmtMonth(selectedMonth)}, by origin, shipping line and forwarder
+              Ocean freight comparison for {selectedDestination}, {fmtMonth(selectedMonth)}: origins by forwarder and shipping line, rates include each forwarder&apos;s add-on
             </caption>
             <thead>
               <tr>
-                <th rowSpan={2} className="stk" style={{ zIndex: 3, minWidth: 160, verticalAlign: "bottom" }}>
+                <th rowSpan={3} className="sticky left-0 top-0 z-30 bg-surface-2 px-3 py-2 text-left font-semibold text-ink" style={{ minWidth: 170, borderRight: cellBorder, verticalAlign: "bottom" }}>
                   Origin
                 </th>
-                {lineGroups.map((g, i) => (
-                  <th key={i} colSpan={g.span} style={{ textAlign: "center", borderLeft: "1px solid var(--line)" }}>
-                    {g.shippingLine}
+                {groups.map((g, i) => (
+                  <th key={i} colSpan={g.span} className="sticky top-0 z-20 bg-surface-2 px-2 py-1.5 text-center font-semibold text-ink" style={{ borderLeft: cellBorder, borderBottom: cellBorder, height: 32 }}>
+                    {g.forwarder}
+                  </th>
+                ))}
+                <th rowSpan={3} className="sticky top-0 z-20 bg-surface-2 px-3 py-2 text-right font-semibold text-ink" style={{ borderLeft: cellBorder, minWidth: 100, verticalAlign: "bottom" }}>
+                  Lowest Rate
+                </th>
+                <th rowSpan={3} className="sticky top-0 z-20 bg-surface-2 px-3 py-2 text-left font-semibold text-ink" style={{ minWidth: 190, verticalAlign: "bottom" }}>
+                  Lowest Forwarder / Line
+                </th>
+                <th rowSpan={3} className="sticky top-0 z-20 bg-surface-2 px-3 py-2 text-left font-semibold text-ink" style={{ minWidth: 200, verticalAlign: "bottom" }}>
+                  Best value ({minFree}+ days)
+                </th>
+              </tr>
+              <tr>
+                {columns.map((c) => (
+                  <th key={c.key} className="sticky z-20 bg-surface-2 px-2 py-1 text-right font-semibold text-text-2 whitespace-nowrap" style={{ top: 32, borderLeft: cellBorder, height: 28 }}>
+                    {c.line}
                   </th>
                 ))}
               </tr>
               <tr>
-                {columns.map(([colKey, c]) => (
-                  <th key={colKey} className="r" style={{ top: 37, fontWeight: 500, borderLeft: "1px solid var(--line)" }}>
-                    <div style={{ color: "var(--tx)", fontWeight: 600 }}>{c.forwarder_name}</div>
-                    {c.free_days !== null && <div className="meta">{c.free_days} free days</div>}
-                  </th>
-                ))}
+                {columns.map((c) => {
+                  const short = c.freeDays !== null && c.freeDays < minFree;
+                  return (
+                    <th
+                      key={c.key}
+                      className="sticky z-20 px-2 py-1 text-right font-normal whitespace-nowrap"
+                      style={{ top: 60, borderLeft: cellBorder, borderBottom: cellBorder, background: short ? "var(--warnS)" : "var(--surf2)", color: short ? "var(--warn)" : "var(--mut)", fontSize: 11 }}
+                      title={`${c.freeDays ?? "?"} destination free days · ${money(c.addOn)} added per container`}
+                    >
+                      {c.freeDays ?? "?"} days · +{money(c.addOn)}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {origins.map(([originKey, originDisplay]) => {
-                const cheapestCol = cheapestColKeyForOrigin(originKey);
-                return (
-                  <tr key={originKey}>
-                    <td className="stk" style={{ fontWeight: 600 }}>
-                      {originDisplay}
-                    </td>
-                    {columns.map(([colKey]) => {
-                      const v = matrix.get(`${originKey}||${colKey}`);
-                      const isCheapest = colKey === cheapestCol && v !== undefined;
-                      return (
-                        <td
-                          key={colKey}
-                          className="r num"
-                          style={{
-                            borderLeft: "1px solid var(--line)",
-                            ...(isCheapest ? { background: "var(--okS)", color: "var(--ok)", fontWeight: 700 } : {}),
-                          }}
-                        >
-                          {v === undefined ? (
-                            <span className="dash" aria-label="No rate">
-                              —
-                            </span>
-                          ) : isCheapest ? (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                              <CheckIcon />${v.toLocaleString()}
-                              <span className="sr"> (cheapest)</span>
-                            </span>
-                          ) : (
-                            `$${v.toLocaleString()}`
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-              {origins.length === 0 && (
+              {shownRows.map((row) => (
+                <tr key={row.key} className="hover:bg-surface-2">
+                  <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-semibold text-ink whitespace-nowrap" style={{ borderRight: cellBorder, borderBottom: cellBorder }}>
+                    {row.label}
+                  </td>
+                  {columns.map((c) => {
+                    const cell = row.cells[c.key];
+                    const isLow = !!cell && row.lowestCols.includes(c.key);
+                    const isBest = !!cell && row.best?.col === c.key;
+                    return (
+                      <td
+                        key={c.key}
+                        className="px-2 py-2 text-right tabular-nums whitespace-nowrap"
+                        style={{
+                          borderLeft: cellBorder,
+                          borderBottom: cellBorder,
+                          ...(isLow ? { background: "#C6EFCE", color: "#1e6b34", fontWeight: 700 } : isBest ? { background: "#DDEBF7", color: "#1d4f8c", fontWeight: 700 } : {}),
+                        }}
+                        title={cell ? `${colLabel(c)}: ${money(cell.base)} + ${money(cell.addOn)} added = ${money(cell.rate)} · ${cell.freeDays ?? c.freeDays ?? "?"} free days` : undefined}
+                      >
+                        {cell ? money(cell.rate) : <span className="text-muted">—</span>}
+                        {(isLow || isBest) && <span className="sr">{isLow ? " (cheapest)" : " (best value)"}</span>}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ borderLeft: cellBorder, borderBottom: cellBorder, color: "#1e6b34" }}>
+                    {row.lowest !== null ? money(row.lowest) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-text-2" style={{ borderBottom: cellBorder, whiteSpace: "normal", minWidth: 190 }}>
+                    {row.lowestCols.map((k) => colLabel(colByKey.get(k)!)).join(", ") || "—"}
+                  </td>
+                  <td className="px-3 py-2" style={{ borderBottom: cellBorder, whiteSpace: "normal", minWidth: 200, color: row.best ? "#1d4f8c" : "var(--mut)" }}>
+                    {row.best ? `${colLabel(colByKey.get(row.best.col)!)} · ${money(row.best.rate)}` : row.lowest !== null ? "Same as lowest" : "—"}
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length + 1} style={{ textAlign: "center", padding: "40px 12px", whiteSpace: "normal" }}>
-                    <span className="lbl">
-                      No rate sheets uploaded yet for {fmtMonth(selectedMonth)} / {selectedDestination}. Click &quot;+ Upload Rate Sheet&quot; to add one.
-                    </span>
+                  <td colSpan={columns.length + 4} style={{ textAlign: "center", padding: "40px 12px", whiteSpace: "normal" }}>
+                    <span className="lbl">No rate sheets yet for {fmtMonth(selectedMonth)} / {selectedDestination}. Click &quot;Upload Rate Sheets&quot; to add up to 8 PDFs or Excel files.</span>
                   </td>
                 </tr>
               )}
@@ -433,19 +410,7 @@ export default function FreightComparisonClient({
           type="button"
           aria-expanded={manageOpen}
           onClick={() => setManageOpen(!manageOpen)}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "16px 18px",
-            border: 0,
-            background: "transparent",
-            color: "var(--tx)",
-            font: "inherit",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "16px 18px", border: 0, background: "transparent", color: "var(--tx)", font: "inherit", cursor: "pointer", textAlign: "left" }}
         >
           <ChevronIcon open={manageOpen} />
           <span className="h2" style={{ flex: 1 }}>
@@ -456,13 +421,7 @@ export default function FreightComparisonClient({
         {manageOpen && (
           <div style={{ padding: "0 18px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
             {isAdmin && (
-              <BulkActionBar
-                count={bulk.selectedCount}
-                itemLabel="rate sheet"
-                onDeleteClick={() => setBulkConfirming(true)}
-                onClear={bulk.clear}
-                deleting={bulkDeleting}
-              />
+              <BulkActionBar count={bulk.selectedCount} itemLabel="rate sheet" onDeleteClick={() => setBulkConfirming(true)} onClear={bulk.clear} deleting={bulkDeleting} />
             )}
             {sheets.map((s) => (
               <SheetManageCard
@@ -525,278 +484,301 @@ export default function FreightComparisonClient({
   );
 }
 
-// ---------------- Upload panel: PDF (per-file extraction) or manual entry ----------------
+// ---------------- Upload: up to 8 PDFs / Excel files, read, reviewed, saved ----------------
 
-type DraftEntry = { origin: string; shipping_line: string; rate: string; free_days: string };
+const MAX_FILES = 8;
 
-function blankEntry(): DraftEntry {
-  return { origin: "", shipping_line: "", rate: "", free_days: "" };
+type Extracted = {
+  forwarder_name: string | null;
+  entries: { origin: string; shipping_line: string; rate: number | null; free_days: number | null }[];
+  charges: { label: string; amount: number | null; shipping_lines: string[] }[];
+};
+type Job = {
+  file: File;
+  status: "waiting" | "reading" | "done" | "error";
+  error?: string;
+  result?: Extracted;
+  forwarder: string;
+  addOn: string;
+  byLine: Record<string, string>;
+  include: boolean;
+};
+
+function chargesText(charges: Extracted["charges"]) {
+  return charges
+    .map((c) => `${c.label}${c.amount != null ? ` $${c.amount}` : ""}${c.shipping_lines?.length ? ` (${c.shipping_lines.join(", ")})` : ""}`)
+    .join("; ");
 }
 
 function UploadPanel({
+  year,
   defaultMonth,
   defaultDestination,
+  lastAddOns,
+  forwarderNames,
   onClose,
   onSaved,
 }: {
+  year: number;
   defaultMonth: string;
   defaultDestination: string;
+  lastAddOns: Record<string, LastAddOn>;
+  forwarderNames: string[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (month: string, destination: string) => void;
 }) {
-  const [mode, setMode] = useState<"pdf" | "manual">("pdf");
-  const [forwarderName, setForwarderName] = useState("");
-  const [destination, setDestination] = useState(defaultDestination);
-  const [month, setMonth] = useState(monthToInputValue(defaultMonth));
-  const [currency, setCurrency] = useState("USD");
-  const [files, setFiles] = useState<File[]>([]);
-  const [entries, setEntries] = useState<DraftEntry[]>([blankEntry()]);
+  const [monthNum, setMonthNum] = useState(defaultMonth.slice(5, 7));
+  const [destination, setDestination] = useState(defaultDestination || "Mundra, IN");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [reading, setReading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [log, setLog] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const month = `${year}-${monthNum}-01`;
 
-  function updateEntry(i: number, patch: Partial<DraftEntry>) {
-    setEntries(entries.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
-  }
-  function addEntryRow() {
-    setEntries([...entries, blankEntry()]);
-  }
-  function removeEntryRow(i: number) {
-    setEntries(entries.filter((_, idx) => idx !== i));
+  const patchJob = (i: number, patch: Partial<Job>) => setJobs((prev) => prev.map((j, k) => (k === i ? { ...j, ...patch } : j)));
+
+  // Remembered add-on for a forwarder (its most recent sheet), e.g. UAL +65, ONE +75.
+  function rememberedFor(name: string) {
+    return lastAddOns[name.trim().toUpperCase()] ?? null;
   }
 
-  async function saveManual() {
-    setSaving(true);
+  function pickFiles(list: FileList | null) {
     setError(null);
-    try {
-      const res = await fetch("/api/rate-sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          forwarder_name: forwarderName,
-          destination,
-          rate_month: `${month}-01`,
-          currency,
-          entries: entries.filter((e) => e.origin && e.shipping_line),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to save rate sheet");
-      onSaved();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    const files = Array.from(list ?? []);
+    const room = MAX_FILES - jobs.length;
+    if (files.length > room) setError(`Up to ${MAX_FILES} files at a time - the first ${room} were added.`);
+    setJobs((prev) => [
+      ...prev,
+      ...files.slice(0, Math.max(0, room)).map((file) => ({ file, status: "waiting" as const, forwarder: "", addOn: "", byLine: {}, include: true })),
+    ]);
   }
 
-  // Uploads each selected PDF as its own rate sheet (one forwarder's sheet
-  // per file is the normal case), sequentially so the log reads top to
-  // bottom in upload order.
-  async function savePdfs() {
-    if (files.length === 0) {
-      setError("Choose at least one PDF file.");
-      return;
-    }
-    if (!forwarderName.trim()) {
-      setError("Forwarder name is required.");
-      return;
-    }
-    setSaving(true);
+  async function readAll() {
+    setReading(true);
     setError(null);
-    setLog([]);
-    try {
-      for (const file of files) {
-        const form = new FormData();
-        form.append("file", file);
-        form.append("forwarder_name", forwarderName);
-        form.append("destination", destination);
-        form.append("rate_month", `${month}-01`);
-        form.append("currency", currency);
-
-        const res = await fetch("/api/rate-sheets", { method: "POST", body: form });
-        const json = await res.json();
-        if (!res.ok) {
-          setLog((l) => [...l, `✕ ${file.name}: ${json.error || "failed"}`]);
-          continue;
-        }
-        setLog((l) => [...l, `✓ ${file.name}: ${json.entries_found} rates extracted`]);
+    const indexes = jobs.map((j, i) => (j.status === "waiting" || j.status === "error" ? i : -1)).filter((i) => i >= 0);
+    await eachLimited(indexes, 3, async (i) => {
+      patchJob(i, { status: "reading", error: undefined });
+      try {
+        const body = new FormData();
+        body.append("file", jobs[i].file);
+        const res = await fetch("/api/rate-sheets/extract", { method: "POST", body });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "Couldn't read this file");
+        const result: Extracted = { forwarder_name: json.forwarder_name ?? null, entries: json.entries ?? [], charges: json.charges ?? [] };
+        const guess = (result.forwarder_name || jobs[i].file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ")).trim();
+        const known = forwarderNames.find((n) => n.toLowerCase() === guess.toLowerCase() || guess.toLowerCase().includes(n.toLowerCase())) ?? guess;
+        const mem = rememberedFor(known);
+        patchJob(i, {
+          status: result.entries.length ? "done" : "error",
+          error: result.entries.length ? undefined : "No rates found in this file",
+          result,
+          forwarder: known,
+          addOn: mem ? String(mem.add_on || "") : "",
+          byLine: mem ? Object.fromEntries(Object.entries(mem.add_on_by_line).map(([k, v]) => [k, String(v)])) : {},
+        });
+      } catch (err: any) {
+        patchJob(i, { status: "error", error: err.message });
       }
-      onSaved();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    });
+    setReading(false);
   }
 
-  const pdfMode = mode === "pdf";
+  // Files start reading as soon as they're picked.
+  useEffect(() => {
+    if (!reading && !saving && jobs.some((j) => j.status === "waiting")) readAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.length]);
+
+  const ready = jobs.filter((j) => j.include && j.status === "done");
+  async function saveAll() {
+    if (ready.some((j) => !j.forwarder.trim())) {
+      setError("Enter the forwarder name for every file.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const failures: string[] = [];
+    const warnings = new Set<string>();
+    for (const j of ready) {
+      const byLine: Record<string, number> = {};
+      for (const [k, v] of Object.entries(j.byLine)) if (v.trim() !== "" && Number.isFinite(Number(v))) byLine[k] = Number(v);
+      try {
+        const res = await fetch("/api/rate-sheets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            forwarder_name: j.forwarder.trim(),
+            destination,
+            rate_month: month,
+            source_type: /\.pdf$/i.test(j.file.name) ? "pdf" : "excel",
+            source_file_name: j.file.name,
+            add_on: j.addOn.trim() === "" ? 0 : Number(j.addOn),
+            add_on_by_line: byLine,
+            charges_note: chargesText(j.result!.charges) || null,
+            entries: j.result!.entries,
+            replace_existing: true,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) failures.push(`${j.file.name}: ${json.error || "failed"}`);
+        if (json.warning) warnings.add(json.warning);
+      } catch (err: any) {
+        failures.push(`${j.file.name}: ${err.message}`);
+      }
+    }
+    setSaving(false);
+    if (failures.length) {
+      setError(failures.join("\n"));
+      return;
+    }
+    if (warnings.size) alert(Array.from(warnings).join("\n"));
+    onSaved(month, destination);
+  }
 
   return (
-    <section className="card" aria-labelledby="upload-rate-sheet-h" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <h2 id="upload-rate-sheet-h" className="h2">
-          Upload rate sheet
-        </h2>
-        <div className="seg" role="radiogroup" aria-label="Upload method">
-          <button type="button" role="radio" aria-checked={pdfMode} className={pdfMode ? "on" : ""} onClick={() => setMode("pdf")}>
-            Upload PDF(s)
-          </button>
-          <button type="button" role="radio" aria-checked={!pdfMode} className={!pdfMode ? "on" : ""} onClick={() => setMode("manual")}>
-            Manual Entry (Excel / email source)
-          </button>
+    <section className="card" style={{ padding: "18px 20px" }} aria-labelledby="up-h">
+      <datalist id="fc-forwarders">
+        {forwarderNames.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <h2 id="up-h" className="h2">Upload rate sheets</h2>
+          <p className="lbl">Up to {MAX_FILES} files at once - PDF emails or Excel (.xlsx) / CSV. Each is read automatically; check it, then save.</p>
         </div>
+        <button type="button" className="ib" aria-label="Close" onClick={onClose}>
+          ✕
+        </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
-        <div className="field">
-          <label htmlFor="rs-fwn">
-            Forwarder Name <span className="req">*</span>
-          </label>
-          <input
-            id="rs-fwn"
-            className="input"
-            placeholder="e.g. UAL, Walker"
-            value={forwarderName}
-            onChange={(e) => setForwarderName(e.target.value)}
-            aria-describedby={error ? "rs-error" : undefined}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="rs-dst">Destination</label>
-          <input id="rs-dst" className="input" value={destination} onChange={(e) => setDestination(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="rs-rm">Rate Month</label>
-          <input id="rs-rm" type="month" className="input" value={month} onChange={(e) => setMonth(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="rs-cur">Currency</label>
-          <select id="rs-cur" className="select" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="INR">INR</option>
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="field" style={{ width: 200 }}>
+          <label htmlFor="up-month">Month of these rates ({year})</label>
+          <select id="up-month" className="select" value={monthNum} onChange={(e) => setMonthNum(e.target.value)}>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={String(i + 1).padStart(2, "0")}>
+                {m} {year}
+              </option>
+            ))}
           </select>
         </div>
+        <div className="field" style={{ width: 200 }}>
+          <label htmlFor="up-dest">Destination</label>
+          <input id="up-dest" className="input" autoComplete="off" value={destination} onChange={(e) => setDestination(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: "1 1 260px" }}>
+          <label htmlFor="up-files">Files ({jobs.length}/{MAX_FILES})</label>
+          <input
+            id="up-files"
+            type="file"
+            multiple
+            accept=".pdf,.xlsx,.xlsm,.csv,application/pdf"
+            className="input"
+            disabled={jobs.length >= MAX_FILES || reading || saving}
+            onChange={(e) => {
+              pickFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
       </div>
 
-      {pdfMode ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <label className="drop" style={{ cursor: "pointer" }}>
-            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3-3 3 3" />
-            </svg>
-            <span style={{ fontWeight: 600 }}>Choose one or more rate-sheet PDFs</span>
-            {files.length > 0 && <span className="meta">{files.length} file{files.length === 1 ? "" : "s"} selected</span>}
-            <input type="file" accept="application/pdf" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} className="sr" />
-          </label>
-          <p className="help" style={{ margin: 0 }}>
-            Each PDF becomes its own rate sheet under this forwarder/month/destination. AI extraction reads every origin+carrier rate cell —
-            review the comparison table afterward and fix anything it misread under &quot;Manage uploaded rate sheets&quot; below.
-          </p>
-          {log.length > 0 && (
-            <div
-              role="log"
-              aria-label="Extraction log"
-              style={{ border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 13, background: "var(--surf2)" }}
-            >
-              {log.map((l, i) => (
-                <span key={i} style={l.startsWith("✓") ? { color: "var(--ok)", fontWeight: 500 } : l.startsWith("✕") ? { color: "var(--crit)", fontWeight: 500 } : { color: "var(--tx2)" }}>
-                  {l}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
-          <div style={{ padding: "10px 14px", fontWeight: 600, background: "var(--surf2)", borderBottom: "1px solid var(--line)" }}>Rate Rows</div>
-          <div className="tw">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Origin</th>
-                  <th>Shipping Line</th>
-                  <th className="r">Rate</th>
-                  <th className="r">Free Days</th>
-                  <th>
-                    <span className="sr">Remove</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((e, i) => (
-                  <tr key={i}>
-                    <td>
-                      <input className="input input-s" aria-label={`Origin row ${i + 1}`} value={e.origin} onChange={(ev) => updateEntry(i, { origin: ev.target.value })} />
-                    </td>
-                    <td>
-                      <input
-                        className="input input-s"
-                        aria-label={`Shipping line row ${i + 1}`}
-                        value={e.shipping_line}
-                        onChange={(ev) => updateEntry(i, { shipping_line: ev.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        className="input input-s num"
-                        style={{ textAlign: "right" }}
-                        aria-label={`Rate row ${i + 1}`}
-                        value={e.rate}
-                        onChange={(ev) => updateEntry(i, { rate: ev.target.value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="number"
-                        className="input input-s num"
-                        style={{ textAlign: "right" }}
-                        aria-label={`Free days row ${i + 1}`}
-                        value={e.free_days}
-                        onChange={(ev) => updateEntry(i, { free_days: ev.target.value })}
-                      />
-                    </td>
-                    <td className="r">
-                      {entries.length > 1 && (
-                        <button type="button" className="ib" aria-label={`Remove row ${i + 1}`} onClick={() => removeEntryRow(i)}>
-                          <RemoveIcon />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ padding: "10px 14px" }}>
-            <button type="button" className="btn btn-s" onClick={addEntryRow}>
-              + Add Row
-            </button>
-          </div>
+      {jobs.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {jobs.map((j, i) => {
+            const lines = Array.from(new Set((j.result?.entries ?? []).map((e) => lineKey(e.shipping_line))));
+            const freeByLine = new Map<string, Set<number>>();
+            for (const e of j.result?.entries ?? []) if (e.free_days != null) freeByLine.set(lineKey(e.shipping_line), (freeByLine.get(lineKey(e.shipping_line)) ?? new Set()).add(e.free_days));
+            return (
+              <div key={i} style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 12, opacity: j.include ? 1 : 0.55 }}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <input type="checkbox" aria-label={`Include ${j.file.name}`} checked={j.include} onChange={(e) => patchJob(i, { include: e.target.checked })} disabled={j.status !== "done"} />
+                  <b className="text-ink" style={{ flex: "1 1 220px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={j.file.name}>
+                    {j.file.name}
+                  </b>
+                  <span className={`badge ${j.status === "done" ? "b-ok" : j.status === "error" ? "b-crit" : j.status === "reading" ? "b-acc" : "b-neu"}`}>
+                    {j.status === "done" ? `${j.result!.entries.length} rates` : j.status === "reading" ? "Reading…" : j.status === "error" ? "Not read" : "Waiting"}
+                  </span>
+                  {!reading && !saving && (
+                    <button type="button" className="ib" aria-label={`Remove ${j.file.name}`} onClick={() => setJobs((prev) => prev.filter((_, k) => k !== i))}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+                {j.error && <p className="err mt-1">{j.error}</p>}
+                {j.status === "done" && (
+                  <div className="mt-2 flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-3 items-end">
+                      <div className="field" style={{ width: 220 }}>
+                        <label>Forwarder</label>
+                        <input
+                          className="input input-s"
+                          list="fc-forwarders"
+                          autoComplete="off"
+                          value={j.forwarder}
+                          onChange={(e) => {
+                            const name = e.target.value;
+                            const mem = rememberedFor(name);
+                            patchJob(i, mem ? { forwarder: name, addOn: String(mem.add_on || ""), byLine: Object.fromEntries(Object.entries(mem.add_on_by_line).map(([k, v]) => [k, String(v)])) } : { forwarder: name });
+                          }}
+                        />
+                      </div>
+                      <div className="field" style={{ width: 170 }}>
+                        <label>Add per container ($)</label>
+                        <input className="input input-s num" inputMode="decimal" placeholder="e.g. 65" value={j.addOn} onChange={(e) => patchJob(i, { addOn: e.target.value })} />
+                      </div>
+                      <span className="lbl" style={{ paddingBottom: 8 }}>Different for a line? Set it here:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {lines.map((l) => (
+                        <label key={l} className="flex items-center gap-1.5 text-xs border border-line rounded-lg px-2 py-1" title={`${l}: ${Array.from(freeByLine.get(l) ?? []).join("/") || "?"} free days`}>
+                          <span className="font-semibold text-ink">{l}</span>
+                          <span className="text-muted">{Array.from(freeByLine.get(l) ?? []).join("/") || "?"}d · +$</span>
+                          <input
+                            className="border border-line rounded px-1 py-0.5 w-14 text-right bg-surface"
+                            inputMode="decimal"
+                            aria-label={`Add per container for ${l}`}
+                            placeholder={j.addOn || "0"}
+                            value={j.byLine[l] ?? ""}
+                            onChange={(e) => patchJob(i, { byLine: { ...j.byLine, [l]: e.target.value } })}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    {j.result!.charges.length > 0 && (
+                      <p className="lbl" style={{ fontSize: 12 }}>
+                        <b>Charges in this sheet:</b> {chargesText(j.result!.charges)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {error && (
-        <p id="rs-error" className="err" style={{ margin: 0 }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="err mt-2" style={{ whiteSpace: "pre-wrap" }}>{error}</p>}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button type="button" className="btn" onClick={onClose}>
+      <div className="flex flex-wrap justify-end gap-2 mt-4 pt-3 border-t border-line">
+        <button type="button" className="btn btn-g" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button type="button" className="btn btn-p" onClick={mode === "pdf" ? savePdfs : saveManual} disabled={saving}>
-          {saving ? "Saving…" : "Save Rate Sheet"}
+        {(reading || jobs.some((j) => j.status === "error")) && (
+          <button type="button" className="btn" onClick={readAll} disabled={reading || saving}>
+            {reading ? "Reading files…" : "Try again"}
+          </button>
+        )}
+        <button type="button" className="btn btn-p" onClick={saveAll} disabled={saving || reading || ready.length === 0}>
+          {saving ? "Saving…" : `Save ${ready.length} sheet${ready.length === 1 ? "" : "s"} for ${MONTH_NAMES[Number(monthNum) - 1]} ${year}`}
         </button>
       </div>
+      <p className="meta mt-2">Saving a forwarder again for the same month replaces its earlier sheet.</p>
     </section>
   );
 }
-
-// ---------------- Manage panel: one card per uploaded sheet, editable rows ----------------
 
 function SheetManageCard({
   sheet,
@@ -844,7 +826,41 @@ function SheetManageCard({
     onChanged();
   }
 
-  const sourceLabel = sheet.source_type === "pdf" ? sheet.source_file_name : "manual entry";
+  const sourceLabel = sheet.source_type === "manual" ? "manual entry" : sheet.source_file_name;
+
+  // The per-container add-on: one amount, plus exceptions per line
+  // ("ONE=75, MSC=100").
+  const [addOn, setAddOn] = useState(String(sheet.add_on ?? 0));
+  const [byLine, setByLine] = useState(
+    Object.entries(sheet.add_on_by_line ?? {})
+      .map(([k, v]) => `${k}=${v}`)
+      .join(", ")
+  );
+  const [addOnMsg, setAddOnMsg] = useState<string | null>(null);
+  async function saveAddOn() {
+    setAddOnMsg(null);
+    const parsed: Record<string, number> = {};
+    for (const part of byLine.split(",").map((x) => x.trim()).filter(Boolean)) {
+      const m = part.match(/^(.+?)\s*[=:]\s*\+?\$?(-?[\d.]+)$/);
+      if (!m) {
+        setAddOnMsg(`"${part}" - write it as LINE=amount, e.g. ONE=75`);
+        return;
+      }
+      parsed[m[1].trim().toUpperCase()] = Number(m[2]);
+    }
+    const res = await fetch(`/api/rate-sheets/${sheet.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ add_on: addOn, add_on_by_line: parsed }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setAddOnMsg(json.error || "Couldn't save");
+      return;
+    }
+    setAddOnMsg("Saved");
+    onChanged();
+  }
 
   return (
     <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
@@ -872,6 +888,27 @@ function SheetManageCard({
           {deleting ? "…" : "Delete Sheet"}
         </button>
       </div>
+      {open && (
+        <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+          <div className="field" style={{ width: 160 }}>
+            <label>Add per container ($)</label>
+            <input className="input input-s num" inputMode="decimal" value={addOn} onChange={(e) => setAddOn(e.target.value)} />
+          </div>
+          <div className="field" style={{ flex: "1 1 240px" }}>
+            <label>Different per line (LINE=amount, comma separated)</label>
+            <input className="input input-s" autoComplete="off" placeholder="ONE=75, MSC=100" value={byLine} onChange={(e) => setByLine(e.target.value)} />
+          </div>
+          <button type="button" className="btn btn-s" onClick={saveAddOn}>
+            Save add-on
+          </button>
+          {addOnMsg && <span className={addOnMsg === "Saved" ? "lbl" : "err"}>{addOnMsg}</span>}
+          {sheet.charges_note && (
+            <p className="lbl" style={{ width: "100%", fontSize: 12 }}>
+              <b>Charges in this sheet:</b> {sheet.charges_note}
+            </p>
+          )}
+        </div>
+      )}
       {open && (
         <div className="tw">
           <table className="tbl">
@@ -974,3 +1011,4 @@ function RowCell({
     </td>
   );
 }
+

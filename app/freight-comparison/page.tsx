@@ -20,11 +20,14 @@ export default async function FreightComparisonPage({
   // Every distinct (rate_month, destination) pair that has at least one
   // sheet -- powers the year/month/destination pickers. Supabase-js has no
   // DISTINCT, so this pulls the (small) header rows and dedupes in JS.
+  // "*" so the add-on columns (migration 0041) come along when they exist,
+  // without breaking the page before it's run.
   const { data: allSheetsMeta, error: metaError } = await supabase
     .from("rate_sheets")
-    .select("rate_month, destination")
+    .select("*")
     .eq("company_id", companyId)
-    .order("rate_month", { ascending: false });
+    .order("rate_month", { ascending: false })
+    .order("created_at", { ascending: false });
 
   if (metaError) return <p className="text-red-600 p-6">{metaError.message}</p>;
 
@@ -45,7 +48,7 @@ export default async function FreightComparisonPage({
   const { data: sheets, error: sheetsError } = await supabase
     .from("rate_sheets")
     .select(
-      "id, forwarder_name, destination, rate_month, currency, source_type, source_file_name, notes, created_at, entries:rate_sheet_entries (id, origin, shipping_line, rate, free_days, sort_order)"
+      "*, entries:rate_sheet_entries (id, origin, shipping_line, rate, free_days, sort_order)"
     )
     .eq("company_id", companyId)
     .eq("rate_month", selectedMonth)
@@ -59,8 +62,20 @@ export default async function FreightComparisonPage({
     entries: (s.entries ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order),
   }));
 
+  // Each forwarder's most recent add-on (UAL +65, ONE +75...), pre-filled on
+  // its next upload.
+  const lastAddOns: Record<string, { add_on: number; add_on_by_line: Record<string, number> }> = {};
+  for (const s of (allSheetsMeta ?? []) as any[]) {
+    const k = String(s.forwarder_name ?? "").trim().toUpperCase();
+    if (k && !(k in lastAddOns) && ("add_on" in s)) lastAddOns[k] = { add_on: Number(s.add_on) || 0, add_on_by_line: s.add_on_by_line ?? {} };
+  }
+  const { data: forwarders } = await supabase.from("parties").select("legal_name").eq("company_id", companyId).contains("roles", ["forwarder"]).eq("is_active", true).order("legal_name");
+  const forwarderNames = Array.from(new Set([...(forwarders ?? []).map((f: any) => f.legal_name as string), ...((allSheetsMeta ?? []) as any[]).map((s) => s.forwarder_name as string)])).filter(Boolean);
+
   return (
     <FreightComparisonClient
+      lastAddOns={lastAddOns}
+      forwarderNames={forwarderNames}
       yearOptions={yearOptions}
       selectedYear={selectedYear}
       monthOptions={monthOptions}

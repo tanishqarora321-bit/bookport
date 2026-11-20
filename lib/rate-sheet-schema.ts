@@ -1,28 +1,43 @@
-// Schema for extracting a freight rate sheet PDF (e.g. a forwarder's monthly
-// "Origin x Shipping Line -> rate" table like UAL's or Walker's emails).
+// Schema for reading a forwarder's monthly rate sheet (PDF email or Excel):
+// a table of origin x shipping line -> rate to one destination, plus the
+// forwarder's name, free days per line and the extra charges it lists.
 //
-// Kept flat and lean, same reasoning as booking-schema.ts: one row per
-// (origin, shipping_line) rate cell, no nested confidence/source_quote per
-// row -- these sheets commonly have 40-90 rate cells, and per-field
-// metadata at that volume risks the same output-length cutoff problem
-// booking-schema.ts's comment warns about.
-
+// Kept flat (one entry per rate cell, no per-cell metadata) - these sheets
+// run 40-300 rate cells and per-field metadata risks cutting the output off.
 export const rateSheetExtractionSchema = {
   type: "object",
   properties: {
+    forwarder_name: {
+      type: "string",
+      nullable: true,
+      description: "The forwarder / freight company that sent these rates (e.g. 'UAL', 'Walker SCM', 'Speedex'), from the sender, signature or title. Null if unclear.",
+    },
     entries: {
       type: "array",
       items: {
         type: "object",
         properties: {
-          origin: { type: "string", description: "Origin city/port/ramp as written, e.g. 'NEW YORK' or 'ATLANTA, GA'" },
-          shipping_line: { type: "string", description: "Carrier name, e.g. MSC, MAERSK, HAPAG, COSCO, CMA CGM, ONE, HMM, EVERGREEN, OOCL" },
-          rate: { type: "number", nullable: true, description: "USD rate for this origin+carrier. Omit the entry entirely (do not include it) if the cell is blank or shows '-'." },
-          free_days: { type: "integer", nullable: true, description: "Free days at destination for this carrier, if stated anywhere on the sheet (often in a footer note like '12 free days on MSC/HAPAG'). Null if not stated." }
+          origin: { type: "string", description: "Origin city/port/ramp as written, e.g. 'NEW YORK' or 'Chicago, IL Ramp'" },
+          shipping_line: { type: "string", description: "Carrier, e.g. MSC, MAERSK, HAPAG-LLOYD, COSCO, CMA CGM, ONE, HMM, EVERGREEN, OOCL, WAN HAI" },
+          rate: { type: "number", nullable: true, description: "USD rate for this origin+carrier. Omit the entry if the cell is blank, '-' or '--'." },
+          free_days: { type: "integer", nullable: true, description: "Destination free days for this carrier (and origin, if the sheet varies it by origin). Null if not stated." },
         },
-        required: ["origin", "shipping_line", "rate"]
-      }
-    }
+        required: ["origin", "shipping_line", "rate"],
+      },
+    },
+    charges: {
+      type: "array",
+      description: "Extra charges the sheet lists (telex/doc release, AES filing, handling per BL, manifest corrections, cancellation...).",
+      items: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "Short name, e.g. 'DOC/Telex release', 'AES filing', 'Handling per BL', 'Manifest correction'" },
+          amount: { type: "number", nullable: true, description: "USD amount" },
+          shipping_lines: { type: "array", items: { type: "string" }, description: "Carriers it applies to; empty = all carriers" },
+        },
+        required: ["label"],
+      },
+    },
   },
-  required: ["entries"]
+  required: ["entries"],
 };
