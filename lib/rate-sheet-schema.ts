@@ -18,6 +18,11 @@ export const rateSheetExtractionSchema = {
         type: "object",
         properties: {
           origin: { type: "string", description: "Origin city/port/ramp as written, e.g. 'NEW YORK' or 'Chicago, IL Ramp'" },
+          forwarder: {
+            type: "string",
+            nullable: true,
+            description: "ONLY when the table has columns for several forwarders (headers like 'UAL - COSCO', 'Speedex - MSC', 'Walker - HAPAG-LLOYD'): the forwarder part of this column's header. Null for a normal one-forwarder sheet.",
+          },
           shipping_line: { type: "string", description: "Carrier, e.g. MSC, MAERSK, HAPAG-LLOYD, COSCO, CMA CGM, ONE, HMM, EVERGREEN, OOCL, WAN HAI" },
           rate: { type: "number", nullable: true, description: "USD rate for this origin+carrier. Omit the entry if the cell is blank, '-' or '--'." },
           free_days: { type: "integer", nullable: true, description: "Destination free days for this carrier (and origin, if the sheet varies it by origin). Null if not stated." },

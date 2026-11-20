@@ -52,7 +52,9 @@ export async function POST(req: NextRequest) {
     destination: dest,
     rate_month: month,
     currency: currency || "USD",
-    source_type: ["pdf", "excel", "manual"].includes(body.source_type) ? body.source_type : "manual",
+    // The database only accepts "pdf" / "manual" here, so any uploaded file
+    // (PDF or Excel) is stored as "pdf"; its file name says which it was.
+    source_type: body.source_type === "manual" ? "manual" : "pdf",
     source_file_name: body.source_file_name || null,
   };
   let warning: string | null = null;

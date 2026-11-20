@@ -490,9 +490,29 @@ const MAX_FILES = 8;
 
 type Extracted = {
   forwarder_name: string | null;
-  entries: { origin: string; shipping_line: string; rate: number | null; free_days: number | null }[];
+  entries: { origin: string; shipping_line: string; rate: number | null; free_days: number | null; forwarder?: string | null }[];
   charges: { label: string; amount: number | null; shipping_lines: string[] }[];
 };
+
+// A combined comparison sheet (columns "UAL - COSCO", "Speedex - MSC"...) holds
+// several forwarders: split its rates per forwarder (from the reader's
+// `forwarder`, else the "Forwarder - Line" header itself).
+function splitByForwarder(result: Extracted): { forwarder: string; entries: Extracted["entries"] }[] | null {
+  const groups = new Map<string, Extracted["entries"]>();
+  for (const e of result.entries) {
+    let fwd = (e.forwarder ?? "").trim();
+    let line = e.shipping_line;
+    const m = !fwd ? String(e.shipping_line).match(/^(.+?)\s+[-–]\s+(.+)$/) : null;
+    if (m) {
+      fwd = m[1].trim();
+      line = m[2].trim();
+    }
+    if (!fwd) return null;
+    groups.set(fwd, [...(groups.get(fwd) ?? []), { ...e, forwarder: fwd, shipping_line: line }]);
+  }
+  return groups.size > 1 ? Array.from(groups, ([forwarder, entries]) => ({ forwarder, entries })) : null;
+}
+
 type Job = {
   file: File;
   status: "waiting" | "reading" | "done" | "error";
@@ -502,6 +522,7 @@ type Job = {
   addOn: string;
   byLine: Record<string, string>;
   include: boolean;
+  part?: string; // forwarder, for one part of a combined sheet
 };
 
 function chargesText(charges: Extracted["charges"]) {
@@ -581,6 +602,19 @@ function UploadPanel({
         patchJob(i, { status: "error", error: err.message });
       }
     });
+    // A combined sheet becomes one card per forwarder. Its rates usually
+    // already include the add-ons, so these start at +$0 (no double adding).
+    setJobs((prev) =>
+      prev.flatMap((j) => {
+        if (j.status !== "done" || j.part || !j.result) return [j];
+        const parts = splitByForwarder(j.result);
+        if (!parts) return [j];
+        return parts.map((p) => {
+          const known = forwarderNames.find((n) => n.toLowerCase() === p.forwarder.toLowerCase()) ?? p.forwarder;
+          return { ...j, part: p.forwarder, forwarder: known, addOn: "", byLine: {}, result: { ...j.result!, entries: p.entries } };
+        });
+      })
+    );
     setReading(false);
   }
 
@@ -697,6 +731,7 @@ function UploadPanel({
                   <input type="checkbox" aria-label={`Include ${j.file.name}`} checked={j.include} onChange={(e) => patchJob(i, { include: e.target.checked })} disabled={j.status !== "done"} />
                   <b className="text-ink" style={{ flex: "1 1 220px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={j.file.name}>
                     {j.file.name}
+                    {j.part && <span className="text-muted font-normal"> · {j.part} (combined sheet - check whether its rates already include the add-on)</span>}
                   </b>
                   <span className={`badge ${j.status === "done" ? "b-ok" : j.status === "error" ? "b-crit" : j.status === "reading" ? "b-acc" : "b-neu"}`}>
                     {j.status === "done" ? `${j.result!.entries.length} rates` : j.status === "reading" ? "Reading…" : j.status === "error" ? "Not read" : "Waiting"}
