@@ -10,6 +10,11 @@ import { COMING_SOON } from "@/lib/ui-flags";
 import { NAV_GROUPS, NAV_ICON_PATHS, navKeyForPathname } from "@/lib/nav";
 
 const STORAGE_KEY = "bookport:sidebar-collapsed";
+// Last page visited inside each module (owner, 2026-11): clicking a module
+// in the sidebar reopens where you were in it - e.g. Forwarders reopens
+// SPEEDEX's invoices, not the Forwarders list. Clicking the module you're
+// already in takes you to its main page. Per browser tab (sessionStorage).
+const LAST_PAGE_KEY = "bp:last-page";
 
 // Matches design-v2/screens/V2Nav.dc.html exactly: logo, Working Year
 // select, grouped nav with inline-SVG icons (the design's own path
@@ -25,6 +30,25 @@ export default function Sidebar() {
   // route below (the current section is never collapsed out from under
   // you), otherwise left to whatever the user has clicked open.
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set());
+  const [lastPage, setLastPage] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let saved: Record<string, string> = {};
+    try {
+      saved = JSON.parse(sessionStorage.getItem(LAST_PAGE_KEY) || "{}") || {};
+    } catch {
+      saved = {};
+    }
+    if (activeKey && pathname) {
+      saved = { ...saved, [activeKey]: pathname + window.location.search };
+      try {
+        sessionStorage.setItem(LAST_PAGE_KEY, JSON.stringify(saved));
+      } catch {
+        /* ignore */
+      }
+    }
+    setLastPage(saved);
+  }, [activeKey, pathname]);
 
   // Read the saved preference after mount only - reading localStorage
   // during initial render would mismatch the server-rendered (always
@@ -195,7 +219,7 @@ export default function Sidebar() {
               return (
                 <Link
                   key={it.key}
-                  href={it.href}
+                  href={it.key !== activeKey && lastPage[it.key] ? lastPage[it.key] : it.href}
                   title={collapsed ? it.label : undefined}
                   aria-current={active ? "page" : undefined}
                   className={`nav-a flex items-center gap-2.5 rounded-lg text-sm ${
