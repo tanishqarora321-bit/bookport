@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export type ExtractedRateSheet = {
   forwarder_name: string | null;
-  entries: { origin: string; shipping_line: string; rate: number | null; free_days: number | null }[];
+  entries: { origin: string; shipping_line: string; rate: number | null; free_days: number | null; forwarder?: string | null }[];
   charges: { label: string; amount: number | null; shipping_lines: string[] }[];
 };
 
@@ -35,7 +35,14 @@ Rules:
   title, e.g. "UAL", "Walker SCM") - not the recipient, not a carrier.
 - "charges": every extra charge listed (doc/telex release, AES filing,
   handling per BL, manifest correction, booking cancellation, no-show...)
-  with its USD amount and the carriers it applies to (empty list = all).`;
+  with its USD amount and the carriers it applies to (empty list = all).
+- A COMBINED comparison sheet (columns like "UAL - COSCO", "Speedex - MSC",
+  "Walker - HAPAG-LLOYD", "Unicon Logistics - Freight") holds several
+  forwarders: set each entry's "forwarder" to the part before " - " and
+  "shipping_line" to the part after it (use "FREIGHT" when the header has
+  no carrier). Skip summary columns such as "Lowest Rate" and "Lowest
+  Forwarder / Line", and the "Notes" / "Original" / "Adjusted" tabs when a
+  combined comparison tab exists.`;
 
 function parse(text: string): ExtractedRateSheet {
   const json = JSON.parse(text);
