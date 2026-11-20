@@ -374,7 +374,12 @@ function PartiesTab({
                     <InlineEditText value={p.legal_name} onSave={(v) => updateField(parties, setParties, p, "legal_name", v)} />
                   </td>
                   <td className="px-3 py-2 text-text-2">
-                    <InlineEditText value={p.short_code} onSave={(v) => updateField(parties, setParties, p, "short_code", v)} />
+                    {/* Same boxed tag as Forwarders / Suppliers / Truckers; still click to edit. */}
+                    <InlineEditText
+                      value={p.short_code}
+                      onSave={(v) => updateField(parties, setParties, p, "short_code", v)}
+                      display={(v) => <span className="inline-flex items-center border border-line rounded-md px-2 py-0.5 text-xs font-mono text-text-2">{v}</span>}
+                    />
                   </td>
                   <td className="px-3 py-2 text-text-2">
                     <InlineEditText value={p.country} onSave={(v) => updateField(parties, setParties, p, "country", v)} />

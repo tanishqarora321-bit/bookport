@@ -12,10 +12,13 @@ export default function InlineEditText({
   value,
   onSave,
   placeholder = "—",
+  display,
 }: {
   value: string | null;
   onSave: (v: string) => Promise<any>;
   placeholder?: string;
+  // How a set value looks when not being edited (default: plain text).
+  display?: (v: string) => React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value ?? "");
@@ -42,7 +45,7 @@ export default function InlineEditText({
         style={{ cursor: "text", display: "block", borderRadius: 6, padding: "0 4px", margin: "0 -4px" }}
         title="Click to edit"
       >
-        {value || <span className="dash">{placeholder}</span>}
+        {value ? (display ? display(value) : value) : <span className="dash">{placeholder}</span>}
       </span>
     );
   }
