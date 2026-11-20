@@ -320,6 +320,13 @@ booking's own ERD year (Trucker + Supplier).
 
 - Buyer invoice number (lib/invoice-number.ts) is assigned only when the first Final Invoice PDF is generated: computed in POST /api/tracking/[id]/documents and saved to buyer_invoices + tracking.invoice_no only after the PDF is stored. "Generate Invoice" in the ledger just opens the page. Editing/clearing the number in the ledger also updates tracking.invoice_no.
 
+## Freight Comparison (2026-11-20)
+- Upload: month only (year = Working Year), up to 8 PDF / .xlsx / CSV files at once; each read by POST /api/rate-sheets/extract (lib/rate-sheet-gemini.ts: forwarder name, rates, free days, charges; Excel sent as TSV text), reviewed (forwarder, add-on per container + per-line exceptions, remembered from the forwarder's last sheet), saved via POST /api/rate-sheets (replaces that forwarder's sheet for the same month/destination).
+- Migration 0041 adds rate_sheets.add_on / add_on_by_line / charges_note (code tolerates it missing: rates saved without add-on + warning).
+- Grid (lib/freight-compare.ts): origins merged by lib/freight-normalize.ts (originKey / lineKey), columns "Forwarder - Line" in each sheet's own header order, cell = rate + add-on, rate <= 0 ignored; green = lowest per origin, blue = cheapest with >= N free days (selectable), amber header = under N free days. Lowest Rate / Lowest Forwarder / Best value columns.
+- Download Excel: GET /api/rate-sheets/export (lib/freight-workbook.ts) - comparison sheet styled like the owner's, Notes & Charges, each forwarder's original rates.
+- Verified against the owner's October 2026 sheet: 226 UAL/Walker cells identical; the 10 differences are the owner sheet's own (Walker CMA Baltimore "0"+35, 9 Walker rates missing from it).
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
