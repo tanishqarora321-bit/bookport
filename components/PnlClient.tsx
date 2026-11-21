@@ -9,6 +9,7 @@ import { useYear } from "@/lib/year-context";
 import { dateInWorkingYear } from "@/lib/year-scope";
 import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { rowCost, rowSell, type PnlRow } from "@/lib/pnl-report";
+import { csvCell } from "@/lib/csv-safe";
 
 function money(v: number) {
   const sign = v < 0 ? "-" : "";
@@ -90,10 +91,6 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
   }
 
   function exportCsv() {
-    const esc = (v: any) => {
-      const s = v == null ? "" : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
     const elaborate = view === "elaborate";
     const head = elaborate
       ? ["Sr. No", "Month of Loading", "Buyer", "Supplier", "Trucker", "Forwarder", "Invoice No (Buyer)", "Invoice No (Supplier)", "Invoice No (Forwarder)", "Item", "Weight", "Booking Number", "Container Number", "Freight", "Buyer", "Supplier", "Forwarder", "Trucking", "Pier Pass", "Commission", "Discount to Customer", "Discount from Supplier", "Total"]
@@ -103,7 +100,7 @@ export default function PnlClient({ initialRows, ready }: { initialRows: PnlRow[
         ? [i + 1, r.month?.slice(0, 7), r.buyer, r.supplier, r.trucker, r.forwarder, r.inv_buyer, r.inv_supplier, r.inv_forwarder, r.item, r.weight != null ? `${r.weight} ${r.weight_unit ?? ""}`.trim() : "", r.booking_number, r.container_number, r.freight.toFixed(2), r.buyer_usd.toFixed(2), r.supplier_usd.toFixed(2), r.forwarder_usd.toFixed(2), r.trucker_usd.toFixed(2), r.pier_pass.toFixed(2), r.commission.toFixed(2), r.discount_to_customer.toFixed(2), r.discount_from_supplier.toFixed(2), (rowSell(r) - rowCost(r)).toFixed(2)]
         : [i + 1, r.month?.slice(0, 7), r.buyer, r.booking_number, r.container_number, r.inv_buyer, rowCost(r).toFixed(2), rowSell(r).toFixed(2), (rowSell(r) - rowCost(r)).toFixed(2)]
     );
-    const csv = [head, ...lines].map((l) => l.map(esc).join(",")).join("\n");
+    const csv = [head, ...lines].map((l) => l.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;

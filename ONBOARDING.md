@@ -327,6 +327,14 @@ booking's own ERD year (Trucker + Supplier).
 - Download Excel: GET /api/rate-sheets/export (lib/freight-workbook.ts) - comparison sheet styled like the owner's, Notes & Charges, each forwarder's original rates.
 - Verified against the owner's October 2026 sheet: 226 UAL/Walker cells identical; the 10 differences are the owner sheet's own (Walker CMA Baltimore "0"+35, 9 Walker rates missing from it).
 
+## Security (audit 2026-11-21)
+- middleware.ts strips any incoming `x-bp-user-*` header before anything else (they were forgeable = impersonation).
+- Any id from a request body (tracking_id, party, item...) must go through `assertOwned()` (lib/tenant-guard.ts) before it is stored: API routes use the service-role client, so RLS does not protect them.
+- Migration 0042 closes Supabase's direct REST door: RLS on every table, no table/function grants for `anon`/`authenticated`, documents bucket private. The browser uses Supabase ONLY for auth - never add browser-side `.from()` queries.
+- CSV exports go through `csvCell()` (lib/csv-safe.ts) to stop Excel formula injection.
+- Security headers (CSP, HSTS, frame-ancestors none...) live in next.config.js; adding an external script/API host means adding it to the CSP.
+- Uploads: check the PDF magic bytes and sanitize file names before storing.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

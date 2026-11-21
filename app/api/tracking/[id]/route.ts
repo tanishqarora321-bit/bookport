@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { assertOwned } from "@/lib/tenant-guard";
 
 // Deliberately excludes: id, company_id, booking_id, party_id, booking_number
 // (that last one is denormalized FROM the booking on creation, not hand-edited
@@ -31,6 +32,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const body = await req.json();
   const supabase = createServiceClient();
+  const notOwned = await assertOwned(supabase, me.company_id, { items: body.item_id, parties: body.forwarder_id });
+  if (notOwned) return notOwned;
 
   const updates: Record<string, any> = {};
   for (const [key, value] of Object.entries(body)) {
