@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
 import { CloseIcon } from "@/components/EditableCell";
+import { trialDaysLeft } from "@/lib/trial";
+import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 
 type TeamMember = { email: string; full_name: string | null; role: string; is_active: boolean; pending: boolean };
 
@@ -12,6 +14,7 @@ type Company = {
   name: string;
   seat_limit: number;
   subscription_status: string;
+  trial_ends_at: string | null;
   created_at: string;
   seats_used: number;
   admin_email: string;
@@ -63,7 +66,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
   // (Platform Owner belongs with the rest of the platform-wide company
   // management, not mixed into one company's own settings page).
   const [adding, setAdding] = useState(false);
-  const [companyForm, setCompanyForm] = useState({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
+  const [companyForm, setCompanyForm] = useState({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5", trialEndsAt: "" });
   const [companySaving, setCompanySaving] = useState(false);
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [companySuccess, setCompanySuccess] = useState<string | null>(null);
@@ -114,6 +117,22 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
       return;
     }
     setCompanies((prev) => prev.map((c) => (c.id === id ? { ...c, subscription_status: json.company.subscription_status } : c)));
+  }
+
+  async function setTrialEnd(id: string, date: string) {
+    const res = await fetch(`/api/admin/companies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trial_ends_at: date || null }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || "Failed to update");
+      return;
+    }
+    setCompanies((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, trial_ends_at: json.company.trial_ends_at ?? null, subscription_status: json.company.subscription_status } : c))
+    );
   }
 
   function changeStatus(id: string, status: string) {
@@ -183,7 +202,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
         throw new Error(json.error || "Failed to create company");
       }
       setCompanySuccess(`"${companyForm.companyName}" created - an invite was sent to ${companyForm.adminEmail}.`);
-      setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
+      setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5", trialEndsAt: "" });
       setAdding(false);
       router.refresh();
     } catch (err: any) {
@@ -208,7 +227,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
         setCompanySuccess(`"${conflict.companyName}"'s admin is now ${conflict.adminEmail}${conflict.existingCompanyName ? ` (moved from ${conflict.existingCompanyName})` : ""}.`);
       } else {
         setCompanySuccess(`"${conflict.companyName}" created - ${conflict.adminEmail}'s existing account is now its admin.`);
-        setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5" });
+        setCompanyForm({ companyName: "", adminEmail: "", adminName: "", seatLimit: "5", trialEndsAt: "" });
       }
       setConflict(null);
       router.refresh();
@@ -334,6 +353,11 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                 <label htmlFor="onb-seats">Seats allowed</label>
                 <input id="onb-seats" type="number" min={1} className="input num" value={companyForm.seatLimit} onChange={(e) => setCompanyForm({ ...companyForm, seatLimit: e.target.value })} />
               </div>
+              <div className="field">
+                <label htmlFor="onb-trial">Free trial ends</label>
+                <input id="onb-trial" type="date" className="input num" value={companyForm.trialEndsAt} onChange={(e) => setCompanyForm({ ...companyForm, trialEndsAt: e.target.value })} />
+                <span className="meta">Optional - leave blank for a paid (Active) account.</span>
+              </div>
             </div>
             {companyError && <div className="err">{companyError}</div>}
             <div style={{ display: "flex", gap: 10 }}>
@@ -384,6 +408,7 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                 <th>Admin</th>
                 <th style={{ minWidth: 180 }}>Seats</th>
                 <th>Created</th>
+                <th>Trial ends</th>
                 <th>Status</th>
                 <th><span className="sr">Actions</span></th>
               </tr>
@@ -418,6 +443,30 @@ export default function AdminCompaniesClient({ initialCompanies }: { initialComp
                       </div>
                     </td>
                     <td className="num text-muted">{new Date(c.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
+                    <td>
+                      {c.id === DEFAULT_COMPANY_ID ? (
+                        <span className="meta">—</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <input
+                            type="date"
+                            className="input num"
+                            style={{ height: 30, padding: "0 8px", fontSize: 13, width: 150 }}
+                            value={c.trial_ends_at ?? ""}
+                            onChange={(e) => setTrialEnd(c.id, e.target.value)}
+                            aria-label={`Free trial end date for ${c.name}`}
+                          />
+                          {c.subscription_status === "trial" && c.trial_ends_at && (() => {
+                            const d = trialDaysLeft(c.trial_ends_at)!;
+                            return (
+                              <span className="meta" style={{ color: d < 0 ? "var(--crit)" : d <= 5 ? "var(--warn)" : undefined, fontWeight: d <= 5 ? 600 : undefined }}>
+                                {d < 0 ? "Ended - locked out" : d === 0 ? "Last day" : `${d} day${d === 1 ? "" : "s"} left`}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <StatusMenuButton
                         value={c.subscription_status}

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const seatLimitRaw = Number(body.seatLimit);
   const seatLimit = Number.isFinite(seatLimitRaw) && seatLimitRaw > 0 ? Math.floor(seatLimitRaw) : 5;
 
+  const trialEndsAt = /^\d{4}-\d{2}-\d{2}$/.test(String(body.trialEndsAt ?? "")) ? String(body.trialEndsAt) : null;
   if (!companyName) return NextResponse.json({ error: "Company name is required" }, { status: 400 });
   if (!adminEmail) return NextResponse.json({ error: "Admin email is required" }, { status: 400 });
 
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
   for (const slug of [baseSlug, `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`]) {
     const { data, error } = await supabase
       .from("companies")
-      .insert({ name: companyName, slug, seat_limit: seatLimit })
+      .insert({ name: companyName, slug, seat_limit: seatLimit, ...(trialEndsAt ? { subscription_status: "trial", trial_ends_at: trialEndsAt } : {}) })
       .select("id")
       .single();
     if (!error) {

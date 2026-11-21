@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Header from "@/components/Header";
+import TrialNotice from "@/components/TrialNotice";
 
 // /login and /auth/callback are pre-auth screens that render their own
 // full-bleed, edge-to-edge layout (see app/login/page.tsx) - Sidebar and
@@ -38,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Header />
         <main className="app-main flex-1 overflow-y-auto">{children}</main>
       </div>
+      <TrialNotice />
     </div>
   );
 }

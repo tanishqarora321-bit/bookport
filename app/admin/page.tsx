@@ -26,7 +26,13 @@ export default async function AdminPage() {
   const supabase = createServiceClient();
 
   const [{ data: companies, error: companiesError }, { data: profiles, error: profilesError }] = await Promise.all([
-    supabase.from("companies").select("id, name, seat_limit, subscription_status, created_at").order("created_at", { ascending: false }),
+    supabase.from("companies").select("id, name, seat_limit, subscription_status, trial_ends_at, created_at").order("created_at", { ascending: false })
+      .then(async (r: any) =>
+        // Before migration 0043 there is no trial_ends_at column - still show the page.
+        r.error && /trial_ends_at/.test(r.error.message || "")
+          ? { ...(await supabase.from("companies").select("id, name, seat_limit, subscription_status, created_at").order("created_at", { ascending: false })), trialMissing: true }
+          : r
+      ),
     supabase.from("profiles").select("id, company_id, full_name, role, is_active"),
   ]);
   if (companiesError) return <p className="text-critical p-6">{companiesError.message}</p>;
@@ -45,6 +51,7 @@ export default async function AdminPage() {
       name: c.name,
       seat_limit: c.seat_limit,
       subscription_status: c.subscription_status,
+      trial_ends_at: c.trial_ends_at ?? null,
       created_at: c.created_at,
       seats_used: activeCount,
       admin_email: admin ? emailById.get(admin.id) ?? "—" : "—",

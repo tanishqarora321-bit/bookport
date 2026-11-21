@@ -345,6 +345,11 @@ booking's own ERD year (Trucker + Supplier).
 - Freshness guard: every successful non-GET /api fetch is recorded; clicking a link whose prefetch predates a save runs router.refresh() (clears the router cache) and only then navigates. Don't call router.push while a refresh is pending - it cancels the refresh and reuses the stale copy.
 - getCurrentProfile() is wrapped in React cache() so one request does one profile lookup.
 
+## Free trial (2026-11-21)
+- companies.trial_ends_at (migration 0043). Platform Admin: "Trial ends" date per company (setting one makes it Trial) and on Add company. lib/trial.ts holds the rules (India-time calendar days).
+- Last 5 days: components/TrialNotice.tsx (in AppShell) shows a once-a-day popup with Request recharge (POST /api/trial/recharge-request -> email to owner, max 1/hour/company) / Remind me later.
+- After the end date: getCurrentProfile() returns null (like suspended), /api/me returns trial_expired, and TrialNotice shows an undismissable "trial ended" screen (Request recharge / Sign out). Owner sets the company Active (or moves the date) to unlock. The platform owner is never affected.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.
