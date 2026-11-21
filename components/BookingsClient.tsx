@@ -19,6 +19,7 @@ import MultiSelect from "@/components/ui/MultiSelect";
 import { eachLimited } from "@/lib/each-limited";
 import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import StatusMenuButton, { StatusOption } from "@/components/ui/StatusMenuButton";
+import { csvCell } from "@/lib/csv-safe";
 
 type PartyRef = { id: string; name: string } | null;
 type PartyOption = { id: string; legal_name: string };
@@ -138,7 +139,7 @@ function toCsv(rows: Row[]) {
       firstPacking?.seal_no ?? "", firstPacking ? `${firstPacking.weight ?? ""} ${firstPacking.weight_unit}` : "", firstPacking?.bales ?? "",
       r.status, r.instruction_status ?? "",
     ]
-      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .map(csvCell)
       .join(",");
   });
   return [headers.join(","), ...lines].join("\n");

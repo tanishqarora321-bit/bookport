@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { assertOwned } from "@/lib/tenant-guard";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
   if (!body.buyer_id) return NextResponse.json({ error: "buyer_id is required" }, { status: 400 });
 
   const supabase = createServiceClient();
+  const notOwned = await assertOwned(supabase, me.company_id, { tracking: body.tracking_id });
+  if (notOwned) return notOwned;
 
   const { data: buyerParty, error: buyerLookupError } = await supabase
     .from("parties")

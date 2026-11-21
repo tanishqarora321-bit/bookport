@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { assertOwned } from "@/lib/tenant-guard";
 
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
@@ -9,6 +10,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const supabase = createServiceClient();
+  const notOwned = await assertOwned(supabase, me.company_id, { tracking: body.tracking_id });
+  if (notOwned) return notOwned;
 
   if (!body.forwarder_id) {
     return NextResponse.json({ error: "forwarder_id is required" }, { status: 400 });

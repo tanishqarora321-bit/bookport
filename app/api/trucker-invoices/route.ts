@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { assertOwned } from "@/lib/tenant-guard";
 
 function numOrNull(v: any) {
   if (v === "" || v === null || v === undefined) return null;
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
   if (!body.trucker_id) return NextResponse.json({ error: "trucker_id is required" }, { status: 400 });
 
   const supabase = createServiceClient();
+  const notOwned = await assertOwned(supabase, me.company_id, { parties: body.trucker_id, tracking: body.tracking_id });
+  if (notOwned) return notOwned;
 
   const { data: invoice, error } = await supabase
     .from("trucker_invoices")

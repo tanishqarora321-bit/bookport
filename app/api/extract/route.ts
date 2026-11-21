@@ -31,12 +31,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: "File is too large (max 20 MB)." }, { status: 413 });
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+    return NextResponse.json({ error: "Please upload the booking confirmation as a PDF." }, { status: 400 });
+  }
   const base64 = buffer.toString("base64");
 
   // 1 + 2. Store the raw file (Supabase Storage bucket 'documents') and run
   // the extraction at the same time - the upload no longer adds to the wait.
-  const path = `booking-confirmations/${Date.now()}-${file.name}`;
+  // The file name is the uploader's - keep only safe characters (no "../" or slashes in the storage path).
+  const safeName = (file.name || "booking.pdf").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^\.+/, "").slice(0, 120) || "booking.pdf";
+  const path = `booking-confirmations/${me.company_id}/${Date.now()}-${safeName}`;
   const [{ error: uploadError }, extraction] = await Promise.all([
     supabase.storage.from("documents").upload(path, buffer, { contentType: "application/pdf" }),
     extractBookingFromPdf(base64).then(

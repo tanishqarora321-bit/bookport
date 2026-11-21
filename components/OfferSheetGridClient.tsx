@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ColumnDef, formatValue, sumColumn } from "@/lib/offer-sheet-compute";
 import { CheckIcon, CloseIcon } from "@/components/EditableCell";
+import { csvCell } from "@/lib/csv-safe";
 
 type Row = { id: string; group_key: string | null; sort_order: number; [key: string]: any };
 
@@ -113,7 +114,7 @@ export default function OfferSheetGridClient({
     const csvRows = groups.flatMap(({ rows: groupRows }) =>
       groupRows.map((r) => visibleColumns.map((c) => (r[c.key] ?? "").toString()))
     );
-    const csv = [header, ...csvRows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const csv = [header, ...csvRows].map((r) => r.map(csvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

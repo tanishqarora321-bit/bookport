@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/session";
+import { assertOwned } from "@/lib/tenant-guard";
 
 export async function POST(req: NextRequest) {
   const me = await getCurrentProfile();
@@ -8,6 +9,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const supabase = createServiceClient();
+  const notOwned = await assertOwned(supabase, me.company_id, { items: body.item_id, parties: body.forwarder_id });
+  if (notOwned) return notOwned;
 
   if (!body.booking_id || !body.party_id) {
     return NextResponse.json({ error: "booking_id and party_id are required" }, { status: 400 });
