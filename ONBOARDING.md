@@ -340,6 +340,11 @@ booking's own ERD year (Trucker + Supplier).
 - Request a demo / Get in touch / Contact open a form -> POST /api/demo-request (public) -> email to the owner via Resend (Reply-To = visitor). Recipient: env DEMO_REQUEST_TO, else the owner's address in the route.
 - Spam defences: honeypot field, minimum fill time, per-IP limit, 3/day per visitor email and 30/hour overall (counted from sent_emails, email_type 'demo_request').
 
+## Faster module switching (2026-11-21)
+- Sidebar links prefetch the whole target page (data included) on hover / focus / touch (lib/nav-prefetch.ts); next.config.js `experimental.staleTimes.static: 30` keeps those copies 30s. Plain revisits still load fresh (`dynamic: 0`).
+- Freshness guard: every successful non-GET /api fetch is recorded; clicking a link whose prefetch predates a save runs router.refresh() (clears the router cache) and only then navigates. Don't call router.push while a refresh is pending - it cancels the refresh and reuses the stale copy.
+- getCurrentProfile() is wrapped in React cache() so one request does one profile lookup.
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

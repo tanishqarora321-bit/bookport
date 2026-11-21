@@ -1,65 +1,78 @@
-# Bookport — MVP (Phase P0)
+# Ship-Sphere — START HERE
 
-This is the first working slice of the app from the brief: **Booking & Instructions**
-with manual entry, PDF-upload extraction, review-before-save, and the amendment
-dialog with impact checking. Everything else (tracking, trucking assignment beyond
-display, freight comparison, invoicing, dashboard) comes in the phases after this.
+**One Booking. All Connected.** Freight-forwarding workspace: bookings & instructions,
+shipment tracking, buyers / forwarders / truckers / suppliers with their invoice ledgers,
+final invoice + shipping-document PDFs, commission bookings, P&L, freight comparison.
 
-## What's actually running here
+Live site: **https://www.ship-sphere.com** (public landing page at `/`, app behind **Sign in**).
 
-- `/bookings` — list, sorted by ETD, cargo cut-offs within 48h shown in red
-- `/bookings/new` — choose manual entry or PDF upload; upload calls Gemini,
-  pre-fills the form with confidence markers and the source quote from the PDF,
-  nothing saves until you click Save
-- `/bookings/[id]` — detail view; editing ETD/ETA/any cutoff/vessel opens an
-  amendment dialog that checks trucking jobs and SI status for conflicts before
-  saving, and writes a versioned amendment + audit log row
-- `supabase/migrations/0001_init.sql` — the full 16-table+ schema with RLS
-  (Operations role cannot read `charges`/`invoices` — cost is hidden from them
-  per the brief)
+This file is the hand-over note: if you change laptops, hire a developer, or start a new
+session with Claude (or any AI assistant), point them at **this file and `ONBOARDING.md`**.
+Everything needed to understand, run and continue the project is in this repository.
 
-## Setup (15 minutes)
+---
 
-1. **Create a Supabase project** — supabase.com, free tier is enough for the pilot.
-2. **Run the migration**: Supabase dashboard → SQL Editor → paste the contents
-   of `supabase/migrations/0001_init.sql` → Run.
-3. **Create a Storage bucket** named `documents` (Supabase dashboard → Storage → New bucket, private).
-4. **Get a Gemini API key**: aistudio.google.com/app/apikey — free tier covers
-   your entire pilot.
-5. **Copy `.env.example` to `.env.local`** and fill in:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-     (Supabase dashboard → Settings → API)
-   - `GEMINI_API_KEY`
-6. **Install and run**:
-   ```
-   npm install
-   npm run dev
-   ```
-   Open http://localhost:3000
+## 1. Where everything lives
 
-7. **Seed a user manually for now**: Supabase dashboard → Authentication → Add user,
-   then in the SQL editor:
-   ```sql
-   insert into profiles (id, full_name, role)
-   values ('<the-user-id-from-auth>', 'Your Name', 'admin');
-   ```
-   (A real signup/login screen is P0 remainder — this repo assumes you're testing
-   as one admin user for now.)
+| What | Where | Notes |
+|---|---|---|
+| Source code (this repo) | GitHub `tanishqarora321-bit/bookport`, branch `main` | Every change goes branch → pull request → merge into `main`. |
+| Hosting | Vercel project **bookport** (team *shipper1*) | Auto-deploys every merge to `main`. Region `sin1` (Singapore), see `vercel.json`. |
+| Database, logins, file storage | Supabase project (region Singapore) | Postgres + Auth + Storage bucket `documents` (private). |
+| Email sending | Resend | Instructions emails, shipping-document emails, team invites, website demo requests. |
+| PDF / sheet reading (AI) | Google Gemini API | Booking confirmations, BLs, invoices, rate sheets. |
+| Domain | ship-sphere.com | Points at Vercel. |
 
-8. **Try it**: go to `/bookings/new` → Upload PDF → drop in one of the real
-   booking confirmations you already have (Maersk, HMM, Evergreen, etc.) →
-   review the pre-filled form → Save.
+**Secrets are never in this repo.** They live only in Vercel → Project → Settings →
+Environment Variables (and a local `.env.local` that git ignores).
 
-## Deploying (when ready to hand to the pilot agency)
+## 2. Environment variables (names only)
 
-- Push this repo to GitHub
-- Import into Vercel, add the same env vars
-- Vercel free tier + Supabase free tier covers the pilot per the brief's cost table
+| Name | What it is | Where to get it |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Supabase → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public (anon) key | Supabase → Settings → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** server key — never share | Supabase → Settings → API |
+| `GEMINI_API_KEY` | Google AI key | aistudio.google.com |
+| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | Optional model overrides | — |
+| `RESEND_API_KEY` | Email sending key | resend.com |
+| `PLATFORM_EMAIL_FROM_ADDRESS` | Sender address (default notifications@ship-sphere.com) | — |
+| `DEMO_REQUEST_TO` | Optional: where website demo requests go (default: owner's Gmail) | — |
+| `SUPABASE_JWT_SECRET` | Optional legacy fallback for login verification | Supabase → Settings → API |
 
-## Next phases (not built yet)
+## 3. Run it on a new laptop
 
-- P1: Tracking milestones, container CRUD, email notifications on amendment, document library
-- P2: Freight comparison, offer sheet, branded PDF export
-- P3: Charges ledger, AR/AP invoices generated from charges, P&L, dashboard
-- P4: Settings depth (this is where `cutoff_label_aliases` becomes editable in
-  the UI instead of a seeded table), CSV/Excel export, customer portal, QuickBooks push
+1. Install **Node.js 20+** and **Git**.
+2. `git clone https://github.com/tanishqarora321-bit/bookport.git && cd bookport`
+3. `npm install`
+4. Create `.env.local` with the variables above (copy the values from Vercel).
+5. `npm run dev` → open http://localhost:3000
+
+## 4. The database
+
+- **Schema** = the numbered files in `supabase/migrations/` (0001 → latest), run in order in
+  Supabase → SQL Editor. A fresh Supabase project gets the full schema by running them all.
+- After a migration is added, the owner runs it in the SQL Editor once (some features show a
+  notice when their migration hasn't been run yet).
+- `supabase/scripts/` = one-off maintenance scripts that are **never** run automatically
+  (e.g. `reset_to_owner_only.sql`, which wipes all data except the owner's login).
+- **Backups:** Supabase → Database → Backups.
+
+## 5. Security (audit 2026-11-21)
+
+Plan: `docs/security/SECURITY-TESTING-PLAN.*`. What was found and fixed, and the rules to keep
+following, are in `ONBOARDING.md` → *Security*. In short:
+- The browser talks to Supabase **only to sign in**; all data goes through the app's server
+  routes, each scoped to the signed-in user's company (`getCurrentProfile()` +
+  `company_id`), with ids from requests checked by `assertOwned()` (`lib/tenant-guard.ts`).
+- Migration `0042_security_lockdown.sql` closes direct database access for browser roles.
+- Security headers (CSP, HSTS, no framing…) in `next.config.js`.
+- Recommended: two-step login (MFA) for admins, daily backups, keep this repo **private**.
+
+## 6. Continuing the work (developer or AI assistant)
+
+- Read **`ONBOARDING.md`** first: architecture, every module's business rules (decided with
+  the owner), conventions, gotchas, and the change log by area.
+- Stack: Next.js 14 (App Router) · TypeScript · Tailwind · Supabase · Vercel.
+- Check before pushing: `npx tsc --noEmit` and `npx next build`.
+- Workflow: work on a branch, open a pull request, squash-merge into `main` → Vercel deploys.

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { createClient as createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
@@ -23,7 +24,9 @@ export type CurrentProfile = {
 // role in the schema yet - if a second admin is ever added to that first
 // company, they'd also be able to onboard new client companies. Revisit
 // this if that's ever a real scenario, not just a today's-scale shortcut.
-export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+// Wrapped in React cache() (end of file): several calls during ONE request
+// (page + nested server components) share a single profile lookup.
+async function loadCurrentProfile(): Promise<CurrentProfile | null> {
   // middleware.ts already called getUser() to verify this exact request's
   // token and hands the result down via this header - reusing it here
   // skips a second, redundant round trip to Supabase's Auth server on
@@ -76,3 +79,5 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
     is_platform_owner: isPlatformOwner,
   };
 }
+
+export const getCurrentProfile = cache(loadCurrentProfile);
