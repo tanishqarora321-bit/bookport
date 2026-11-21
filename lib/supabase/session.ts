@@ -2,6 +2,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import { createClient as createServerClient, createServiceClient } from "@/lib/supabase/server";
 import { DEFAULT_COMPANY_ID } from "@/lib/constants";
+import { trialState } from "@/lib/trial";
 
 export type CurrentProfile = {
   id: string;
@@ -11,7 +12,39 @@ export type CurrentProfile = {
   company_id: string;
   company_name: string;
   is_platform_owner: boolean;
+  // Set only for a company on a dated free trial (lib/trial.ts).
+  trial: { endsAt: string; daysLeft: number; expired: boolean } | null;
 };
+
+// The profile + company row, including the trial end date. Falls back to a
+// select without trial_ends_at when migration 0043 hasn't been run yet, so a
+// missing column can never lock everyone out.
+async function fetchProfileRow(service: any, userId: string) {
+  const base = "id, full_name, role, company_id, is_active, companies(name, subscription_status";
+  let { data, error } = await service.from("profiles").select(`${base}, trial_ends_at)`).eq("id", userId).single();
+  if (error && /trial_ends_at/.test(error.message || "")) {
+    ({ data } = await service.from("profiles").select(`${base})`).eq("id", userId).single());
+  }
+  return data as any;
+}
+
+function currentUserIdFromHeaders(): { id: string; email: string } | null {
+  const hdrs = headers();
+  const id = hdrs.get("x-bp-user-id");
+  return id ? { id, email: hdrs.get("x-bp-user-email") ?? "" } : null;
+}
+
+// For the "trial ended" screen: the signed-in user's company, when its free
+// trial is over (getCurrentProfile() returns null for them).
+export async function getExpiredTrialInfo(): Promise<{ company_id: string; company_name: string; ends_at: string; email: string } | null> {
+  const who = currentUserIdFromHeaders();
+  if (!who) return null;
+  const profile = await fetchProfileRow(createServiceClient(), who.id);
+  if (!profile || !profile.is_active) return null;
+  if (profile.company_id === DEFAULT_COMPANY_ID && profile.role === "admin") return null;
+  const t = trialState(profile.companies?.subscription_status, profile.companies?.trial_ends_at);
+  return t?.expired ? { company_id: profile.company_id, company_name: profile.companies?.name ?? "", ends_at: t.endsAt, email: who.email } : null;
+}
 
 // Central place to answer "who is asking, and which company are they in" -
 // pages/routes that need to be aware of more than one company (Team/invite,
@@ -50,11 +83,7 @@ async function loadCurrentProfile(): Promise<CurrentProfile | null> {
   }
 
   const service = createServiceClient();
-  const { data: profile } = await service
-    .from("profiles")
-    .select("id, full_name, role, company_id, is_active, companies(name, subscription_status)")
-    .eq("id", userId)
-    .single();
+  const profile = await fetchProfileRow(service, userId);
 
   if (!profile || !profile.is_active) return null;
 
@@ -68,6 +97,10 @@ async function loadCurrentProfile(): Promise<CurrentProfile | null> {
   if (!isPlatformOwner && (subscriptionStatus === "cancelled" || subscriptionStatus === "suspended")) {
     return null;
   }
+  // A free trial past its end date: blocked like a suspended company
+  // (components/TrialNotice.tsx shows the "trial ended" screen).
+  const trial = isPlatformOwner ? null : trialState(subscriptionStatus, (profile as any).companies?.trial_ends_at);
+  if (trial?.expired) return null;
 
   return {
     id: profile.id,
@@ -77,6 +110,7 @@ async function loadCurrentProfile(): Promise<CurrentProfile | null> {
     company_id: profile.company_id,
     company_name: (profile as any).companies?.name ?? "—",
     is_platform_owner: isPlatformOwner,
+    trial,
   };
 }
 

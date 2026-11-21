@@ -48,6 +48,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     updates.seat_limit = Math.floor(n);
   }
 
+  // Free-trial end date (migration 0043). Setting a date puts the company on
+  // Trial; clearing it leaves the status alone.
+  if (body.trial_ends_at !== undefined) {
+    const d = body.trial_ends_at === "" || body.trial_ends_at === null ? null : String(body.trial_ends_at);
+    if (d !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)))) {
+      return NextResponse.json({ error: "Trial end date must be a valid date" }, { status: 400 });
+    }
+    updates.trial_ends_at = d;
+    if (d && body.subscription_status === undefined) updates.subscription_status = "trial";
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No editable fields in request" }, { status: 400 });
   }
@@ -57,6 +68,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (error) {
     if (error.code === "PGRST116") return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (/trial_ends_at/.test(error.message || "")) {
+      return NextResponse.json({ error: "Trial dates need a one-time database update: run migration 0043_company_trial_end.sql in Supabase's SQL Editor." }, { status: 409 });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ company: data });

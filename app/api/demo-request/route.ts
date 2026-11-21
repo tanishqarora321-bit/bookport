@@ -12,7 +12,7 @@ import { DEFAULT_COMPANY_ID } from "@/lib/constants";
 //   - rate limits: per IP (per server instance), per visitor email
 //     (3 a day) and overall (30 an hour), the last two counted from the
 //     sent_emails log so they hold across instances.
-const DEMO_REQUEST_TO = process.env.DEMO_REQUEST_TO || "tanishqarora321@gmail.com";
+import { OWNER_NOTIFY_EMAIL as DEMO_REQUEST_TO } from "@/lib/trial";
 const EMAIL_TYPE = "demo_request";
 
 const ipHits = new Map<string, number[]>();
