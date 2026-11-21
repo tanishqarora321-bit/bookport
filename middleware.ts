@@ -40,7 +40,9 @@ export async function middleware(incoming: NextRequest) {
     return NextResponse.next({ request: { headers: request.headers } });
   }
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  // "/" is the public landing page for signed-out visitors (signed-in
+  // users are still sent on to /bookings below). Exact match only.
+  const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   const isApi = pathname.startsWith("/api");
 
   let response = NextResponse.next({ request: { headers: request.headers } });

@@ -335,6 +335,11 @@ booking's own ERD year (Trucker + Supplier).
 - Security headers (CSP, HSTS, frame-ancestors none...) live in next.config.js; adding an external script/API host means adding it to the CSP.
 - Uploads: check the PDF magic bytes and sanitize file names before storing.
 
+## Public landing page (2026-11-21)
+- "/" shows components/LandingClient.tsx (styles in app/landing.css, all scoped under .lp) to signed-out visitors; signed-in users are redirected to /bookings by middleware. AppShell renders it full-bleed.
+- Request a demo / Get in touch / Contact open a form -> POST /api/demo-request (public) -> email to the owner via Resend (Reply-To = visitor). Recipient: env DEMO_REQUEST_TO, else the owner's address in the route.
+- Spam defences: honeypot field, minimum fill time, per-IP limit, 3/day per visitor email and 30/hour overall (counted from sent_emails, email_type 'demo_request').
+
 ## Likely next work
 - Port the repeat-invoice matching fix to the Forwarder import (see above).
 - Any further booking visibility / import reconciliation requests.

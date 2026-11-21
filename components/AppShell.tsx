@@ -17,7 +17,8 @@ const PRE_AUTH_PATHS = ["/login", "/auth/callback"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (PRE_AUTH_PATHS.some((p) => pathname?.startsWith(p))) {
+  // "/" is the public landing page (components/LandingClient.tsx) - also full-bleed.
+  if (pathname === "/" || PRE_AUTH_PATHS.some((p) => pathname?.startsWith(p))) {
     return <>{children}</>;
   }
 
