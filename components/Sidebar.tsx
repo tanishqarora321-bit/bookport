@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { installMutationTracker, prefetchFull, needsFreshLoad, forgetPrefetches } from "@/lib/nav-prefetch";
 import Logo from "@/components/ui/Logo";
 import { createClient } from "@/lib/supabase/client";
 import { useYear } from "@/lib/year-context";
@@ -21,7 +22,20 @@ const LAST_PAGE_KEY = "bp:last-page";
 // data, not an icon library), collapse button, user footer.
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const activeKey = navKeyForPathname(pathname);
+  useEffect(() => installMutationTracker(), []);
+  // A link whose prefetched copy predates a save: refresh first (clears the
+  // router's cached copies), THEN navigate - a navigation sent while the
+  // refresh is still running would cancel it and reuse the stale copy.
+  const [refreshing, startRefresh] = useTransition();
+  const [freshTarget, setFreshTarget] = useState<string | null>(null);
+  useEffect(() => {
+    if (!refreshing && freshTarget) {
+      setFreshTarget(null);
+      router.push(freshTarget);
+    }
+  }, [refreshing, freshTarget, router]);
   const [collapsed, setCollapsed] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string | null>(null);
@@ -220,6 +234,20 @@ export default function Sidebar() {
                 <Link
                   key={it.key}
                   href={it.key !== activeKey && lastPage[it.key] ? lastPage[it.key] : it.href}
+                  onMouseEnter={(e) => it.key !== activeKey && prefetchFull(router, e.currentTarget.getAttribute("href")!)}
+                  onFocus={(e) => it.key !== activeKey && prefetchFull(router, e.currentTarget.getAttribute("href")!)}
+                  onTouchStart={(e) => it.key !== activeKey && prefetchFull(router, e.currentTarget.getAttribute("href")!)}
+                  onClick={(e) => {
+                    const href = e.currentTarget.getAttribute("href")!;
+                    if (it.key === activeKey || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                    if (needsFreshLoad(href)) {
+                      // Something was saved after this page was prefetched - drop the copy, load fresh.
+                      e.preventDefault();
+                      forgetPrefetches();
+                      setFreshTarget(href);
+                      startRefresh(() => router.refresh());
+                    }
+                  }}
                   title={collapsed ? it.label : undefined}
                   aria-current={active ? "page" : undefined}
                   className={`nav-a flex items-center gap-2.5 rounded-lg text-sm ${

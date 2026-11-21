@@ -36,6 +36,9 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   experimental: {
+    // Sidebar hover-prefetches (lib/nav-prefetch.ts) stay usable for 30s;
+    // a plain revisit still always loads fresh data (dynamic: 0).
+    staleTimes: { dynamic: 0, static: 30 },
     serverActions: { bodySizeLimit: "10mb" }, // booking PDFs are small but leave headroom
     // The Invoice, Fumigation Certificate, Certificate of Origin and Set of
     // Documents are built on the owner's real PDFs + fonts, read from disk at runtime -
