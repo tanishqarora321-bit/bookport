@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { verifySupabaseJwt } from "@/lib/verify-jwt";
 
 // Stage 2: now that real accounts exist and login/invite has been
@@ -15,7 +15,18 @@ const SESSION_COOKIE = "bp_session";
 // this is the endpoint a device calls to BECOME the active one.
 const SESSION_CHECK_EXEMPT = ["/api/session/register"];
 
-export async function middleware(request: NextRequest) {
+// Headers the app uses internally to pass the verified user down to pages /
+// API routes (lib/supabase/session.ts trusts them). A request must NEVER be
+// able to bring its own: they're stripped from every incoming request here,
+// first thing, and only set again below from a verified session (security
+// audit 2026-11: an unauthenticated request carrying "x-bp-user-id" was
+// treated as that user).
+const INTERNAL_HEADERS = ["x-bp-user-id", "x-bp-user-email"];
+
+export async function middleware(incoming: NextRequest) {
+  const cleanHeaders = new Headers(incoming.headers);
+  for (const h of INTERNAL_HEADERS) cleanHeaders.delete(h);
+  const request = new NextRequest(incoming, { headers: cleanHeaders });
   const { pathname } = request.nextUrl;
 
   // /api/session/register does its own auth entirely, from the access_token
